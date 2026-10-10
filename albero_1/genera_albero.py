@@ -1,0 +1,493 @@
+"""
+Genera un albero 3D molto dettagliato e salva il file Blender `albero.blend`.
+
+Contenuto:
+  - tronco con base allargata (flare), corteccia a rilievo (bump) e colore procedurale
+  - radici superficiali che emergono dal terreno
+  - struttura ramificata ricorsiva (6 branche principali, fino a 5 livelli di ramificazione)
+    con rami che si assottigliano, tendono verso l'alto e hanno piccole variazioni casuali
+  - decine di migliaia di foglie con forma a V, nervatura centrale, arricciatura
+    e colore variabile per ogni foglia (attributo di colore)
+  - foglie secche sparse sul terreno
+  - terreno con rilievo leggero e materiale di terra
+  - camera e luce solare di presentazione
+
+Esecuzione (con il modulo bpy di Blender):
+    python genera_albero.py
+"""
+
+import bpy
+import bmesh
+import colorsys
+import math
+import os
+import random
+
+from mathutils import Vector, Matrix, noise
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+OUT_BLEND = os.path.join(HERE, "albero.blend")
+
+SEED = 2026
+random.seed(SEED)
+
+# ----------------------------------------------------------------------------
+# Parametri (unita: metri)
+# ----------------------------------------------------------------------------
+TRUNK_H = 3.4
+TRUNK_R0 = 0.26
+TRUNK_R1 = 0.15
+TRUNK_SEG = 22
+LIMBS = 6
+MAX_DEPTH = 5
+SIDES = {0: 28, 1: 14, 2: 10, 3: 8, 4: 6, 5: 5}
+SPAWN = {1: 0.55, 2: 0.5, 3: 0.5, 4: 0.45}
+MAX_BRANCHES = 6000   # limite di sicurezza (memoria)
+MAX_LEAVES = 150000    # limite di sicurezza (memoria)
+_branch_count = 0
+LEAF_MIN_DEPTH = 3
+LEAVES_PER_SEG = {3: 2, 4: 4, 5: 6}
+LEAF_LEN = 0.12
+LEAF_WID = 0.055
+LEAF_ROWS = 4
+GROUND_LEAVES = 260
+GROUND_R = 3.2
+
+
+# ----------------------------------------------------------------------------
+# Utility
+# ----------------------------------------------------------------------------
+def rr(a, b):
+    return a + (b - a) * random.random()
+
+
+def rand_unit():
+    while True:
+        v = Vector((rr(-1, 1), rr(-1, 1), rr(-1, 1)))
+        if 0.05 < v.length <= 1.0:
+            return v.normalized()
+
+
+def perp(d):
+    a = d.cross(rand_unit())
+    while a.length < 1e-4:
+        a = d.cross(rand_unit())
+    return a.normalized()
+
+
+def srgb_to_linear(c):
+    return c ** 2.2
+
+
+# Buffer geometrici (liste grezze, poi convertite in mesh una volta sola)
+wood_V, wood_F = [], []
+leaf_V, leaf_F, leaf_C = [], [], []
+
+
+# ----------------------------------------------------------------------------
+# Geometria: tubi (rami/tronco/radici)
+# ----------------------------------------------------------------------------
+def add_tube(V, F, pts, radii, sides, bark=0.0, bark_scale=1.0):
+    n = len(pts)
+    tans = []
+    for i in range(n):
+        if i == 0:
+            t = pts[1] - pts[0]
+        elif i == n - 1:
+            t = pts[-1] - pts[-2]
+        else:
+            t = pts[i + 1] - pts[i - 1]
+        tans.append(t.normalized())
+
+    # Frame a minima rotazione (evita torsioni)
+    ref = Vector((1, 0, 0)) if abs(tans[0].x) < 0.9 else Vector((0, 1, 0))
+    u = (ref - tans[0] * ref.dot(tans[0])).normalized()
+    frames = []
+    for i in range(n):
+        t = tans[i]
+        u = u - t * u.dot(t)
+        u.normalize()
+        v = t.cross(u).normalized()
+        frames.append((u, v))
+
+    rings = []
+    for i in range(n):
+        u, v = frames[i]
+        p = pts[i]
+        r = radii[i]
+        start = len(V)
+        for j in range(sides):
+            a = 2.0 * math.pi * j / sides
+            d = u * math.cos(a) + v * math.sin(a)
+            rad = r
+            if bark > 0.0:
+                q = d * (2.2 * bark_scale) + Vector((p.x, p.y, p.z * 2.5)) * 1.7
+                rad = r * (1.0 + bark * noise.noise(q))
+            V.append(p + d * rad)
+        rings.append(start)
+
+    for i in range(n - 1):
+        a0 = rings[i]
+        a1 = rings[i + 1]
+        for j in range(sides):
+            jn = (j + 1) % sides
+            F.append((a0 + j, a0 + jn, a1 + jn, a1 + j))
+
+    # Tappo finale
+    c = len(V)
+    V.append(pts[-1].copy())
+    last = rings[-1]
+    for j in range(sides):
+        F.append((last + j, last + (j + 1) % sides, c))
+
+
+# ----------------------------------------------------------------------------
+# Geometria: foglie
+# ----------------------------------------------------------------------------
+def leaf_color(autumn=False):
+    if autumn:
+        h = rr(0.07, 0.13)
+        s = rr(0.55, 0.85)
+        v = rr(0.35, 0.6)
+    else:
+        h = rr(0.20, 0.31)
+        s = rr(0.45, 0.85)
+        v = rr(0.22, 0.52)
+    r, g, b = colorsys.hsv_to_rgb(h, s, v)
+    return (srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b), 1.0)
+
+
+def add_leaf(p, ldir, flat=False, autumn=False):
+    """Foglia a V con nervatura, arricciatura e colore per vertice."""
+    L = LEAF_LEN * rr(0.8, 1.25)
+    W = LEAF_WID * rr(0.8, 1.2)
+    curl = rr(-0.35, 0.35)
+    if flat:
+        nrm = Vector((0, 0, 1))
+        ldir = Vector((ldir.x, ldir.y, 0)).normalized()
+        side = nrm.cross(ldir).normalized()
+    else:
+        ldir = ldir.normalized()
+        side = ldir.cross(rand_unit()).normalized()
+        nrm = side.cross(ldir).normalized()
+    col = leaf_color(autumn)
+    base = len(leaf_V)
+    for i in range(LEAF_ROWS + 1):
+        t = i / LEAF_ROWS
+        w = W * math.sin(math.pi * (t ** 0.75))
+        center = p + ldir * (L * t) + nrm * (curl * L * t * t)
+        fold = nrm * (0.18 * w)
+        leaf_V.append(center + side * w + fold)
+        leaf_V.append(center)
+        leaf_V.append(center - side * w + fold)
+        leaf_C.extend([col, col, col])
+    for i in range(LEAF_ROWS):
+        a = base + 3 * i
+        b = a + 3
+        leaf_F.append((a, a + 1, b + 1, b))
+        leaf_F.append((a + 1, a + 2, b + 2, b + 1))
+
+
+def place_leaves_on_segment(p0, p1, seg_dir, count):
+    for _ in range(count):
+        t = random.random()
+        p = p0.lerp(p1, t) + rand_unit() * 0.035
+        ldir = seg_dir * 0.45 + rand_unit() * 0.9 + Vector((0, 0, 0.25))
+        add_leaf(p, ldir, autumn=(random.random() < 0.03))
+
+
+# ----------------------------------------------------------------------------
+# Ramificazione ricorsiva
+# ----------------------------------------------------------------------------
+def grow(start, direction, length, r0, depth):
+    global _branch_count
+    _branch_count += 1
+    sides = SIDES[depth]
+    n = max(3, min(12, int(length / 0.28) + 3))
+    step = length / n
+    pts = [start.copy()]
+    d = direction.normalized()
+    for _ in range(n):
+        jit = rand_unit() * 0.10
+        d = (d + jit + Vector((0, 0, -0.03))).normalized()
+        pts.append(pts[-1] + d * step)
+
+    rtip = max(0.0025, r0 * 0.15)
+    radii = [r0 + (rtip - r0) * (i / n) ** 0.85 for i in range(n + 1)]
+    add_tube(wood_V, wood_F, pts, radii, sides)
+
+    if depth >= LEAF_MIN_DEPTH and depth in LEAVES_PER_SEG:
+        for k in range(1, n + 1):
+            if len(leaf_F) // 8 >= MAX_LEAVES:
+                break
+            seg_dir = (pts[k] - pts[k - 1]).normalized()
+            cnt = LEAVES_PER_SEG[depth] + random.randint(-1, 2)
+            place_leaves_on_segment(pts[k - 1], pts[k], seg_dir, max(0, cnt))
+
+    if depth < MAX_DEPTH and _branch_count < MAX_BRANCHES:
+        for k in range(1, n):
+            if random.random() > SPAWN[depth]:
+                continue
+            seg_dir = (pts[k + 1] - pts[k - 1]).normalized()
+            n_children = 2 if random.random() < 0.35 else 1
+            for _ in range(n_children):
+                ang = math.radians(rr(28, 55))
+                axis = perp(seg_dir)
+                cd = Matrix.Rotation(ang, 3, axis) @ seg_dir
+                cd = (cd + Vector((0, 0, 0.45))).normalized()  # fototropismo
+                clen = length * rr(0.50, 0.70)
+                cr0 = radii[k] * rr(0.6, 0.8)
+                grow(pts[k], cd, clen, cr0, depth + 1)
+
+
+# ----------------------------------------------------------------------------
+# Costruzione albero
+# ----------------------------------------------------------------------------
+def build_tree():
+    # Tronco: linea leggermente curva
+    phase1, phase2 = rr(0, 6.28), rr(0, 6.28)
+    trunk_pts, trunk_r = [], []
+    for i in range(TRUNK_SEG + 1):
+        f = i / TRUNK_SEG
+        z = f * TRUNK_H
+        x = math.sin(f * 2.2 + phase1) * 0.10 * f
+        y = math.cos(f * 1.6 + phase2) * 0.08 * f
+        trunk_pts.append(Vector((x, y, z)))
+        r = TRUNK_R0 * (1 - f) + TRUNK_R1 * f
+        flare = 1.0 + 0.95 * max(0.0, 1.0 - z / 0.55) ** 2
+        trunk_r.append(r * flare)
+    add_tube(wood_V, wood_F, trunk_pts, trunk_r, SIDES[0], bark=0.045, bark_scale=1.6)
+
+    # Radici superficiali
+    for i in range(7):
+        az = 2 * math.pi * i / 7 + rr(-0.25, 0.25)
+        dist = rr(0.9, 1.5)
+        dirv = Vector((math.cos(az), math.sin(az), 0))
+        pts, rad = [], []
+        for k in range(9):
+            t = k / 8
+            horiz = 0.04 + dist * t
+            z = 0.12 - 0.12 * t * 1.5 + 0.06 * math.sin(math.pi * t)
+            pts.append(dirv * horiz + Vector((0, 0, z)))
+            rad.append(max(0.012, 0.13 * (1 - t) ** 1.2 + 0.012))
+        add_tube(wood_V, wood_F, pts, rad, 8, bark=0.25, bark_scale=2.0)
+
+    # Branche principali
+    base_az = rr(0, 2 * math.pi)
+    for i in range(LIMBS):
+        f = rr(0.80, 0.99)
+        idx = int(f * TRUNK_SEG)
+        p = trunk_pts[idx].copy()
+        az = base_az + 2 * math.pi * i / LIMBS + rr(-0.35, 0.35)
+        theta = rr(0.35, 0.80)  # angolo dalla verticale
+        dirv = Vector((math.sin(theta) * math.cos(az),
+                       math.sin(theta) * math.sin(az),
+                       math.cos(theta)))
+        grow(p, dirv, rr(2.6, 3.5), trunk_r[idx] * 0.75, 1)
+
+
+# ----------------------------------------------------------------------------
+# Terreno e foglie secche
+# ----------------------------------------------------------------------------
+def build_ground(R=GROUND_R, rings=14, segs=96):
+    V = [Vector((0, 0, 0))]
+    F = []
+    for i in range(1, rings + 1):
+        r = R * i / rings
+        for j in range(segs):
+            a = 2 * math.pi * j / segs
+            x, y = r * math.cos(a), r * math.sin(a)
+            fade = min(1.0, max(0.0, (r - 0.6) / 0.8))
+            z = 0.035 * noise.noise(Vector((x * 0.9, y * 0.9, 0.3))) * fade
+            V.append(Vector((x, y, z)))
+    for j in range(segs):
+        F.append((0, 1 + (j + 1) % segs, 1 + j))
+    for i in range(1, rings):
+        a0 = 1 + (i - 1) * segs
+        a1 = 1 + i * segs
+        for j in range(segs):
+            jn = (j + 1) % segs
+            F.append((a0 + j, a0 + jn, a1 + jn, a1 + j))
+    return V, F
+
+
+def scatter_ground_leaves():
+    for _ in range(GROUND_LEAVES):
+        r = math.sqrt(random.random()) * GROUND_R * 0.95
+        if r < 0.5:
+            r = rr(0.5, 1.0)
+        a = rr(0, 2 * math.pi)
+        p = Vector((r * math.cos(a), r * math.sin(a), 0.006))
+        add_leaf(p, Vector((rr(-1, 1), rr(-1, 1), 0)), flat=True,
+                 autumn=(random.random() < 0.45))
+
+
+# ----------------------------------------------------------------------------
+# Materiali
+# ----------------------------------------------------------------------------
+def mat_bark():
+    mat = bpy.data.materials.new("Corteccia")
+    mat.use_nodes = True
+    nt = mat.node_tree
+    N, L = nt.nodes, nt.links
+    bsdf = N["Principled BSDF"]
+    tc = N.new("ShaderNodeTexCoord")
+    n1 = N.new("ShaderNodeTexNoise")
+    n1.inputs["Scale"].default_value = 3.0
+    n1.inputs["Detail"].default_value = 12.0
+    n1.inputs["Roughness"].default_value = 0.65
+    ramp = N.new("ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].color = (0.05, 0.035, 0.02, 1)
+    ramp.color_ramp.elements[1].color = (0.30, 0.24, 0.18, 1)
+    mid = ramp.color_ramp.elements.new(0.5)
+    mid.color = (0.12, 0.08, 0.05, 1)
+    n2 = N.new("ShaderNodeTexNoise")
+    n2.inputs["Scale"].default_value = 22.0
+    n2.inputs["Detail"].default_value = 8.0
+    bump = N.new("ShaderNodeBump")
+    bump.inputs["Strength"].default_value = 0.9
+    bump.inputs["Distance"].default_value = 0.02
+    L.new(tc.outputs["Object"], n1.inputs["Vector"])
+    L.new(n1.outputs["Fac"], ramp.inputs["Fac"])
+    L.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
+    L.new(tc.outputs["Object"], n2.inputs["Vector"])
+    L.new(n2.outputs["Fac"], bump.inputs["Height"])
+    L.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+    bsdf.inputs["Roughness"].default_value = 0.85
+    return mat
+
+
+def mat_leaves():
+    mat = bpy.data.materials.new("Foglie")
+    mat.use_nodes = True
+    nt = mat.node_tree
+    N, L = nt.nodes, nt.links
+    bsdf = N["Principled BSDF"]
+    attr = N.new("ShaderNodeAttribute")
+    attr.attribute_type = "GEOMETRY"
+    attr.attribute_name = "LeafColor"
+    L.new(attr.outputs["Color"], bsdf.inputs["Base Color"])
+    bsdf.inputs["Roughness"].default_value = 0.45
+    if "Subsurface Weight" in bsdf.inputs:
+        bsdf.inputs["Subsurface Weight"].default_value = 0.15
+    if "Subsurface Radius" in bsdf.inputs:
+        bsdf.inputs["Subsurface Radius"].default_value = (0.4, 0.7, 0.2)
+    mat.use_backface_culling = False
+    return mat
+
+
+def mat_ground():
+    mat = bpy.data.materials.new("Terreno")
+    mat.use_nodes = True
+    nt = mat.node_tree
+    N, L = nt.nodes, nt.links
+    bsdf = N["Principled BSDF"]
+    tc = N.new("ShaderNodeTexCoord")
+    n1 = N.new("ShaderNodeTexNoise")
+    n1.inputs["Scale"].default_value = 6.0
+    n1.inputs["Detail"].default_value = 10.0
+    ramp = N.new("ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].color = (0.07, 0.045, 0.025, 1)
+    ramp.color_ramp.elements[1].color = (0.20, 0.16, 0.09, 1)
+    L.new(tc.outputs["Object"], n1.inputs["Vector"])
+    L.new(n1.outputs["Fac"], ramp.inputs["Fac"])
+    L.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
+    bsdf.inputs["Roughness"].default_value = 0.95
+    return mat
+
+
+# ----------------------------------------------------------------------------
+# Creazione oggetti Blender
+# ----------------------------------------------------------------------------
+def to_mesh(name, V, F):
+    me = bpy.data.meshes.new(name)
+    me.from_pydata([tuple(v) for v in V], [], F)
+    me.update()
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    bm.to_mesh(me)
+    bm.free()
+    return me
+
+
+def smooth(me):
+    for p in me.polygons:
+        p.use_smooth = True
+
+
+def main():
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+
+    coll = bpy.data.collections.new("Albero_1")
+    bpy.context.scene.collection.children.link(coll)
+
+    print("Costruzione albero...")
+    build_tree()
+    print("  rami/tronco: %d vertici, %d facce, branche=%d" % (len(wood_V), len(wood_F), _branch_count))
+    print("  foglie albero: %d" % (len(leaf_F) // 8))
+    scatter_ground_leaves()
+    print("  foglie totali (albero + terreno): %d" % (len(leaf_F) // 8))
+
+    # Oggetti
+    wood_me = to_mesh("Tronco_e_Rami", wood_V, wood_F)
+    smooth(wood_me)
+    leaf_me = to_mesh("Foglie", leaf_V, leaf_F)
+    att = leaf_me.color_attributes.new("LeafColor", "FLOAT_COLOR", "POINT")
+    flat = []
+    for c in leaf_C:
+        flat.extend(c)
+    att.data.foreach_set("color", flat)
+
+    ground_V, ground_F = build_ground()
+    ground_me = to_mesh("Terreno", ground_V, ground_F)
+    smooth(ground_me)
+
+    mats = {"wood": mat_bark(), "leaf": mat_leaves(), "ground": mat_ground()}
+
+    for name, me, mat_key in (("Tronco_e_Rami", wood_me, "wood"),
+                              ("Foglie", leaf_me, "leaf"),
+                              ("Terreno", ground_me, "ground")):
+        ob = bpy.data.objects.new(name, me)
+        coll.objects.link(ob)
+        ob.data.materials.append(mats[mat_key])
+
+    # Camera
+    cam_data = bpy.data.cameras.new("Camera")
+    cam_data.lens = 50
+    cam = bpy.data.objects.new("Camera", cam_data)
+    coll.objects.link(cam)
+    cam.location = Vector((13.0, -16.0, 6.0))
+    target = Vector((0.0, 0.0, 4.3))
+    cam.rotation_euler = (target - cam.location).to_track_quat("-Z", "Y").to_euler()
+    bpy.context.scene.camera = cam
+
+    # Sole
+    sun_data = bpy.data.lights.new("Sole", "SUN")
+    sun_data.energy = 3.5
+    sun = bpy.data.objects.new("Sole", sun_data)
+    coll.objects.link(sun)
+    sun.rotation_euler = (math.radians(50), 0, math.radians(35))
+
+    # Mondo
+    world = bpy.data.worlds.new("Mondo")
+    world.use_nodes = True
+    bg = world.node_tree.nodes["Background"]
+    bg.inputs[0].default_value = (0.55, 0.70, 0.90, 1.0)
+    bg.inputs[1].default_value = 1.0
+    bpy.context.scene.world = world
+
+    scene = bpy.context.scene
+    scene.render.engine = "CYCLES"
+    scene.render.resolution_x = 1280
+    scene.render.resolution_y = 960
+    scene.unit_settings.system = "METRIC"
+    scene.unit_settings.scale_length = 1.0
+
+    print("Salvataggio:", OUT_BLEND)
+    bpy.ops.wm.save_as_mainfile(filepath=OUT_BLEND, compress=True)
+    print("Fatto.")
+
+
+if __name__ == "__main__":
+    main()
