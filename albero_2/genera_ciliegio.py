@@ -1371,11 +1371,12 @@ BRANCH_END = MAX_BRANCHES
 def place_clusters(coll):
     """Distribuisce i mazzetti fioriti lungo il legno fine, come oggetti istanziati."""
     variants = []
+    flower_mats = (mat_petals(), mat_stamens(), mat_calyx(), mat_young_leaf())
     for i in range(12):
         random.seed(SEED + 100 + i)
         buf, n_flowers = build_cluster_variant(i)
         me = to_mesh("Mazzetto_%02d" % (i + 1), buf, smooth=True)
-        for m in (mat_petals(), mat_stamens(), mat_calyx(), mat_young_leaf()):
+        for m in flower_mats:
             me.materials.append(m)
         variants.append((me, buf.nverts(), n_flowers))
     random.seed(SEED + 500)
@@ -1496,8 +1497,9 @@ def main():
     scene.collection.children.link(coll_ground)
 
     log("Terreno...")
+    ground_mat = mat_ground()
     gme = to_mesh("Terreno", build_ground(), smooth=True)
-    gme.materials.append(mat_ground())
+    gme.materials.append(ground_mat)
     gob = bpy.data.objects.new("Terreno", gme)
     coll_ground.objects.link(gob)
 
@@ -1512,7 +1514,7 @@ def main():
     coll_ground.objects.link(tob)
 
     sme = to_mesh("Sassi", build_stones(), smooth=True)
-    sme.materials.append(mat_ground())
+    sme.materials.append(ground_mat)
     sob = bpy.data.objects.new("Sassi", sme)
     coll_ground.objects.link(sob)
 
