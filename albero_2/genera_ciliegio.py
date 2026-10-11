@@ -15,6 +15,8 @@ Cosa costruisce, tutto proceduralmente (nessuna geometria importata):
       forcelle, rametti terminali che si incurvano verso il basso sotto il peso
       della fioritura
     - rametti corti (dardi) sul legno di 2-3 anni, da cui partono i mazzetti
+    - ventaglio apicale: ogni branca termina tuffandosi in un ciuffo di
+      rametti fioriti, nessuna asta spoglia fora la sagoma della chioma
 
   FIORITURA (collezione `Fioritura`)
     - 12 varianti di *mazzetto* (grappolo) con 2-5 fiori completi ciascuno:
@@ -22,12 +24,15 @@ Cosa costruisce, tutto proceduralmente (nessuna geometria importata):
       obovati con smusso/incisione apicale, nervatura incassata, coppa e
       arricciatura, 9-14 stami con filamento e antera gialla, pistillo
     - gemme non ancora aperte (piu' rosa) e foglioline giovani bronzee
-    - i mazzetti sono oggetti istanziati (mesh condivise + colore per oggetto),
-      quindi si arriva a decine di migliaia di fiori con un file leggero
+    - i mazzetti sono istanze Geometry Nodes di 12 mesh condivise (un solo
+      oggetto, attributi per istanza: rotazione, scala, variante, colore),
+      quindi si arriva a decine di migliaia di fiori con file e RAM leggeri
 
   TERRENO (collezione `Terreno`)
     - rilievo dolce, erba a ciuffi, sassi, radici affioranti e un tappeto di
-      petali caduti sotto la chioma
+      petali caduti sotto la chioma, piu' petali che fluttuano nell'aria
+    - luce del tardo pomeriggio: sole basso e caldo radente, cielo con
+      gradiente caldo all'orizzonte, ombra lunga e leggibile sul prato
 
 Esecuzione:
     python genera_ciliegio.py            # solo modello
@@ -84,13 +89,14 @@ CROWN_TOP = 6.90
 FLOWER_MIN_DEPTH = 1        # fiorisce dal legno di 1 anno in su (piu' rado sui rami grossi)
 SPUR_DEPTH = 3              # dardi fioriferi sul legno grosso
 CLUSTER_SPACING = 0.076     # distanza media tra i mazzetti lungo i rametti
-MAX_CLUSTERS = 48000
+MAX_CLUSTERS = 56000
 CLUSTER_SCALE = (1.00, 1.36)
 
 GROUND_R = 14.0
-GROUND_PETALS = 9000
-GROUND_TUFTS = 3400
-GROUND_STONES = 40
+GROUND_PETALS = 16000
+GROUND_TUFTS = 9000
+GROUND_STONES = 46
+AIR_PETALS = 260            # petali che fluttuano nell'aria sotto la chioma
 
 SEGMENTS = []               # (p0, p1, direzione, profondita', raggio)
 TIPS = []                   # punte dei rami (ultimo segmento), sempre fiorite
@@ -411,11 +417,14 @@ def grow(start, direction, length, r0, depth):
     ph1, ph2 = rr(0, 6.28), rr(0, 6.28)
     for i in range(n):
         t = i / n
-        # tropismo: verso l'alto nei rami grossi, verso il basso nei rametti
+        # tropismo: verso l'alto nei rami grossi (ma sempre meno salendo di
+        # quota, cosi' le branche non sfondano il tetto della chioma),
+        # verso il basso nei rametti
         p = pts[-1]
         out = math.hypot(p.x, p.y)
         if depth <= 2:
-            trop = Vector((0, 0, 0.30))
+            up_t = 0.30 * max(0.0, 1.0 - max(0.0, p.z - 3.1) / 2.4)
+            trop = Vector((0, 0, up_t))
         elif depth <= 4:
             trop = Vector((0, 0, 0.10))
         else:
@@ -424,7 +433,8 @@ def grow(start, direction, length, r0, depth):
         wob = Vector((math.sin(ph1 + i * 1.7), math.cos(ph2 + i * 1.3), 0)) * 0.16
         d = (d + rand_unit() * 0.16 + wob + trop * 0.28)
         # sagoma della chioma: i rami che escono dal profilo vengono ripiegati
-        # verso l'interno (solo componente orizzontale: il fusto resta libero)
+        # verso l'interno (componente orizzontale: il fusto resta libero) e
+        # richiamati giu' quando si avvicinano al tetto (niente aste spoglie)
         if depth >= 1:
             rad = math.hypot(p.x, p.y)
             rmax = crown_max_radius(p.z)
@@ -432,12 +442,13 @@ def grow(start, direction, length, r0, depth):
                 pull = min(0.8, 1.5 * (rad / rmax - 1.0))
                 d.x -= (p.x / rad) * pull
                 d.y -= (p.y / rad) * pull
-            if p.z > CROWN_TOP:
-                d.z -= 1.6 * (p.z - CROWN_TOP)
+            z_soft = CROWN_TOP - 0.85
+            if p.z > z_soft:
+                d.z -= 1.5 * (p.z - z_soft) / 0.85
         d.normalize()
         pts.append(pts[-1] + d * step)
 
-    rtip = max(0.0022, r0 * rr(0.42, 0.60))
+    rtip = max(0.0022, r0 * (rr(0.30, 0.44) if depth <= 2 else rr(0.42, 0.60)))
     radii = [r0 + (rtip - r0) * ((i / n) ** 0.9) for i in range(n + 1)]
 
     children = []
@@ -502,6 +513,18 @@ def grow(start, direction, length, r0, depth):
                 # ingrossamento del nodo
                 for kk in (k - 1, k, min(n - 1, k + 1)):
                     radii[kk] *= 1.035
+    # ventaglio apicale: le branche maestre e le branche di 2o ordine non
+    # devono finire con un'asta spoglia, ma tuffarsi nella fioritura: dalla
+    # punta nascono rametti sottili e divaricati che portano i mazzetti
+    if depth <= 2:
+        seg_dir = (pts[-1] - pts[-2]).normalized()
+        for c in range(random.randint(3, 5)):
+            axis = perp(seg_dir)
+            ang = math.radians(rr(38, 86))
+            cd = Matrix.Rotation(ang, 3, axis) @ seg_dir
+            cd = (cd + Vector((0, 0, rr(-0.40, 0.08)))).normalized()
+            clen = rr(0.55, 1.05) if depth == 1 else rr(0.40, 0.75)
+            children.append((n - 1, cd, clen, radii[-1] * rr(0.42, 0.58)))
     # ripristina il raggio del tronco ai nodi raddoppiati (evita "salsicciotti")
     for i in range(1, n):
         radii[i] = min(radii[i], r0 * 1.12)
@@ -571,12 +594,12 @@ def build_trunk_and_roots():
     base_az = rr(0, 6.28)
     for i in range(LIMBS):
         BRANCH_END = BRANCHES + BRANCH_BUDGET_PER_LIMB
-        if i < LIMBS - 2:
+        if i < LIMBS - 3:
             f = rr(0.28, 0.70)
             theta = rr(0.78, 1.22)          # molto aperte: chioma a vaso
         else:
-            f = rr(0.70, 0.95)
-            theta = rr(0.25, 0.62)          # rami centrali piu' verticali
+            f = rr(0.78, 0.96)
+            theta = rr(0.16, 0.45)          # rami centrali piu' verticali
         idx = int(f * seg)
         p = trunk_pts[idx].copy()
         az = base_az + 2 * math.pi * i / LIMBS + rr(-0.26, 0.26)
@@ -882,7 +905,11 @@ def build_ground():
             shade = 0.80 + 0.42 * noise.noise(Vector((x * 1.3, y * 1.3, 5.0)))
             # piu' scuro sotto la chioma (ombra propria dell'albero)
             shade *= 1.0 - 0.22 * math.exp(-(r / 3.3) ** 2)
-            col = scale_rgba(rgb(0.50, 0.375, 0.215), shade)
+            # terra bruna screziata da chiazze olivastre (muschio/erba rada)
+            g = 0.5 + 0.5 * noise.noise(Vector((x * 0.55, y * 0.55, 9.0)))
+            col = scale_rgba(mix4(rgb(0.360, 0.268, 0.155),
+                                  rgb(0.270, 0.300, 0.160),
+                                  min(1.0, max(0.0, g * 1.25 - 0.25))), shade)
             row.append(buf.vert(Vector((x, y, z)), col))
         ring0.append(row)
     for j in range(segs):
@@ -933,7 +960,7 @@ def scatter_ground_petals():
         tint = random.choice([C_PINK_DEEP, C_PINK, C_PINK_DEEP, C_PINK])
         c0 = scale_rgba(mix4(C_PINK, C_WHITE, rr(0.1, 0.5)), rr(0.9, 1.05))
         c1 = mix4(tint, C_PINK_DEEP, rr(0.1, 0.5))
-        L = rr(0.018, 0.027)
+        L = rr(0.021, 0.031)
         add_petal(buf, p, d, up.cross(d).normalized(), up, L, L * rr(0.6, 0.8),
                   c0, c1, rr(0.25, 0.6), rr(-0.2, 0.2), rr(0.02, 0.1))
     return buf
@@ -952,22 +979,23 @@ def build_grass_tufts():
         # piu' erba ai bordi, meno sotto la chioma
         if r < 2.6 and random.random() < 0.25:
             continue
-        nb = random.randint(5, 11)
+        nb = random.randint(6, 13)
         for _b in range(nb):
             bx, by = x + rr(-0.05, 0.05), y + rr(-0.05, 0.05)
             bz = ground_z(bx, by)
-            h = rr(0.08, 0.24)
+            h = rr(0.07, 0.30)
             lean = Vector((rr(-1, 1), rr(-1, 1), 0)).normalized()
             lean *= h * rr(0.20, 0.65)
             d = lean.normalized() if lean.length > 1e-4 else Vector((1, 0, 0))
             side = Vector((-d.y, d.x, 0)).normalized()
             tip = Vector((bx, by, bz + h)) + lean
             mid = Vector((bx, by, bz + h * 0.55)) + lean * 0.35
-            w = 0.0038
-            green = rgb(rr(0.22, 0.38), rr(0.38, 0.60), rr(0.09, 0.22))
-            dry = random.random() < 0.25
+            w = 0.0046
+            # verde piu' pieno e saturo, con qualche filo secco paglierino
+            green = rgb(rr(0.14, 0.30), rr(0.34, 0.55), rr(0.06, 0.16))
+            dry = random.random() < 0.15
             if dry:
-                green = rgb(rr(0.45, 0.62), rr(0.42, 0.55), rr(0.15, 0.25))
+                green = rgb(rr(0.48, 0.64), rr(0.44, 0.56), rr(0.16, 0.26))
             c_tip = scale_rgba(green, rr(0.95, 1.25))
             i0 = buf.vert(Vector((bx, by, bz)), green)
             i1 = buf.vert(mid + side * w, mix4(green, c_tip, 0.5))
@@ -975,6 +1003,31 @@ def build_grass_tufts():
             i3 = buf.vert(tip, c_tip)
             buf.tri(i0, i2, i1, 0)
             buf.tri(i1, i2, i3, 0)
+    return buf
+
+
+def scatter_air_petals():
+    """Petali singoli che fluttuano nell'aria dentro e sotto la chioma."""
+    buf = Buf()
+    for _ in range(AIR_PETALS):
+        u = random.random()
+        if u < 0.62:
+            # intorno al guscio esterno della chioma, dove il vento li stacca
+            z = rr(0.8, 6.0)
+            r = crown_max_radius(z) * rr(0.60, 1.08)
+        else:
+            # qualcuno gia' basso, in caduta verso il tappeto
+            z = rr(0.12, 2.0)
+            r = rr(0.7, 4.6)
+        a = rr(0, 2 * math.pi)
+        p = Vector((r * math.cos(a), r * math.sin(a), z))
+        d = rand_unit()
+        up = perp(d)
+        L = rr(0.018, 0.026)
+        c0 = mix4(C_PINK, C_WHITE, rr(0.0, 0.6))
+        c1 = mix4(c0, C_PINK_DEEP, rr(0.1, 0.6))
+        add_petal(buf, p, d, up.cross(d).normalized(), up, L, L * rr(0.6, 0.8),
+                  c0, c1, rr(0.2, 0.5), rr(-0.3, 0.3), rr(0.02, 0.1))
     return buf
 
 
@@ -986,10 +1039,11 @@ def build_stones():
         x, y = r * math.cos(a), r * math.sin(a)
         z = ground_z(x, y)
         sz = rr(0.05, 0.19)
-        tone = rr(0.30, 0.55)
-        col = rgb(tone, tone * rr(0.92, 1.0), tone * rr(0.85, 0.98))
+        tone = rr(0.17, 0.38)
+        col = rgb(tone, tone * rr(0.92, 1.0), tone * rr(0.82, 0.96))
         rot = basis_from_dir(Vector((rr(-0.3, 0.3), rr(-0.3, 0.3), 1)), rr(0, 6.28)).to_3x3()
-        add_blob(buf, Vector((x, y, z + sz * 0.25)), sz,
+        # semi-affondati nel terreno: sembrano posati, non appoggiati
+        add_blob(buf, Vector((x, y, z - sz * 0.10)), sz,
                  (1.0, rr(0.75, 1.15), rr(0.45, 0.75)), mat=0, col=col,
                  rings=3, sides=7, rough=0.22, orient=rot)
     return buf
@@ -1063,10 +1117,10 @@ def mat_bark():
     noise1.inputs["Roughness"].default_value = 0.6
     L.new(tc.outputs["Object"], noise1.inputs["Vector"])
     ramp = N.new("ShaderNodeValToRGB")
-    ramp.color_ramp.elements[0].color = (0.058, 0.038, 0.028, 1)
-    ramp.color_ramp.elements[1].color = (0.255, 0.200, 0.160, 1)
+    ramp.color_ramp.elements[0].color = (0.040, 0.025, 0.018, 1)
+    ramp.color_ramp.elements[1].color = (0.185, 0.140, 0.106, 1)
     mix1 = ramp.color_ramp.elements.new(0.45)
-    mix1.color = (0.115, 0.082, 0.063, 1)
+    mix1.color = (0.080, 0.055, 0.040, 1)
     L.new(noise1.outputs["Fac"], ramp.inputs["Fac"])
 
     # --- muschio alla base (solo in basso, sotto ~0.9 m)
@@ -1085,11 +1139,11 @@ def mat_bark():
     L.new(mz.outputs["Result"], mmul.inputs[0])
     L.new(mnoise.outputs["Fac"], mmul.inputs[1])
     mosscol = N.new("ShaderNodeMixRGB")
-    mosscol.inputs["Color2"].default_value = (0.045, 0.075, 0.020, 1)
+    mosscol.inputs["Color2"].default_value = (0.030, 0.045, 0.012, 1)
     L.new(ramp.outputs["Color"], mosscol.inputs["Color1"])
     fac = N.new("ShaderNodeMath")
     fac.operation = "MULTIPLY"
-    fac.inputs[1].default_value = 1.1
+    fac.inputs[1].default_value = 0.45
     L.new(mmul.outputs["Value"], fac.inputs[0])
     L.new(fac.outputs["Value"], mosscol.inputs["Fac"])
 
@@ -1102,8 +1156,8 @@ def mat_bark():
 
     # --- rilievo: lenticelle + rugosita' fine
     fine = N.new("ShaderNodeTexNoise")
-    fine.inputs["Scale"].default_value = 90.0
-    fine.inputs["Detail"].default_value = 6.0
+    fine.inputs["Scale"].default_value = 45.0
+    fine.inputs["Detail"].default_value = 8.0
     L.new(tc.outputs["Object"], fine.inputs["Vector"])
     hmax = N.new("ShaderNodeMath")
     hmax.operation = "MAXIMUM"
@@ -1114,8 +1168,8 @@ def mat_bark():
     L.new(mask.outputs["Color"], hadd.inputs[0])
     L.new(hmax.outputs["Value"], hadd.inputs[1])
     bump = N.new("ShaderNodeBump")
-    bump.inputs["Strength"].default_value = 0.55
-    bump.inputs["Distance"].default_value = 0.006
+    bump.inputs["Strength"].default_value = 0.90
+    bump.inputs["Distance"].default_value = 0.010
     L.new(hadd.outputs["Value"], bump.inputs["Height"])
     L.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
 
@@ -1134,7 +1188,7 @@ def _attr_color(N, L, bsdf, name="Colore"):
 
 
 def mat_petals():
-    """Petali: colore per vertice (base bianca -> punta rosa) x colore d'oggetto."""
+    """Petali: colore per vertice (base bianca -> punta rosa) x tono d'istanza."""
     mat = bpy.data.materials.new("Fiore_Petali")
     mat.use_nodes = True
     N, L = mat.node_tree.nodes, mat.node_tree.links
@@ -1142,7 +1196,10 @@ def mat_petals():
     att = N.new("ShaderNodeAttribute")
     att.attribute_type = "GEOMETRY"
     att.attribute_name = "Colore"
-    oi = N.new("ShaderNodeObjectInfo")
+    # tono per istanza (bianco -> rosa): attributo portato dai punti GN
+    oi = N.new("ShaderNodeAttribute")
+    oi.attribute_type = "INSTANCER"
+    oi.attribute_name = "Tone"
     mix = N.new("ShaderNodeMixRGB")
     mix.blend_type = "MULTIPLY"
     mix.inputs["Fac"].default_value = 1.0
@@ -1215,8 +1272,8 @@ def mat_ground():
     n1.inputs["Detail"].default_value = 12.0
     L.new(tc.outputs["Object"], n1.inputs["Vector"])
     ramp = N.new("ShaderNodeValToRGB")
-    ramp.color_ramp.elements[0].color = (0.070, 0.048, 0.028, 1)
-    ramp.color_ramp.elements[1].color = (0.205, 0.150, 0.082, 1)
+    ramp.color_ramp.elements[0].color = (0.052, 0.034, 0.020, 1)
+    ramp.color_ramp.elements[1].color = (0.175, 0.126, 0.068, 1)
     L.new(n1.outputs["Fac"], ramp.inputs["Fac"])
     mix = N.new("ShaderNodeMixRGB")
     mix.blend_type = "MIX"
@@ -1235,11 +1292,11 @@ def mat_ground():
     mossramp.color_ramp.elements[1].color = (1, 1, 1, 1)
     L.new(mossn.outputs["Fac"], mossramp.inputs["Fac"])
     mossmix = N.new("ShaderNodeMixRGB")
-    mossmix.inputs["Color2"].default_value = (0.048, 0.080, 0.024, 1)
+    mossmix.inputs["Color2"].default_value = (0.052, 0.092, 0.026, 1)
     L.new(mix.outputs["Color"], mossmix.inputs["Color1"])
     mossfac = N.new("ShaderNodeMath")
     mossfac.operation = "MULTIPLY"
-    mossfac.inputs[1].default_value = 0.18
+    mossfac.inputs[1].default_value = 0.34
     L.new(mossramp.outputs["Color"], mossfac.inputs[0])
     L.new(mossfac.outputs["Value"], mossmix.inputs["Fac"])
     L.new(mossmix.outputs["Color"], bsdf.inputs["Base Color"])
@@ -1290,22 +1347,24 @@ def mat_grass():
 # Cielo, luce, camera
 # ----------------------------------------------------------------------------
 def setup_world_and_lights(coll):
+    # sole basso e caldo di prima sera: modella i volumi, accende i petali
+    # in trasparenza e proietta un'ombra lunga e leggibile sul prato
     sun_data = bpy.data.lights.new("Sole", "SUN")
-    sun_data.energy = 4.1
-    sun_data.angle = math.radians(2.2)
-    sun_data.color = (1.0, 0.955, 0.885)
+    sun_data.energy = 16.0
+    sun_data.angle = math.radians(1.3)
+    sun_data.color = (1.0, 0.905, 0.775)
     sun = bpy.data.objects.new("Sole", sun_data)
-    sun.rotation_euler = (math.radians(48), 0, math.radians(-42))
+    sun.rotation_euler = (math.radians(55), 0, math.radians(-24))
     coll.objects.link(sun)
 
-    # luce d'ambiente laterale (rimbalzo caldo sul lato in ombra)
+    # luce d'ambiente dal lato della camera (rimbalzo cielo sul lato in ombra)
     fill_data = bpy.data.lights.new("Rimbalzo", "AREA")
-    fill_data.energy = 260.0
-    fill_data.size = 9.0
-    fill_data.color = (0.90, 0.93, 1.0)
+    fill_data.energy = 80.0
+    fill_data.size = 10.0
+    fill_data.color = (0.88, 0.92, 1.0)
     fill = bpy.data.objects.new("Rimbalzo", fill_data)
-    fill.location = (-9.0, 7.0, 5.0)
-    fill.rotation_euler = (Vector((0, 0, 3.2)) - fill.location).to_track_quat("-Z", "Y").to_euler()
+    fill.location = (7.5, -8.5, 4.8)
+    fill.rotation_euler = (Vector((0, 0, 3.0)) - fill.location).to_track_quat("-Z", "Y").to_euler()
     coll.objects.link(fill)
 
     world = bpy.data.worlds.new("Mondo_Cielo")
@@ -1316,12 +1375,13 @@ def setup_world_and_lights(coll):
     bg = N["Background"]
     sky = N.new("ShaderNodeTexSky")
     sky.sky_type = "MULTIPLE_SCATTERING"
-    sky.sun_elevation = math.radians(52)
-    sky.sun_rotation = math.radians(38)
+    sky.sun_elevation = math.radians(35)
+    sky.sun_rotation = math.radians(200)
     sky.sun_disc = False
-    bg.inputs["Strength"].default_value = 0.55
+    bg.inputs["Strength"].default_value = 0.12
     L.new(sky.outputs["Color"], bg.inputs["Color"])
-    # sfondo visto dalla camera: gradiente tenue, non distrae dall'albero
+    # sfondo visto dalla camera: gradiente caldo all'orizzonte che vira al
+    # blu verso l'alto (da' profondita' senza distrarre dall'albero)
     grad = N.new("ShaderNodeTexGradient")
     grad.gradient_type = "LINEAR"
     mapn = N.new("ShaderNodeMapping")
@@ -1330,11 +1390,15 @@ def setup_world_and_lights(coll):
     L.new(tc.outputs["Generated"], mapn.inputs["Vector"])
     L.new(mapn.outputs["Vector"], grad.inputs["Vector"])
     ramp = N.new("ShaderNodeValToRGB")
-    ramp.color_ramp.elements[0].color = (0.86, 0.90, 0.95, 1)
-    ramp.color_ramp.elements[1].color = (0.44, 0.62, 0.88, 1)
+    ramp.color_ramp.elements[0].position = 0.0
+    ramp.color_ramp.elements[0].color = (0.85, 0.76, 0.62, 1)
+    mid = ramp.color_ramp.elements.new(0.10)
+    mid.color = (0.32, 0.50, 0.76, 1)
+    ramp.color_ramp.elements[-1].position = 0.45
+    ramp.color_ramp.elements[-1].color = (0.10, 0.26, 0.58, 1)
     L.new(grad.outputs["Fac"], ramp.inputs["Fac"])
     flat = N.new("ShaderNodeBackground")
-    flat.inputs["Strength"].default_value = 1.15
+    flat.inputs["Strength"].default_value = 0.9
     L.new(ramp.outputs["Color"], flat.inputs["Color"])
     lp = N.new("ShaderNodeLightPath")
     mixs = N.new("ShaderNodeMixShader")
@@ -1347,13 +1411,19 @@ def setup_world_and_lights(coll):
 
 def setup_camera(coll):
     cam_data = bpy.data.cameras.new("Camera")
-    cam_data.lens = 52.0
+    cam_data.lens = 50.0
     cam_data.clip_start = 0.05
     cam_data.clip_end = 300.0
     cam = bpy.data.objects.new("Camera", cam_data)
-    cam.location = Vector((9.8, -11.5, 5.25))
-    target = Vector((0.0, 0.0, 3.35))
+    # piu' in basso e piu' vicino: il tappeto di petali entra in primo piano
+    # e la chioma si staglia contro il cielo
+    cam.location = Vector((8.9, -10.3, 3.15))
+    target = Vector((0.0, 0.0, 3.60))
     cam.rotation_euler = (target - cam.location).to_track_quat("-Z", "Y").to_euler()
+    # profondita' di campo leggera: lo sfondo sfuma, l'albero resta nitido
+    cam_data.dof.use_dof = True
+    cam_data.dof.focus_distance = (Vector((0, 0, 2.6)) - cam.location).length
+    cam_data.dof.aperture_fstop = 8.0
     coll.objects.link(cam)
     bpy.context.scene.camera = cam
     return cam
@@ -1363,21 +1433,74 @@ def setup_camera(coll):
 # Costruzione
 # ----------------------------------------------------------------------------
 WB = Buf(use_uv=True)                       # legno (fusto + rami + radici)
-WOOD_COL = rgb(0.42, 0.36, 0.32)
-WOOD_COL_TIP = rgb(0.36, 0.30, 0.25)
+WOOD_COL = rgb(0.335, 0.280, 0.240)
+WOOD_COL_TIP = rgb(0.285, 0.230, 0.190)
 BRANCH_END = MAX_BRANCHES
 
 
+def _out_socket(node, sock_type):
+    for s in node.outputs:
+        if s.type == sock_type:
+            return s
+    raise RuntimeError("socket %s non trovato" % sock_type)
+
+
+def _fioritura_nodegroup(coll_var):
+    """Gruppo di nodi: istanzia le 12 varianti di mazzetto sui punti.
+
+    Un solo oggetto con 48 000 istanze vere (non 48 000 oggetti): Cycles
+    condivide la BVH delle varianti e la scena resta in poche centinaia di
+    MB di RAM. Rotazione, scala, variante e colore viaggiano come attributi
+    sui punti e arrivano allo shader come attributi d'istanza.
+    """
+    ng = bpy.data.node_groups.new("Fioritura_GN", "GeometryNodeTree")
+    ng.interface.new_socket("Geometry", in_out="INPUT",
+                            socket_type="NodeSocketGeometry")
+    ng.interface.new_socket("Geometry", in_out="OUTPUT",
+                            socket_type="NodeSocketGeometry")
+    n_in = ng.nodes.new("NodeGroupInput")
+    n_out = ng.nodes.new("NodeGroupOutput")
+    ci = ng.nodes.new("GeometryNodeCollectionInfo")
+    ci.transform_space = "ORIGINAL"
+    ci.inputs["Collection"].default_value = coll_var
+    ci.inputs["Separate Children"].default_value = True
+    ci.inputs["Reset Children"].default_value = True
+    iop = ng.nodes.new("GeometryNodeInstanceOnPoints")
+    iop.inputs["Pick Instance"].default_value = True
+    a_eul = ng.nodes.new("GeometryNodeInputNamedAttribute")
+    a_eul.data_type = "FLOAT_VECTOR"
+    a_eul.inputs["Name"].default_value = "eul"
+    a_scl = ng.nodes.new("GeometryNodeInputNamedAttribute")
+    a_scl.data_type = "FLOAT"
+    a_scl.inputs["Name"].default_value = "scl"
+    a_idx = ng.nodes.new("GeometryNodeInputNamedAttribute")
+    a_idx.data_type = "INT"
+    a_idx.inputs["Name"].default_value = "idx"
+    L = ng.links
+    L.new(n_in.outputs["Geometry"], iop.inputs["Points"])
+    L.new(ci.outputs["Instances"], iop.inputs["Instance"])
+    L.new(_out_socket(a_idx, "INT"), iop.inputs["Instance Index"])
+    L.new(_out_socket(a_eul, "VECTOR"), iop.inputs["Rotation"])
+    L.new(_out_socket(a_scl, "VALUE"), iop.inputs["Scale"])
+    L.new(iop.outputs["Instances"], n_out.inputs["Geometry"])
+    return ng
+
+
 def place_clusters(coll):
-    """Distribuisce i mazzetti fioriti lungo il legno fine, come oggetti istanziati."""
+    """Distribuisce i mazzetti fioriti lungo il legno fine, come istanze GN."""
     variants = []
+    # collezione sorgente NON collegata alla scena: le varianti vivono solo
+    # dentro il nodo "Collection Info", quindi non vengono renderizzate doppie
+    coll_var = bpy.data.collections.new("Mazzetti_Varianti")
     for i in range(12):
         random.seed(SEED + 100 + i)
         buf, n_flowers = build_cluster_variant(i)
         me = to_mesh("Mazzetto_%02d" % (i + 1), buf, smooth=True)
         for m in (mat_petals(), mat_stamens(), mat_calyx(), mat_young_leaf()):
             me.materials.append(m)
-        variants.append((me, buf.nverts(), n_flowers))
+        vob = bpy.data.objects.new("Mazzetto_%02d" % (i + 1), me)
+        coll_var.objects.link(vob)
+        variants.append((i, buf.nverts(), n_flowers))
     random.seed(SEED + 500)
 
     # candidati: (punto, direzione del rametto, raggio locale, profondita')
@@ -1395,11 +1518,11 @@ def place_clusters(coll):
     for p0, p1, sd, depth, radius in cand:
         seg_len = (p1 - p0).length
         if depth == 1:
-            step_d = step * 4.5      # sui rami maestri solo qualche mazzetto
+            step_d = step * 2.6      # anche il legno grosso fiorisce fitto
         elif depth == 2:
-            step_d = step * 4.0
+            step_d = step * 2.2
         elif depth == 3:
-            step_d = step * 2.5
+            step_d = step * 1.6
         else:
             step_d = step
         n_cl = int(seg_len / step_d)
@@ -1413,6 +1536,13 @@ def place_clusters(coll):
     for p0, p1, sd, depth, radius in TIPS:
         if len(plan) < MAX_CLUSTERS:
             plan.append((p1 - sd * 0.006, sd, radius, depth))
+        # sulle punte del legno grosso una "corona" di mazzetti nasconde
+        # la sezione del ramo: nessuna punta deve restare spoglia
+        if depth <= 2:
+            for _ in range(5):
+                q = (p1 - sd * rr(0.02, 0.22) + perp(sd) * rr(-0.11, 0.11)
+                     + Vector((0, 0, rr(-0.10, 0.07))))
+                plan.append((q, sd, radius, max(depth, FLOWER_MIN_DEPTH)))
     # dardi sul legno grosso
     for p, sd, depth in SPURS:
         if random.random() < 0.45:
@@ -1421,13 +1551,15 @@ def place_clusters(coll):
         random.shuffle(plan)
         plan = plan[:MAX_CLUSTERS]
 
-    coll_flowers = bpy.data.collections.new("Fioritura")
-    bpy.context.scene.collection.children.link(coll_flowers)
-
     n_flowers = 0
     n_blooms = 0
+    pts = []
+    eul = []
+    scl = []
+    idx = []
+    tone = []
     for i, (p, sd, radius, depth) in enumerate(plan):
-        me, nv, nb = variants[random.randrange(len(variants))]
+        vi, nv, nb = variants[random.randrange(len(variants))]
         n_blooms += nb
         # direzione del mazzetto: verso l'esterno, un po' verso il basso
         out = Vector((p.x, p.y, 0.0))
@@ -1435,23 +1567,42 @@ def place_clusters(coll):
             out.normalize()
         d = (out * rr(0.35, 0.85) + sd * rr(0.15, 0.45)
              + Vector((0, 0, rr(-0.75, -0.10)))).normalized()
-        ob = bpy.data.objects.new("Mazzetto_%05d" % i, me)
         roll = rr(0, 6.28)
         s = rr(*CLUSTER_SCALE)
-        ob.matrix_world = (Matrix.Translation(p) @ basis_from_dir(d, roll)
-                           @ Matrix.Diagonal((s, s, s, 1.0)))
-        # colore per oggetto: da bianco puro a rosa carico
-        tone = random.random()
-        if tone < 0.34:
+        rot = basis_from_dir(d, roll).to_3x3().to_euler()
+        pts.append(tuple(p))
+        eul.extend((rot.x, rot.y, rot.z))
+        scl.append(s)
+        idx.append(vi)
+        # colore per istanza: da bianco puro a rosa carico
+        t = random.random()
+        if t < 0.34:
             oc = rgb(1.0, rr(0.80, 0.92), rr(0.86, 0.95))
-        elif tone < 0.75:
+        elif t < 0.75:
             oc = rgb(1.0, rr(0.62, 0.80), rr(0.74, 0.90))
         else:
             oc = rgb(rr(0.96, 1.0), rr(0.48, 0.64), rr(0.62, 0.78))
-        ob.color = oc
-        coll_flowers.objects.link(ob)
+        tone.extend(oc)
         n_flowers += nv
-    log("  mazzetti: %d oggetti, %d vertici di fiori (mesh condivise)"
+
+    pme = bpy.data.meshes.new("Fioritura_Punti")
+    pme.from_pydata(pts, [], [])
+    pme.update()
+    at = pme.attributes.new("eul", "FLOAT_VECTOR", "POINT")
+    at.data.foreach_set("vector", eul)
+    at = pme.attributes.new("scl", "FLOAT", "POINT")
+    at.data.foreach_set("value", scl)
+    at = pme.attributes.new("idx", "INT", "POINT")
+    at.data.foreach_set("value", idx)
+    at = pme.attributes.new("Tone", "FLOAT_COLOR", "POINT")
+    at.data.foreach_set("color", tone)
+
+    fob = bpy.data.objects.new("Fioritura", pme)
+    md = fob.modifiers.new("Fioritura", "NODES")
+    md.node_group = _fioritura_nodegroup(coll_var)
+    coll.objects.link(fob)
+
+    log("  mazzetti: %d istanze su 12 varianti, %d vertici di fiori (mesh condivise)"
         % (len(plan), n_flowers))
     log("  fiori e gemme: ~%d" % n_blooms)
     log("  vertici totali scena (legno + terreno + fiori): ~%d"
@@ -1506,6 +1657,12 @@ def main():
     pob = bpy.data.objects.new("Petali_Caduti", pme)
     coll_ground.objects.link(pob)
 
+    log("Petali in aria...")
+    ame = to_mesh("Petali_in_aria", scatter_air_petals(), smooth=True)
+    ame.materials.append(mat_fallen_petals())
+    aob = bpy.data.objects.new("Petali_in_aria", ame)
+    coll_ground.objects.link(aob)
+
     tme = to_mesh("Erba", build_grass_tufts(), smooth=False)
     tme.materials.append(mat_grass())
     tob = bpy.data.objects.new("Erba", tme)
@@ -1541,7 +1698,8 @@ def main():
     scene.render.image_settings.file_format = "PNG"
     scene.render.image_settings.compression = 70
     scene.view_settings.view_transform = "AgX"
-    scene.view_settings.look = "AgX - Medium High Contrast"
+    scene.view_settings.look = "AgX - Punchy"
+    scene.view_settings.exposure = 0.25
     scene.render.film_transparent = False
 
     log("Salvataggio %s" % OUT_BLEND)
