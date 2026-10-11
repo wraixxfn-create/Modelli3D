@@ -13,8 +13,8 @@ falde in coppi, costruito **interamente in modo procedurale** dallo script
 | Anteprima | `anteprima.png` (render Cycles 1600×1100) |
 | Ingombro | 9,00 × 7,00 m, colmo a 8,00 m, comignolo a 9,5 m |
 | Unità | metri (sistema metrico, scala 1:1) |
-| Geometria | ~690 000 vertici, ~250 000 facce |
-| Materiali | 26 materiali procedurali (nessuna texture esterna) |
+| Geometria | ~1,84 milioni di vertici, ~800 000 facce |
+| Materiali | 27 materiali procedurali (nessuna texture esterna) |
 
 ## Cosa contiene il modello
 
@@ -38,19 +38,30 @@ falde in coppi, costruito **interamente in modo procedurale** dallo script
   e gradinata; porta secondaria sul retro
 - balcone con **mensole a voluta** e ringhiera in ferro battuto con balaustrini
 - lanterna da esterno (accesa), cassette fiorite sui davanzali
+- **tende in lino** dietro i vetri, con pieghe ondulate: a velo intero oppure a
+  teli laterali raccolti da una fascetta (il vetro lascia passare i raggi
+  d'ombra, così il sole entra nelle stanze e le illumina)
 
 **Tetto (collezione `Tetto`)**
 - orditura completa: trave di colmo, arcarecci sporgenti, 40 travetti, tavolato
   a tavole singole, frontalino di gronda e tavole di bordo
 - **~3 650 coppi posati uno a uno** (canali + coppi + colmo), ognuno con
   rotazione, scala e colore leggermente diversi (attributo di colore per tegola)
-- grondaie con staffe, pluviali con gomiti e collari
+- grondaie con staffe, pluviali con gomiti e collari, posati sui cantonali
+  (lontano dalle persiane aperte) e con pozzetto a griglia alla base
 - comignolo con **288 mattoni posati uno a uno** e mitra in cotto
 
 **Giardino (collezione `Giardino`)**
-- terreno a maglia polare di 90 m di raggio (fitto vicino alla casa),
-  46 000 ciuffi d'erba, vialetto in lastre di pietra irregolari con ghiaia
-- siepi, cespugli, cipressi, due alberi a foglia larga, vasi in cotto con gerani
+- terreno a maglia polare di 170 m di raggio (fitto vicino alla casa) che si
+  alza in **colline** all'orizzonte
+- **marciapiede perimetrale** in lastre di pietra con fughe e cordolo
+- 22 000 ciuffi d'erba, ognuno con 4–7 fili a raggiera (alcuni secchi),
+  vialetto in lastre di pietra irregolari con ghiaia
+- **cespugli, cipressi e alberi rivestiti di foglie** posate una a una
+  (~166 000, alberi di sfondo compresi), con tinta diversa per foglia e
+  qualche foglia ingiallita; vasi in cotto con gerani
+- paesaggio di fondo: **filari di cipressi** e macchie di alberi sulle colline,
+  sfumati da una **foschia atmosferica** che cresce con la distanza
 
 **Scena** — cielo procedurale Nishita (la luce ambiente è attenuata rispetto al
 cielo visibile in camera, così il sole resta protagonista), sole alle 26° di
@@ -65,7 +76,7 @@ python3 genera_casa.py            # ricostruisce casa.blend
 python3 genera_casa.py --render   # ricostruisce e renderizza anteprima.png
 ```
 
-La costruzione della geometria richiede circa 2 secondi; il render di anteprima
+La costruzione della geometria richiede circa 5 secondi; il render di anteprima
 (1600×1100, 96 campioni, denoiser) qualche minuto su CPU.
 
 Il risultato è deterministico: tutte le variazioni casuali (posa dei coppi,

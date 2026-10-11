@@ -25,10 +25,16 @@ Contenuto del modello
     colmo in coppi, tavole di bordo, grondaie, pluviali e staffe
   * comignolo in mattoni (posati uno a uno) con mitra in cotto
   * timpani con occhio in pietra e grata di aerazione in legno
-  * lanterna da esterno accesa e cassette fiorite sui davanzali
-  * giardino: terreno ondulato (90 m di raggio) con 46000 ciuffi d'erba,
-    vialetto in lastre di pietra, siepi, cespugli, cipressi, alberi
-    a foglia larga e vasi in cotto con gerani
+  * lanterna da esterno accesa, cassette fiorite sui davanzali e tende in
+    lino (a velo o a teli raccolti) dietro i vetri
+  * marciapiede perimetrale in lastre di pietra con cordolo; pluviali sui
+    cantonali con collari e pozzetto a griglia
+  * giardino: terreno ondulato (170 m di raggio, con colline all'orizzonte),
+    22000 ciuffi d'erba a raggiera con fili secchi, vialetto in lastre di
+    pietra, cespugli e cipressi rivestiti di foglie (tinta per foglia),
+    alberi a foglia larga e vasi in cotto con gerani
+  * paesaggio di fondo: filari di cipressi e macchie d'alberi sulle colline,
+    con prospettiva aerea (foschia in funzione della distanza dalla camera)
   * cielo procedurale (Nishita), sole, camera di presentazione
 
 Esecuzione (richiede il modulo `bpy` di Blender 4.x):
@@ -646,6 +652,21 @@ def mat_vetro():
     b.inputs["Transmission Weight"].default_value = 1.0
     b.inputs["IOR"].default_value = 1.45
     m.use_backface_culling = False
+    # i raggi d'ombra attraversano il vetro (caustiche disattivate): cosi' il
+    # sole entra nelle stanze e illumina tende e davanzali interni
+    lp = nt.nodes.new("ShaderNodeLightPath")
+    lp.location = (300, 300)
+    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+    tr.location = (300, -240)
+    tr.inputs["Color"].default_value = (0.86, 0.9, 0.88, 1.0)
+    mixs = nt.nodes.new("ShaderNodeMixShader")
+    mixs.location = (480, 0)
+    outn = [x for x in nt.nodes if x.type == "OUTPUT_MATERIAL"][0]
+    outn.location = (700, 0)
+    nt.links.new(lp.outputs["Is Shadow Ray"], mixs.inputs[0])
+    nt.links.new(b.outputs["BSDF"], mixs.inputs[1])
+    nt.links.new(tr.outputs["BSDF"], mixs.inputs[2])
+    nt.links.new(mixs.outputs["Shader"], outn.inputs["Surface"])
     return m
 
 
@@ -661,38 +682,116 @@ def mat_metallo(name, col, rough, metallic=1.0):
     return m
 
 
+HAZE_COL = (206, 216, 222)      # colore della foschia atmosferica (sRGB)
+
+
+def _foschia(nt, col_out, d0=35.0, d1=190.0, amount=0.46, loc=(-60, -420)):
+    """Prospettiva aerea: sfuma il colore verso la foschia con la distanza
+    dalla camera (nodo Camera Data / View Distance)."""
+    cam = nt.nodes.new("ShaderNodeCameraData")
+    cam.location = (loc[0] - 420, loc[1])
+    mr = nt.nodes.new("ShaderNodeMapRange")
+    mr.location = (loc[0] - 240, loc[1])
+    mr.inputs["From Min"].default_value = d0
+    mr.inputs["From Max"].default_value = d1
+    mr.inputs["To Min"].default_value = 0.0
+    mr.inputs["To Max"].default_value = amount
+    mr.interpolation_type = "SMOOTHSTEP"
+    mr.clamp = True
+    nt.links.new(cam.outputs["View Distance"], mr.inputs["Value"])
+    return _mix(nt, mr.outputs["Result"], col_out, srgb(*HAZE_COL), loc=loc)
+
+
 def mat_erba():
-    """Prato: verde variegato con terra nelle zone piu' rade."""
+    """Prato: verde variegato, chiazze di erba secca e terra nelle zone rade."""
     m, nt, b = _mat("Prato")
-    gen = _coord(nt, (-1200, 0), "Generated", 1.0)
     tc = nt.nodes.new("ShaderNodeTexCoord")
     tc.location = (-1400, 0)
-    mp = nt.nodes.new("ShaderNodeMapping")
-    mp.location = (-1200, 0)
-    mp.inputs["Scale"].default_value = (1.0, 1.0, 1.0)
-    nt.links.new(tc.outputs["Object"], mp.inputs["Vector"])
-    big = _noise(nt, 0.6, 10.0, 0.6, 0.5, loc=(-950, 200), vec=mp.outputs["Vector"])
-    small = _noise(nt, 14.0, 12.0, 0.7, loc=(-950, -120), vec=mp.outputs["Vector"])
-    ramp = _ramp(nt, big.outputs["Fac"],
-                 [(0.28, srgb(46, 68, 26)), (0.52, srgb(70, 96, 36)),
-                  (0.78, srgb(96, 116, 46))], loc=(-700, 200))
-    col = _mix(nt, 0.2, ramp.outputs["Color"], small.outputs["Color"], loc=(-420, 0))
+    vec = tc.outputs["Object"]
+    big = _noise(nt, 0.08, 6.0, 0.55, 0.4, loc=(-950, 380), vec=vec)
+    mid = _noise(nt, 0.6, 10.0, 0.6, 0.5, loc=(-950, 140), vec=vec)
+    small = _noise(nt, 14.0, 12.0, 0.7, loc=(-950, -120), vec=vec)
+    ramp = _ramp(nt, mid.outputs["Fac"],
+                 [(0.28, srgb(52, 78, 24)), (0.52, srgb(78, 108, 34)),
+                  (0.78, srgb(104, 126, 44))], loc=(-700, 140))
+    # chiazze di erba secca (scala grande)
+    secca = _ramp(nt, big.outputs["Fac"],
+                  [(0.50, (0.0, 0.0, 0.0)), (0.68, (0.55, 0.55, 0.55))], loc=(-700, 380))
+    c1 = _mix(nt, secca.outputs["Color"], ramp.outputs["Color"], srgb(150, 140, 78),
+              loc=(-460, 200))
+    col = _mix(nt, 0.16, c1, small.outputs["Color"], loc=(-300, 0))
+    col = _foschia(nt, col)
     nt.links.new(col, b.inputs["Base Color"])
     b.inputs["Roughness"].default_value = 0.95
-    _bump(nt, small.outputs["Fac"], b, 0.4, 0.02)
+    b.inputs["Specular IOR Level"].default_value = 0.2
+    _bump(nt, small.outputs["Fac"], b, 0.3, 0.02)
     return m
 
 
-def mat_fogliame(name="Fogliame", c0=(42, 70, 30), c1=(86, 120, 44)):
+def mat_fogliame(name="Fogliame", c0=(42, 70, 30), c1=(86, 120, 44), use_attr=False,
+                 haze=True):
+    """Fogliame: rumore di colore, eventuale tinta per foglia (attributo `Var`),
+    leggera traslucenza e foschia in lontananza."""
     m, nt, b = _mat(name)
     gen = _coord(nt, (-1100, 0), "Object")
     n = _noise(nt, 26.0, 12.0, 0.75, 0.4, loc=(-850, 0), vec=gen)
     col = _ramp(nt, n.outputs["Fac"], [(0.3, srgb(*c0)), (0.7, srgb(*c1))], loc=(-600, 0))
-    nt.links.new(col.outputs["Color"], b.inputs["Base Color"])
-    b.inputs["Roughness"].default_value = 0.78
-    b.inputs["Subsurface Weight"].default_value = 0.12
+    out = col.outputs["Color"]
+    if use_attr:
+        at = nt.nodes.new("ShaderNodeAttribute")
+        at.location = (-600, 240)
+        at.attribute_name = "Var"
+        mx = nt.nodes.new("ShaderNodeMix")
+        mx.data_type = "RGBA"
+        mx.blend_type = "MULTIPLY"
+        mx.location = (-360, 120)
+        mx.inputs[0].default_value = 1.0
+        nt.links.new(out, mx.inputs[6])
+        nt.links.new(at.outputs["Color"], mx.inputs[7])
+        out = mx.outputs[2]
+    if haze:
+        out = _foschia(nt, out, loc=(-180, -300))
+    nt.links.new(out, b.inputs["Base Color"])
+    b.inputs["Roughness"].default_value = 0.62
+    b.inputs["Specular IOR Level"].default_value = 0.35
+    b.inputs["Subsurface Weight"].default_value = 0.15
     b.inputs["Subsurface Radius"].default_value = (0.03, 0.05, 0.02)
-    _bump(nt, n.outputs["Fac"], b, 0.6, 0.02)
+    _bump(nt, n.outputs["Fac"], b, 0.4, 0.01)
+    # le foglie sono superfici sottili: un po' di luce passa dal retro
+    tr = nt.nodes.new("ShaderNodeBsdfTranslucent")
+    tr.location = (300, -260)
+    nt.links.new(out, tr.inputs["Color"])
+    mixs = nt.nodes.new("ShaderNodeMixShader")
+    mixs.location = (480, -60)
+    mixs.inputs[0].default_value = 0.22
+    outn = [x for x in nt.nodes if x.type == "OUTPUT_MATERIAL"][0]
+    outn.location = (700, 0)
+    nt.links.new(b.outputs["BSDF"], mixs.inputs[1])
+    nt.links.new(tr.outputs["BSDF"], mixs.inputs[2])
+    nt.links.new(mixs.outputs["Shader"], outn.inputs["Surface"])
+    return m
+
+
+def mat_tende():
+    """Tende in lino chiaro, semitrasparenti in controluce."""
+    m, nt, b = _mat("Tende_lino")
+    gen = _coord(nt, (-900, 0), "Object")
+    trama = _noise(nt, 420.0, 4.0, 0.6, loc=(-650, -160), vec=gen)
+    b.inputs["Base Color"].default_value = (*srgb(238, 232, 218), 1.0)
+    b.inputs["Roughness"].default_value = 0.9
+    b.inputs["Sheen Weight"].default_value = 0.4
+    _bump(nt, trama.outputs["Fac"], b, 0.15, 0.002)
+    tr = nt.nodes.new("ShaderNodeBsdfTranslucent")
+    tr.location = (300, -260)
+    tr.inputs["Color"].default_value = (*srgb(244, 236, 214), 1.0)
+    mixs = nt.nodes.new("ShaderNodeMixShader")
+    mixs.location = (480, -60)
+    mixs.inputs[0].default_value = 0.4
+    outn = [x for x in nt.nodes if x.type == "OUTPUT_MATERIAL"][0]
+    outn.location = (700, 0)
+    nt.links.new(b.outputs["BSDF"], mixs.inputs[1])
+    nt.links.new(tr.outputs["BSDF"], mixs.inputs[2])
+    nt.links.new(mixs.outputs["Shader"], outn.inputs["Surface"])
     return m
 
 
@@ -1033,6 +1132,62 @@ def add_cassetta_fiori(B, fr, uc, w, z):
                        scale=(1.0, 1.0, 0.75), seed_off=rr(0, 20))
 
 
+def add_tenda(B, fr, ua, ub, za, zb, stile):
+    """Tenda in lino appesa a un bastoncino, con pieghe ondulate.
+
+    stile = "velo"     : un unico telo leggero su tutta la luce
+            "laterali" : due teli raccolti ai lati da una fascetta
+    """
+    tende = B["tende"]
+    oc = -T_W + 0.075                       # piano medio della tenda
+    zr = zb - 0.035
+    add_cylinder(B["ferro"], wp(fr, ua - 0.03, zr, oc), wp(fr, ub + 0.03, zr, oc), 0.009, 6)
+    for uu in (ua - 0.03, ub + 0.03):
+        add_sphere(B["ottone"], wp(fr, uu, zr, oc), 0.016, 8, 6)
+    if stile == "velo":
+        teli = [(ua, ub, 0.012, 1.0)]
+    else:
+        lw = (ub - ua) * 0.34
+        teli = [(ua, ua + lw, 0.026, 1.0), (ub, ub - lw, 0.026, 1.0)]
+    z_top, z_bot = zr - 0.01, za + 0.03
+    H = z_top - z_bot
+    for (u_est, u_int, amp, _) in teli:
+        span = u_int - u_est
+        ncol = max(10, int(abs(span) / 0.010))
+        nrow = 14
+        ph = rr(0, TAU)
+        wl = rr(0.060, 0.080)
+        rows = []
+        for i in range(nrow + 1):
+            t = i / float(nrow)
+            z = z_bot + H * t
+            if stile == "laterali":
+                # strozzatura della fascetta a circa 40% dell'altezza
+                g = math.exp(-((t - 0.40) / 0.22) ** 2)
+                wfac = 1.0 - 0.55 * g
+                a_amp = amp * (1.0 + 0.9 * g)
+            else:
+                wfac, a_amp = 1.0, amp
+            row = []
+            for j in range(ncol + 1):
+                f = j / float(ncol)
+                u = u_est + span * f * wfac
+                k = TAU * (abs(span) * f) / wl + ph
+                off = a_amp * math.sin(k) * (0.6 + 0.4 * t if stile == "velo" else 1.0)
+                row.append(wp(fr, u, z, oc + off))
+            rows.append(tende.add(row))
+        for i in range(nrow):
+            a, b = rows[i], rows[i + 1]
+            for j in range(ncol):
+                tende.face((a + j, a + j + 1, b + j + 1, b + j), True)
+        if stile == "laterali":
+            # fascetta che raccoglie il telo
+            zt = z_bot + H * 0.40
+            uw = abs(span) * 0.45
+            u0 = min(u_est, u_est + math.copysign(uw, span))
+            wbox(tende, fr, u0, u0 + uw, zt - 0.02, zt + 0.02, oc - 0.05, oc + 0.05)
+
+
 def build_finestra(B, spec):
     fr = wall_frame(spec["wall"])
     uc, w, z0, z1 = spec["uc"], spec["w"], spec["z0"], spec["z1"]
@@ -1080,6 +1235,13 @@ def build_finestra(B, spec):
             add_sphere(B["ottone"], p + n * 0.045, 0.019, 8, 6)
     else:
         add_anta(B, fr, ua, ub, za, zb, out_c, spec["traversi"])
+
+    # tende interne: a velo intero oppure a teli laterali raccolti
+    tenda = {"aperte": "laterali", "socchiuse": "velo", None: "velo"}.get(spec["shut"])
+    if spec["kind"] == "portafinestra":
+        tenda = "laterali"
+    if tenda:
+        add_tenda(B, fr, ua, ub, za, zb, tenda)
 
     if spec["fiori"]:
         add_cassetta_fiori(B, fr, uc, w, z0 - 0.02)
@@ -1454,8 +1616,10 @@ def build_tetto(B):
     for (sx, sy) in ((-1, -1), (1, 1)):
         gy = sy * (Y_EAVE + 0.055)
         gz = roof_z(Y_EAVE) - 0.075
-        x = sx * (HALF_X - 0.42)
-        wy = sy * (HALF_Y + 0.115)
+        # sul cantonale d'angolo: cosi' le persiane aperte della finestra
+        # vicina non urtano il tubo
+        x = sx * (HALF_X - 0.22)
+        wy = sy * (HALF_Y + 0.13)
         pts = [Vector((x, gy, gz - 0.02)), Vector((x, gy, gz - 0.32)),
                Vector((x, wy, gz - 0.72)), Vector((x, wy, 0.52)),
                Vector((x, sy * (HALF_Y + 0.34), 0.20))]
@@ -1465,6 +1629,13 @@ def build_tetto(B):
         for zz in (1.1, 2.6, 4.2, 5.4):
             add_box(zinco, (x - 0.02, min(wy, sy * HALF_Y), zz - 0.02),
                     (x + 0.02, max(wy, sy * HALF_Y), zz + 0.02))
+            add_torus(zinco, Vector((x, wy, zz)), (1, 0, 0), (0, 1, 0), 0.05, 0.008, 14, 5)
+        # pozzetto con griglia sotto la scarpa del pluviale
+        yc = sy * (HALF_Y + 0.40)
+        add_box(B["pietra"], (x - 0.17, yc - 0.17, -0.05), (x + 0.17, yc + 0.17, 0.05))
+        for k in range(5):
+            xx = x - 0.10 + k * 0.05
+            add_box(ferro, (xx - 0.008, yc - 0.12, 0.05), (xx + 0.008, yc + 0.12, 0.058))
 
 
 def build_colmo(B):
@@ -1544,7 +1715,7 @@ def build_comignolo(B):
 # ---------------------------------------------------------------------------
 # Ambiente: terreno, erba, vialetto, siepi, cipressi, vasi
 # ---------------------------------------------------------------------------
-TERR_R = 90.0
+TERR_R = 170.0
 
 
 def terrain_z(x, y):
@@ -1553,7 +1724,13 @@ def terrain_z(x, y):
     n1 = noise.noise(Vector((x * 0.022, y * 0.022, 3.1))) * 2.6
     n2 = noise.noise(Vector((x * 0.075, y * 0.075, 7.7))) * 0.55
     n3 = noise.noise(Vector((x * 0.30, y * 0.30, 1.3))) * 0.08
-    return (n1 + n2 + n3) * flat - 0.03
+    # colline lontane che chiudono l'orizzonte
+    dd = math.hypot(x, y)
+    far = clamp((dd - 36.0) / 70.0, 0.0, 1.0)
+    far = far * far * (3.0 - 2.0 * far)
+    hill = ((noise.noise(Vector((x * 0.0105, y * 0.0105, 11.3))) * 0.5 + 0.55) * 17.0
+            + noise.noise(Vector((x * 0.035, y * 0.035, 4.2))) * 2.4)
+    return (n1 + n2 + n3) * flat - 0.03 + far * max(0.0, hill)
 
 
 def build_terreno(B):
@@ -1569,7 +1746,7 @@ def build_terreno(B):
         step *= 1.13
         r += step
         radii.append(min(r, TERR_R))
-    segs = 112
+    segs = 168
     rings = []
     for r in radii:
         row = []
@@ -1585,10 +1762,50 @@ def build_terreno(B):
             terra.face((a + j, a + k, b + k, b + j), True)
 
 
+MARC_W = 0.70           # larghezza del marciapiede perimetrale
+MARC_Z = 0.035          # quota del piano di calpestio del marciapiede
+
+
+def build_marciapiede(B):
+    """Marciapiede perimetrale in lastre di pietra con fughe, che raccorda la
+    casa al prato (le lastre hanno quota e colore leggermente variati)."""
+    sasso = B["lastre"]
+    gap = 0.012
+
+    def lastra(x0, x1, y0, y1):
+        sasso.color = jitter_color(srgb(166, 158, 144), 0.12)
+        zt = MARC_Z + rr(-0.004, 0.004)
+        add_box(sasso, (x0 + gap / 2, y0 + gap / 2, -0.10), (x1 - gap / 2, y1 - gap / 2, zt))
+
+    def fila(a0, a1, b0, b1, lungo_x):
+        L = a1 - a0
+        n = max(1, int(round(L / 0.58)))
+        cuts = [a0] + [a0 + L * i / n + rr(-0.05, 0.05) for i in range(1, n)] + [a1]
+        for i in range(n):
+            if lungo_x:
+                lastra(cuts[i], cuts[i + 1], b0, b1)
+            else:
+                lastra(b0, b1, cuts[i], cuts[i + 1])
+
+    X0, X1 = -HALF_X - MARC_W, HALF_X + MARC_W
+    fila(X0, X1, -HALF_Y - MARC_W, -HALF_Y, True)             # fronte (Sud)
+    fila(X0, X1, HALF_Y, HALF_Y + MARC_W, True)               # retro (Nord)
+    fila(-HALF_Y, HALF_Y, HALF_X, HALF_X + MARC_W, False)     # Est
+    fila(-HALF_Y, HALF_Y, -HALF_X - MARC_W, -HALF_X, False)   # Ovest
+    # cordolo esterno in pietra
+    c = 0.07
+    for (a, b_) in (((X0 - c, -HALF_Y - MARC_W - c), (X1 + c, -HALF_Y - MARC_W)),
+                    ((X0 - c, HALF_Y + MARC_W), (X1 + c, HALF_Y + MARC_W + c)),
+                    ((X0 - c, -HALF_Y - MARC_W), (X0, HALF_Y + MARC_W)),
+                    ((X1, -HALF_Y - MARC_W), (X1 + c, HALF_Y + MARC_W))):
+        sasso.color = jitter_color(srgb(150, 144, 132), 0.08)
+        add_box(sasso, (a[0], a[1], -0.10), (b_[0], b_[1], MARC_Z + 0.012))
+
+
 def build_vialetto(B):
     """Vialetto in lastre di pietra irregolari davanti all'ingresso."""
     sasso = B["lastre"]
-    y = -3.95
+    y = -4.66
     while y > -11.5:
         w = 1.75 if y > -9.0 else 1.5
         nst = 3
@@ -1606,7 +1823,7 @@ def build_vialetto(B):
     # ghiaia ai bordi
     for i in range(320):
         t = rr(0.0, 1.0)
-        yy = -3.9 - t * 7.6
+        yy = -4.62 - t * 6.9
         side = 1 if random.random() < 0.5 else -1
         xx = side * (0.92 + rr(0.0, 0.42))
         zz = terrain_z(xx, yy)
@@ -1615,8 +1832,9 @@ def build_vialetto(B):
                   Matrix.Rotation(rr(0, TAU), 3, 'Z'))
 
 
-def build_erba(B, count=46000):
-    """Ciuffi d'erba: lamine piegate, piu' dense vicino alla casa."""
+def build_erba(B, count=22000):
+    """Ciuffi d'erba: 4-7 lamine piegate a raggiera da un unico cespo,
+    piu' fitti vicino alla casa, con qualche filo secco."""
     erba = B["erba"]
     placed = 0
     guard = 0
@@ -1625,44 +1843,122 @@ def build_erba(B, count=46000):
         a = rr(0, TAU)
         r = (random.random() ** 0.62) * 19.0
         x, y = math.cos(a) * r, math.sin(a) * r
-        if abs(x) < HALF_X + 0.55 and abs(y) < HALF_Y + 0.55:
+        if abs(x) < HALF_X + MARC_W + 0.05 and abs(y) < HALF_Y + MARC_W + 0.05:
             continue
         if abs(x) < 1.35 and -11.8 < y < -3.5:
             continue
         z = terrain_z(x, y)
-        h = rr(0.09, 0.32)
-        wdt = rr(0.010, 0.019)
-        ang = rr(0, TAU)
-        d = Vector((math.cos(ang), math.sin(ang), 0.0))
-        side = Vector((-d.y, d.x, 0.0))
-        bend = rr(0.25, 0.75)
-        p = Vector((x, y, z))
-        prev_l = p - side * (wdt / 2.0)
-        prev_r = p + side * (wdt / 2.0)
-        bi = erba.add([prev_l, prev_r])
-        segs = 3
-        for s in range(1, segs + 1):
-            t = s / float(segs)
-            hh = h * t
-            off = d * (h * bend * t * t)
-            w2 = wdt * (1.0 - 0.85 * t)
-            c = p + Vector((off.x, off.y, hh - h * 0.12 * t * t))
-            ni = erba.add([c - side * (w2 / 2.0), c + side * (w2 / 2.0)])
-            erba.face((bi, bi + 1, ni + 1, ni), True)
-            bi = ni
+        segs = 3 if r < 6.5 else 2
+        secca = random.random() < 0.12
+        hbase = rr(0.10, 0.30)
+        for _ in range(random.randint(4, 7)):
+            if secca and random.random() < 0.6:
+                erba.color = (rr(0.95, 1.0), rr(0.82, 0.9), rr(0.42, 0.55))
+            else:
+                k = rr(0.62, 0.92)
+                erba.color = (k * rr(0.85, 1.0), k, k * rr(0.75, 1.0))
+            ang = rr(0, TAU)
+            d = Vector((math.cos(ang), math.sin(ang), 0.0))
+            side = Vector((-d.y, d.x, 0.0))
+            p = Vector((x, y, z)) + d * rr(0.0, 0.035)
+            h = hbase * rr(0.7, 1.25)
+            wdt = rr(0.010, 0.018)
+            bend = rr(0.2, 0.8)
+            bi = erba.add([p - side * (wdt / 2.0), p + side * (wdt / 2.0)])
+            for s_ in range(1, segs + 1):
+                t = s_ / float(segs)
+                off = d * (h * bend * t * t)
+                w2 = wdt * (1.0 - 0.85 * t)
+                c = p + Vector((off.x, off.y, h * t - h * 0.12 * t * t))
+                ni = erba.add([c - side * (w2 / 2.0), c + side * (w2 / 2.0)])
+                erba.face((bi, bi + 1, ni + 1, ni), True)
+                bi = ni
         placed += 1
 
 
-def build_cespuglio(B, c, r, n=4, col="siepe"):
+def add_foglia(buf, p, nrm, up, size, aspect=0.45):
+    """Foglia a losanga, piegata lungo la nervatura centrale (2 triangoli)."""
+    t = up - nrm * up.dot(nrm)
+    if t.length < 1e-4:
+        t = nrm.orthogonal()
+    t.normalize()
+    a = rr(-0.9, 0.9)
+    s_ = nrm.cross(t)
+    t = t * math.cos(a) + s_ * math.sin(a)
+    s_ = nrm.cross(t)
+    hw = size * aspect * 0.5
+    curl = nrm * (size * 0.13)
+    base = p - t * (size * 0.5)
+    tip = p + t * (size * 0.5) - curl * 0.6
+    l = p - s_ * hw + t * (size * 0.06) - curl
+    r = p + s_ * hw + t * (size * 0.06) - curl
+    i = buf.add((base, r, tip, l))
+    buf.face((i, i + 1, i + 2))
+    buf.face((i, i + 2, i + 3))
+
+
+def tinta_foglia():
+    """Moltiplicatore di colore per foglia: verdi variati, qualche foglia ingiallita."""
+    q = random.random()
+    if q < 0.07:
+        return (1.0, rr(0.85, 0.95), rr(0.45, 0.6))
+    if q < 0.22:
+        k = rr(0.55, 0.7)
+        return (k, k * rr(1.0, 1.08), k * rr(0.85, 1.0))
+    return (rr(0.75, 0.95), rr(0.85, 1.0), rr(0.7, 0.95))
+
+
+def build_cespuglio(B, c, r, n=4, col="siepe", leaf=0.085, dens=560.0, max_leaves=7500):
+    """Cespuglio: nucleo a masse irregolari (in ombra) rivestito di foglie."""
     buf = B[col]
+    c = Vector(c)
+    blobs = []
     for i in range(n):
         off = Vector((rr(-r * 0.55, r * 0.55), rr(-r * 0.55, r * 0.55), rr(-r * 0.2, r * 0.35)))
-        add_sphere(buf, Vector(c) + off, r * rr(0.6, 0.85), 14, 9, amp=0.33, nscale=5.0,
-                   scale=(1.0, 1.0, rr(0.75, 1.0)), seed_off=rr(0, 50))
+        rad = r * rr(0.6, 0.85)
+        sz = rr(0.75, 1.0)
+        so = rr(0, 50)
+        buf.color = (0.40, 0.44, 0.38)
+        add_sphere(buf, c + off, rad * 0.94, 14, 9, amp=0.33, nscale=5.0,
+                   scale=(1.0, 1.0, sz), seed_off=so)
+        blobs.append((c + off, rad, sz, so))
+    if leaf <= 0.0:
+        return
+    area = sum(4.0 * PI * b[1] * b[1] for b in blobs)
+    nl = min(max_leaves, int(area * dens))
+    zmin = terrain_z(c.x, c.y) + 0.03
+    for k in range(nl):
+        cc, rad, sz, so = blobs[random.randrange(len(blobs))]
+        d = Vector((random.gauss(0, 1), random.gauss(0, 1), random.gauss(0, 1)))
+        if d.length < 1e-6:
+            continue
+        d.normalize()
+        if d.z < -0.4:
+            d.z = -d.z
+        nz = noise.noise(d * 5.0 + Vector((so, so, so)))
+        rs = rad * (1.0 + 0.33 * nz) * rr(0.97, 1.07)
+        p = cc + Vector((d.x * rs, d.y * rs, d.z * rs * sz))
+        if p.z < zmin:
+            continue
+        # scarta le foglie che finirebbero sepolte dentro un'altra massa
+        sepolta = False
+        for (c2, r2, s2, _) in blobs:
+            if c2 is cc:
+                continue
+            q = p - c2
+            if (q.x * q.x + q.y * q.y + (q.z / s2) ** 2) < (r2 * 0.78) ** 2:
+                sepolta = True
+                break
+        if sepolta:
+            continue
+        nrm = (d + Vector((rr(-0.5, 0.5), rr(-0.5, 0.5), rr(-0.2, 0.6)))).normalized()
+        buf.color = tinta_foglia()
+        add_foglia(buf, p, nrm, Vector((0, 0, 1)), leaf * rr(0.75, 1.25))
 
 
-def build_cipresso(B, x, y, h=6.6):
+def build_cipresso(B, x, y, h=6.6, rametti=0):
     chioma, legno = B["cipresso"], B["legno"]
+    chioma.color = (0.5, 0.54, 0.5) if rametti else (1.0, 1.0, 1.0)
     z0 = terrain_z(x, y)
     add_cylinder(legno, (x, y, z0 - 0.1), (x, y, z0 + 0.7), 0.1, 10)
     R = h * 0.115
@@ -1686,11 +1982,25 @@ def build_cipresso(B, x, y, h=6.6):
         for j in range(segs):
             k = (j + 1) % segs
             chioma.face((a + j, a + k, b + k, b + j), True)
+    # rametti: piccole squame allungate rivolte verso l'alto
+    for _ in range(rametti):
+        t = rr(0.02, 0.97)
+        a = rr(0, TAU)
+        rad = R * (1.0 - t ** 2.3) * min(1.0, 3.4 * t + 0.10)
+        nz = noise.noise(Vector((math.cos(a) * 2.2, math.sin(a) * 2.2, t * 7.0 + x)))
+        rad = max(0.01, rad * (1.0 + 0.22 * nz)) * rr(0.98, 1.06)
+        d = Vector((math.cos(a), math.sin(a), 0.0))
+        p = Vector((x + d.x * rad, y + d.y * rad, z0 + 0.45 + t * h))
+        nrm = (d + Vector((rr(-0.4, 0.4), rr(-0.4, 0.4), rr(0.1, 0.7)))).normalized()
+        chioma.color = tinta_foglia()
+        add_foglia(chioma, p, nrm, Vector((0, 0, 1)), rr(0.09, 0.15), 0.32)
 
 
-def build_albero(B, x, y, h=7.0, seed=0):
-    """Albero a foglia larga: tronco, branche e chioma a masse irregolari."""
+def build_albero(B, x, y, h=7.0, seed=0, foglie=2500):
+    """Albero a foglia larga: tronco, branche e chioma a masse irregolari,
+    rivestita di foglie (grandi, pensate per la visione da lontano)."""
     legno, chioma = B["legno"], B["chioma"]
+    masse = []
     z0 = terrain_z(x, y)
     base = Vector((x, y, z0 - 0.2))
     trunk_h = h * 0.42
@@ -1707,18 +2017,33 @@ def build_albero(B, x, y, h=7.0, seed=0):
         d = Vector((math.cos(a), math.sin(a), rr(0.9, 1.6))).normalized()
         e = top + d * (h * rr(0.22, 0.33))
         add_cylinder(legno, top, e, h * 0.016, 7)
-        add_sphere(chioma, e + d * h * 0.07, h * rr(0.14, 0.2), 16, 11, amp=0.34,
-                   nscale=3.6, scale=(1.0, 1.0, 0.85), seed_off=rr(0, 40) + seed)
+        masse.append((e + d * h * 0.07, h * rr(0.14, 0.2), 3.6, 0.85, rr(0, 40) + seed))
     for i in range(4):
         c = top + Vector((rr(-0.9, 0.9), rr(-0.9, 0.9), h * rr(0.18, 0.42)))
-        add_sphere(chioma, c, h * rr(0.15, 0.22), 16, 11, amp=0.34, nscale=3.4,
-                   scale=(1.0, 1.0, 0.82), seed_off=rr(0, 40) + seed)
+        masse.append((c, h * rr(0.15, 0.22), 3.4, 0.82, rr(0, 40) + seed))
+    chioma.color = (0.5, 0.54, 0.48) if foglie else (1.0, 1.0, 1.0)
+    for (c, rad, ns, sz, so) in masse:
+        add_sphere(chioma, c, rad, 16, 11, amp=0.34, nscale=ns, scale=(1.0, 1.0, sz),
+                   seed_off=so)
+    for _ in range(foglie):
+        c, rad, ns, sz, so = masse[random.randrange(len(masse))]
+        d = Vector((random.gauss(0, 1), random.gauss(0, 1), random.gauss(0, 1)))
+        if d.length < 1e-6:
+            continue
+        d.normalize()
+        nz = noise.noise(d * ns + Vector((so, so, so)))
+        rs = rad * (1.0 + 0.34 * nz) * rr(0.98, 1.10)
+        p = c + Vector((d.x * rs, d.y * rs, d.z * rs * sz))
+        nrm = (d + Vector((rr(-0.6, 0.6), rr(-0.6, 0.6), rr(-0.2, 0.6)))).normalized()
+        chioma.color = tinta_foglia()
+        add_foglia(chioma, p, nrm, Vector((0, 0, 1)), h * rr(0.035, 0.05))
 
 
-def build_vaso(B, x, y, scale=1.0):
+def build_vaso(B, x, y, scale=1.0, z0=None):
     """Vaso in cotto con geranio."""
     cotto, terra = B["terracotta"], B["terra"]
-    z0 = terrain_z(x, y)
+    if z0 is None:
+        z0 = terrain_z(x, y)
     nseg = 16
     hs = 0.42 * scale
     rings = [(0.0, 0.17), (0.08, 0.182), (0.74, 0.248), (0.86, 0.252),
@@ -1744,33 +2069,63 @@ def build_vaso(B, x, y, scale=1.0):
                    scale=(1.0, 1.0, 0.8), seed_off=rr(0, 30))
 
 
+def build_sfondo(B):
+    """Paesaggio di fondo: filari di cipressi e macchie d'alberi sulle colline
+    (sfumati dalla foschia) per chiudere l'orizzonte dietro la casa."""
+    # filari di cipressi lungo strade bianche immaginarie
+    for (x0, y0, ang, n, passo) in ((22.0, 52.0, 0.35, 9, 6.5), (-30.0, 70.0, -0.2, 11, 7.0),
+                                    (58.0, 30.0, 1.25, 8, 6.0), (70.0, 92.0, 0.6, 10, 7.5),
+                                    (-6.0, 112.0, 0.05, 12, 8.0)):
+        d = Vector((math.cos(ang), math.sin(ang), 0.0))
+        for i in range(n):
+            x = x0 + d.x * passo * i + rr(-0.6, 0.6)
+            y = y0 + d.y * passo * i + rr(-0.6, 0.6)
+            build_cipresso(B, x, y, rr(6.5, 9.5))
+    # macchie di alberi a foglia larga e cipressi sparsi
+    for i in range(46):
+        a = math.radians(rr(-5.0, 125.0))
+        dist = rr(50.0, 135.0)
+        x, y = math.cos(a) * dist, math.sin(a) * dist
+        if random.random() < 0.35:
+            build_cipresso(B, x, y, rr(6.0, 9.0))
+        else:
+            build_albero(B, x, y, rr(6.5, 10.5), int(rr(0, 99)), foglie=1300)
+            if random.random() < 0.5:
+                build_albero(B, x + rr(-5, 5), y + rr(-5, 5), rr(5.5, 9.0), int(rr(0, 99)),
+                             foglie=1100)
+
+
 def build_giardino(B):
     build_terreno(B)
+    build_marciapiede(B)
     build_vialetto(B)
-    # siepi lungo la facciata
+    # siepi lungo la facciata (fuori dal marciapiede)
     for x in (-3.55, -2.05):
-        build_cespuglio(B, (x, -4.15 + rr(-0.1, 0.1), terrain_z(x, -4.1) + 0.38), 0.75, 4)
+        build_cespuglio(B, (x, -4.78 + rr(-0.1, 0.1), terrain_z(x, -4.8) + 0.38), 0.75, 4)
     for x in (2.15, 3.65):
-        build_cespuglio(B, (x, -4.15 + rr(-0.1, 0.1), terrain_z(x, -4.1) + 0.34), 0.7, 4)
-    build_cespuglio(B, (-5.4, -2.2, terrain_z(-5.4, -2.2) + 0.45), 0.9, 5)
-    build_cespuglio(B, (5.5, -1.4, terrain_z(5.5, -1.4) + 0.42), 0.85, 5)
-    build_cespuglio(B, (-6.2, 2.4, terrain_z(-6.2, 2.4) + 0.5), 1.0, 5)
-    build_cipresso(B, 7.6, -6.2, 7.1)
-    build_cipresso(B, 9.0, -4.4, 6.0)
-    build_cipresso(B, -9.4, 2.2, 6.6)
+        build_cespuglio(B, (x, -4.78 + rr(-0.1, 0.1), terrain_z(x, -4.8) + 0.34), 0.7, 4)
+    build_cespuglio(B, (-6.0, -2.2, terrain_z(-6.0, -2.2) + 0.45), 0.9, 5)
+    build_cespuglio(B, (6.05, -1.4, terrain_z(6.05, -1.4) + 0.42), 0.85, 5)
+    build_cespuglio(B, (-6.5, 2.4, terrain_z(-6.5, 2.4) + 0.5), 1.0, 5)
+    build_cipresso(B, 7.6, -6.2, 7.1, rametti=9000)
+    build_cipresso(B, 9.0, -4.4, 6.0, rametti=7000)
+    build_cipresso(B, -9.4, 2.2, 6.6, rametti=7000)
     # vegetazione di sfondo
     for (bx, by, bh) in ((-21.0, -14.0, 5.6), (-26.0, -4.0, 6.4), (24.0, -18.0, 6.0),
                          (30.0, 4.0, 5.2), (-32.0, 12.0, 6.8), (18.0, 16.0, 5.8)):
-        build_cipresso(B, bx, by, bh)
+        build_cipresso(B, bx, by, bh, rametti=2500)
     for i in range(26):
         a = rr(0, TAU)
         d = rr(16.0, 40.0)
         bx, by = math.cos(a) * d, math.sin(a) * d
-        build_cespuglio(B, (bx, by, terrain_z(bx, by) + rr(0.5, 1.1)), rr(0.9, 1.9), 4)
+        build_cespuglio(B, (bx, by, terrain_z(bx, by) + rr(0.5, 1.1)), rr(0.9, 1.9), 4,
+                        leaf=0.17, dens=95.0, max_leaves=3000)
     build_albero(B, 12.2, -13.0, 8.2, 3)
     build_albero(B, -17.5, -6.0, 7.0, 11)
-    build_vaso(B, -1.35, -4.35, 1.0)
-    build_vaso(B, 1.35, -4.35, 1.0)
+    build_sfondo(B)
+    # gerani in vaso ai lati della gradinata, appoggiati sul marciapiede
+    build_vaso(B, -1.66, -3.93, 1.0, z0=MARC_Z)
+    build_vaso(B, 1.66, -3.93, 1.0, z0=MARC_Z)
 
 
 # ---------------------------------------------------------------------------
@@ -1789,6 +2144,7 @@ BUF_SPEC = [
     ("ferro",        "Ferro_battuto",        "Serramenti", False),
     ("ottone",       "Ottoni",               "Serramenti", False),
     ("luce",         "Lanterna_luce",        "Serramenti", False),
+    ("tende",        "Tende",                "Serramenti", False),
     ("legno",        "Orditura_tetto",       "Tetto",      False),
     ("cotto",        "Coppi",                "Tetto",      True),
     ("zinco",        "Grondaie_e_pluviali",  "Tetto",      False),
@@ -1796,11 +2152,11 @@ BUF_SPEC = [
     ("terracotta",   "Cotto_vari",           "Tetto",      False),
     ("buio",         "Interno_scuro",        "Edificio",   False),
     ("prato",        "Terreno",              "Giardino",   False),
-    ("erba",         "Erba",                 "Giardino",   False),
+    ("erba",         "Erba",                 "Giardino",   True),
     ("lastre",       "Vialetto",             "Giardino",   True),
-    ("siepe",        "Siepi",                "Giardino",   False),
-    ("cipresso",     "Cipressi",             "Giardino",   False),
-    ("chioma",       "Chiome_alberi",        "Giardino",   False),
+    ("siepe",        "Siepi",                "Giardino",   True),
+    ("cipresso",     "Cipressi",             "Giardino",   True),
+    ("chioma",       "Chiome_alberi",        "Giardino",   True),
     ("foglie",       "Fogliame_vasi",        "Giardino",   False),
     ("fiori",        "Fiori",                "Giardino",   False),
     ("terra",        "Terriccio",            "Giardino",   False),
@@ -1818,8 +2174,9 @@ def make_materials():
                              (7.0, 7.0, 34.0), coat=0.4, dist=1.6),
         "persiane": mat_legno("Legno_persiane", (96, 116, 92), (62, 82, 64), 0.40,
                               (7.0, 7.0, 30.0), coat=0.3, dist=1.8),
-        "legno_porta": mat_legno("Legno_portone", (104, 50, 22), (58, 25, 11), 0.34,
-                                 (5.0, 5.0, 16.0), coat=0.35, dist=3.0),
+        "legno_porta": mat_legno("Legno_portone", (122, 76, 40), (74, 44, 22), 0.40,
+                                 (5.0, 5.0, 16.0), coat=0.2, dist=3.0),
+        "tende": mat_tende(),
         "legno": mat_legno("Legno_strutture", (132, 98, 62), (88, 60, 38), 0.66,
                            (3.0, 3.0, 11.0), dist=4.0),
         "vetro": mat_vetro(),
@@ -1833,10 +2190,10 @@ def make_materials():
         "terracotta": mat_semplice("Terracotta", (182, 100, 62), 0.78),
         "buio": mat_semplice("Interno_scuro", (10, 10, 11), 0.9),
         "prato": mat_erba(),
-        "erba": mat_fogliame("Erba_ciuffi", (54, 80, 28), (106, 134, 52)),
-        "siepe": mat_fogliame("Siepe", (36, 60, 26), (80, 112, 40)),
-        "cipresso": mat_fogliame("Cipresso", (26, 48, 30), (56, 82, 44)),
-        "chioma": mat_fogliame("Chioma_albero", (34, 58, 24), (98, 128, 48)),
+        "erba": mat_fogliame("Erba_ciuffi", (70, 100, 32), (128, 152, 60), use_attr=True),
+        "siepe": mat_fogliame("Siepe", (52, 84, 30), (104, 138, 50), use_attr=True),
+        "cipresso": mat_fogliame("Cipresso", (34, 60, 34), (70, 100, 52), use_attr=True),
+        "chioma": mat_fogliame("Chioma_albero", (44, 72, 28), (110, 140, 54), use_attr=True),
         "foglie": mat_fogliame("Fogliame", (44, 76, 32), (96, 128, 52)),
         "fiori": mat_semplice("Gerani", (186, 36, 32), 0.55),
         "terra": mat_semplice("Terriccio", (64, 50, 38), 0.96),
@@ -1860,7 +2217,7 @@ def buf_to_object(buf, coll):
     if len(me.polygons) == len(buf.S):
         me.polygons.foreach_set("use_smooth", buf.S)
     if buf.use_color and buf.C:
-        att = me.color_attributes.new("Var", "FLOAT_COLOR", "POINT")
+        att = me.color_attributes.new("Var", "BYTE_COLOR", "POINT")
         flat = []
         for c in buf.C:
             flat.extend((c[0], c[1], c[2], 1.0))
