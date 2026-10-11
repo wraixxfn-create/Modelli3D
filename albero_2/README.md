@@ -14,8 +14,8 @@ texture esterna, tutto nasce da codice e da nodi procedurali.
 | Anteprima | `anteprima.png` (render Cycles CPU 1400×1120, 110 campioni) |
 | Ingombro | chioma ~7,5 m di diametro, albero alto ~6,8 m, terreno 28 m |
 | Unità | metri (sistema metrico, scala 1:1) |
-| Fioritura | 48 000 mazzetti ≈ 147 700 fiori e gemme (ogni fiore ha 5 petali, stami e pistillo) |
-| Geometria | legno ~620 000 vertici + ~46,6 M di vertici di fiori (mesh condivise) |
+| Fioritura | 56 000 mazzetti ≈ 172 400 fiori e gemme (ogni fiore ha 5 petali, stami e pistillo) |
+| Geometria | legno ~630 000 vertici + ~54,4 M di vertici di fiori (mesh condivise, istanze GN) |
 | Materiali | 8 materiali procedurali |
 
 ## Cosa contiene il modello
@@ -23,10 +23,14 @@ texture esterna, tutto nasce da codice e da nodi procedurali.
 **Struttura (collezione `Ciliegio`)**
 - fusto corto e robusto (1,7 m) con **contrafforti** alla base e **radici
   superficiali** che emergono dal terreno, come nei ciliegi adulti
-- ramificazione ricorsiva a **vaso**: 9 branche maestre molto aperte, fino a
-  7 livelli, ~21 000 rami; il raggio si riparte tra i figli (modello "pipe"),
-  i nodi si ingrossano alle forcelle e i rametti terminali **si incurvano verso
-  il basso** sotto il peso della fioritura
+- ramificazione ricorsiva a **vaso**: 9 branche maestre molto aperte (6
+  esterne + 3 centrali), fino a 7 livelli, ~19 000 rami; il raggio si riparte
+  tra i figli (modello "pipe"), i nodi si ingrossano alle forcelle e i rametti
+  terminali **si incurvano verso il basso** sotto il peso della fioritura
+- **nessuna punta spoglia**: ogni branca termina con un ventaglio di rametti
+  fioriti e le punte del legno grosso ricevono una corona di mazzetti, cosi'
+  la struttura resta sempre immersa nella fioritura; il tropismo verso l'alto
+  si attenua con la quota e i rami vengono richiamati dentro la sagoma
 - **potatura naturale**: il centro della chioma (in ombra) resta più vuoto,
   mentre la parte esterna e alta è fitta; nessun ramo esce dalla sagoma a vaso
   della chioma (i rami vengono ripiegati verso l'interno)
@@ -35,9 +39,10 @@ texture esterna, tutto nasce da codice e da nodi procedurali.
 
 **Fioritura (collezione `Fioritura`)**
 - 12 varianti di **mazzetto** costruite come mesh separate e istanziate
-  ~48 000 volte (scala e rotazione casuali, **colore per oggetto** dal bianco
-  puro al rosa carico): con mesh condivise si ottengono ~140 000 fiori con un
-  file leggero
+  56 000 volte con un **unico oggetto Geometry Nodes** (istante vere:
+  rotazione, scala, variante e **colore per istanza** dal bianco puro al rosa
+  carico viaggiano come attributi dei punti): Cycles condivide la BVH delle
+  varianti, quindi ~170 000 fiori costano pochissima RAM e un file leggero
 - ogni fiore è completo: **pedicello curvo**, calice a 5 sepali con ovario
   rigonfio, **5 petali** (qualche fiore a 6, alcuni **semidoppi** a 9-12) obovati
   con smusso apicale, nervatura incassata, coppa e arricciatura, poi stami con
@@ -73,9 +78,10 @@ python3 genera_ciliegio.py -- --render --samples 24 --res 700x560   # anteprima 
 | `--res WxH` | risoluzione dell'anteprima (default 1400x1120) |
 | `--quick` | render veloce (16 campioni) |
 
-> Nota: la fioritura è generata con mesh condivise tra i mazzetti, quindi il file
-> resta leggero (~36 MB) nonostante i ~47 milioni di vertici di fiori. Il render
-> Cycles a 1400×1120 e 110 campioni dura ~13 minuti su 2 core. Su macchine con
-> poca RAM conviene lasciare attivo `--no-denoise` (il denoiser di Blender è la
-> parte più avida di memoria) oppure abbassare `MAX_CLUSTERS` e
-> `BRANCH_BUDGET_PER_LIMB` in testa allo script.
+> Nota: la fioritura usa mesh condivise istanziate con Geometry Nodes, quindi il
+> file resta leggero (~42 MB) nonostante i ~54 milioni di vertici di fiori e la
+> scena richiede poche centinaia di MB di RAM anche in render. Il render Cycles
+> a 1400×1120 e 110 campioni dura ~16 minuti su 2 core. Su macchine con poca RAM
+> conviene lasciare attivo `--no-denoise` (il denoiser di Blender è la parte più
+> avida di memoria) oppure abbassare `MAX_CLUSTERS` e `BRANCH_BUDGET_PER_LIMB`
+> in testa allo script.
