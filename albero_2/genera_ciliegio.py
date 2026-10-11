@@ -844,8 +844,7 @@ def build_cluster_variant(idx):
                    stamen_count, pedicel_len * 0.6, pedicel_dir)
 
     # gemme
-    n_buds = random.choice([0, 1, 1, 2])
-    for b in range(n_buds):
+    for b in range(random.choice([0, 1, 1, 2])):
         face = rand_unit()
         face = (face + Vector((0, 0, rr(-0.2, 0.5)))).normalized()
         center = origin + face * pedicel_len * rr(0.5, 0.8) + rand_unit() * 0.006
@@ -862,7 +861,7 @@ def build_cluster_variant(idx):
         c0 = mix4(C_LEAF, C_LEAF_BRONZE, rr(0.0, 0.7))
         add_leaf(buf, p, d, up, rr(0.022, 0.042), rr(0.010, 0.019), c0,
                  mix4(C_LEAF_TIP, C_LEAF, rr(0.0, 0.6)), rr(-0.10, 0.22))
-    return buf, n_flowers + n_buds
+    return buf, n_flowers
 
 
 # ----------------------------------------------------------------------------
@@ -881,6 +880,8 @@ def build_ground():
             x, y = r * math.cos(a), r * math.sin(a)
             z = ground_z(x, y)
             shade = 0.80 + 0.42 * noise.noise(Vector((x * 1.3, y * 1.3, 5.0)))
+            # piu' scuro sotto la chioma (ombra propria dell'albero)
+            shade *= 1.0 - 0.22 * math.exp(-(r / 3.3) ** 2)
             col = scale_rgba(rgb(0.50, 0.375, 0.215), shade)
             row.append(buf.vert(Vector((x, y, z)), col))
         ring0.append(row)
@@ -1062,8 +1063,8 @@ def mat_bark():
     noise1.inputs["Roughness"].default_value = 0.6
     L.new(tc.outputs["Object"], noise1.inputs["Vector"])
     ramp = N.new("ShaderNodeValToRGB")
-    ramp.color_ramp.elements[0].color = (0.048, 0.033, 0.026, 1)
-    ramp.color_ramp.elements[1].color = (0.235, 0.190, 0.165, 1)
+    ramp.color_ramp.elements[0].color = (0.058, 0.038, 0.028, 1)
+    ramp.color_ramp.elements[1].color = (0.255, 0.200, 0.160, 1)
     mix1 = ramp.color_ramp.elements.new(0.45)
     mix1.color = (0.115, 0.082, 0.063, 1)
     L.new(noise1.outputs["Fac"], ramp.inputs["Fac"])
@@ -1214,12 +1215,12 @@ def mat_ground():
     n1.inputs["Detail"].default_value = 12.0
     L.new(tc.outputs["Object"], n1.inputs["Vector"])
     ramp = N.new("ShaderNodeValToRGB")
-    ramp.color_ramp.elements[0].color = (0.085, 0.062, 0.036, 1)
-    ramp.color_ramp.elements[1].color = (0.230, 0.180, 0.100, 1)
+    ramp.color_ramp.elements[0].color = (0.070, 0.048, 0.028, 1)
+    ramp.color_ramp.elements[1].color = (0.205, 0.150, 0.082, 1)
     L.new(n1.outputs["Fac"], ramp.inputs["Fac"])
     mix = N.new("ShaderNodeMixRGB")
     mix.blend_type = "MIX"
-    mix.inputs["Fac"].default_value = 0.35
+    mix.inputs["Fac"].default_value = 0.28
     L.new(att.outputs["Color"], mix.inputs["Color1"])
     L.new(ramp.outputs["Color"], mix.inputs["Color2"])
     # muschio/erba rada nelle chiazze piu' umide
@@ -1238,7 +1239,7 @@ def mat_ground():
     L.new(mix.outputs["Color"], mossmix.inputs["Color1"])
     mossfac = N.new("ShaderNodeMath")
     mossfac.operation = "MULTIPLY"
-    mossfac.inputs[1].default_value = 0.24
+    mossfac.inputs[1].default_value = 0.18
     L.new(mossramp.outputs["Color"], mossfac.inputs[0])
     L.new(mossfac.outputs["Value"], mossmix.inputs["Fac"])
     L.new(mossmix.outputs["Color"], bsdf.inputs["Base Color"])
@@ -1275,7 +1276,9 @@ def mat_grass():
     N, L = mat.node_tree.nodes, mat.node_tree.links
     bsdf = _principled(mat)
     _attr_color(N, L, bsdf)
-    bsdf.inputs["Roughness"].default_value = 0.72
+    bsdf.inputs["Roughness"].default_value = 0.80
+    if "Specular IOR Level" in bsdf.inputs:
+        bsdf.inputs["Specular IOR Level"].default_value = 0.18
     if "Subsurface Weight" in bsdf.inputs:
         bsdf.inputs["Subsurface Weight"].default_value = 0.18
         bsdf.inputs["Subsurface Radius"].default_value = (0.06, 0.12, 0.03)
@@ -1288,16 +1291,16 @@ def mat_grass():
 # ----------------------------------------------------------------------------
 def setup_world_and_lights(coll):
     sun_data = bpy.data.lights.new("Sole", "SUN")
-    sun_data.energy = 3.6
-    sun_data.angle = math.radians(1.6)
-    sun_data.color = (1.0, 0.96, 0.90)
+    sun_data.energy = 4.1
+    sun_data.angle = math.radians(2.2)
+    sun_data.color = (1.0, 0.955, 0.885)
     sun = bpy.data.objects.new("Sole", sun_data)
-    sun.rotation_euler = (math.radians(52), 0, math.radians(38))
+    sun.rotation_euler = (math.radians(48), 0, math.radians(-42))
     coll.objects.link(sun)
 
     # luce d'ambiente laterale (rimbalzo caldo sul lato in ombra)
     fill_data = bpy.data.lights.new("Rimbalzo", "AREA")
-    fill_data.energy = 420.0
+    fill_data.energy = 260.0
     fill_data.size = 9.0
     fill_data.color = (0.90, 0.93, 1.0)
     fill = bpy.data.objects.new("Rimbalzo", fill_data)
@@ -1370,11 +1373,11 @@ def place_clusters(coll):
     variants = []
     for i in range(12):
         random.seed(SEED + 100 + i)
-        buf, n_blooms = build_cluster_variant(i)
+        buf, n_flowers = build_cluster_variant(i)
         me = to_mesh("Mazzetto_%02d" % (i + 1), buf, smooth=True)
         for m in (mat_petals(), mat_stamens(), mat_calyx(), mat_young_leaf()):
             me.materials.append(m)
-        variants.append((me, buf.nverts(), n_blooms))
+        variants.append((me, buf.nverts(), n_flowers))
     random.seed(SEED + 500)
 
     # candidati: (punto, direzione del rametto, raggio locale, profondita')
@@ -1468,7 +1471,7 @@ def main():
         res = argv[argv.index("--res") + 1]
     if "--no-render" in argv:
         do_render = False
-    denoise = "--denoise" in argv
+    denoise = "--no-denoise" not in argv
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
@@ -1522,10 +1525,7 @@ def main():
 
     scene.render.engine = "CYCLES"
     scene.cycles.device = "CPU"
-    scene.cycles.samples = 48 if not quick else 16
-    # Il denoising (OpenImageDenoise) aggiunge parecchia memoria al picco del
-    # render: con ~48 M di vertici di fiori conviene attivarlo solo su macchine
-    # con molta RAM (`-- --denoise`), altrimenti si renderizza con piu' campioni.
+    scene.cycles.samples = 64 if not quick else 16
     scene.cycles.use_denoising = denoise
     scene.cycles.max_bounces = 8
     scene.cycles.transparent_max_bounces = 8

@@ -11,12 +11,12 @@ texture esterna, tutto nasce da codice e da nodi procedurali.
 |---|---|
 | File del modello | `ciliegio.blend` (Blender 5.0, Cycles) |
 | Script generatore | `genera_ciliegio.py` |
-| Anteprima | `anteprima.png` (render Cycles CPU 1400×1120, 48 campioni) |
+| Anteprima | `anteprima.png` (render Cycles CPU 1400×1120, 110 campioni) |
 | Ingombro | chioma ~7,5 m di diametro, albero alto ~6,8 m, terreno 28 m |
 | Unità | metri (sistema metrico, scala 1:1) |
-| Fioritura | 48 000 mazzetti ≈ 196 000 fiori e gemme (ogni fiore: pedicello, calice, 5 petali, stami e pistillo) |
-| Geometria | legno ~620 000 vertici + ~48 M di vertici di fiori (mesh condivise) |
-| Materiali | 9 materiali procedurali |
+| Fioritura | 48 000 mazzetti ≈ 147 700 fiori e gemme (ogni fiore ha 5 petali, stami e pistillo) |
+| Geometria | legno ~620 000 vertici + ~46,6 M di vertici di fiori (mesh condivise) |
+| Materiali | 8 materiali procedurali |
 
 ## Cosa contiene il modello
 
@@ -24,7 +24,7 @@ texture esterna, tutto nasce da codice e da nodi procedurali.
 - fusto corto e robusto (1,7 m) con **contrafforti** alla base e **radici
   superficiali** che emergono dal terreno, come nei ciliegi adulti
 - ramificazione ricorsiva a **vaso**: 9 branche maestre molto aperte, fino a
-  7 livelli, ~19 000 rami; il raggio si riparte tra i figli (modello "pipe"),
+  7 livelli, ~21 000 rami; il raggio si riparte tra i figli (modello "pipe"),
   i nodi si ingrossano alle forcelle e i rametti terminali **si incurvano verso
   il basso** sotto il peso della fioritura
 - **potatura naturale**: il centro della chioma (in ombra) resta più vuoto,
@@ -36,8 +36,8 @@ texture esterna, tutto nasce da codice e da nodi procedurali.
 **Fioritura (collezione `Fioritura`)**
 - 12 varianti di **mazzetto** costruite come mesh separate e istanziate
   ~48 000 volte (scala e rotazione casuali, **colore per oggetto** dal bianco
-  puro al rosa carico): con mesh condivise si ottengono **~196 000 fiori e
-  gemme** con un file leggero
+  puro al rosa carico): con mesh condivise si ottengono ~140 000 fiori con un
+  file leggero
 - ogni fiore è completo: **pedicello curvo**, calice a 5 sepali con ovario
   rigonfio, **5 petali** (qualche fiore a 6, alcuni **semidoppi** a 9-12) obovati
   con smusso apicale, nervatura incassata, coppa e arricciatura, poi stami con
@@ -69,14 +69,13 @@ python3 genera_ciliegio.py -- --render --samples 24 --res 700x560   # anteprima 
 | Opzione | Effetto |
 |---|---|
 | `--render` | salva anche l'anteprima (`anteprima.png`) |
-| `--samples N` | campioni Cycles (default 48) |
-| `--denoise` | attiva il denoising di Cycles (richiede molta RAM) |
+| `--samples N` | campioni Cycles (default 64) |
 | `--res WxH` | risoluzione dell'anteprima (default 1400x1120) |
 | `--quick` | render veloce (16 campioni) |
 
 > Nota: la fioritura è generata con mesh condivise tra i mazzetti, quindi il file
 > resta leggero (~36 MB) nonostante i ~47 milioni di vertici di fiori. Il render
-> Cycles di questa scena è pesante (~2,5-3 GB di RAM): su macchine più piccole
-> conviene abbassare `MAX_CLUSTERS` e `BRANCH_BUDGET_PER_LIMB` in testa allo
-> script; su macchine più grandi si può alzare `--samples` e attivare
-> `--denoise`.
+> Cycles a 1400×1120 e 110 campioni dura ~13 minuti su 2 core. Su macchine con
+> poca RAM conviene lasciare attivo `--no-denoise` (il denoiser di Blender è la
+> parte più avida di memoria) oppure abbassare `MAX_CLUSTERS` e
+> `BRANCH_BUDGET_PER_LIMB` in testa allo script.
