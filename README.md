@@ -10,7 +10,7 @@ lo script che lo costruisce e un'immagine di anteprima renderizzata con Cycles.
 | [`albero_2`](albero_2) | Ciliegio ornamentale in fiore: ~56 000 mazzetti istanziati (GN), petali a terra e in aria, erba | `ciliegio.blend`, `genera_ciliegio.py`, `anteprima.png` |
 | [`casa_1`](casa_1) | Casale a due piani con tetto in coppi, serramenti, balcone e giardino | `casa.blend`, `genera_casa.py`, `anteprima.png` |
 | [`casa_2`](casa_2) | Villa contemporanea: facciata vetrata a doppia altezza, tetto piano con fotovoltaico, terrazza, interni arredati, piscina a sfioro | `villa.blend`, `genera_villa.py`, `anteprima.png` |
-| [`casa_3`](casa_3) | Chalet alpino (base del modello): zoccolo in pietra, corpo in legno, grande tetto a due falde con gronde sporgenti | `chalet.blend`, `genera_chalet.py`, `anteprima.png` |
+| [`casa_3`](casa_3) | Chalet alpino rifinito: balcone, persiane, travatura a vista, camino, pensilina e vialetto in pietra | `chalet.blend`, `genera_chalet.py`, `anteprima.png` |
 
 Per rigenerare un modello serve il modulo Python di Blender:
 
