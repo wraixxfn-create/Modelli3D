@@ -6,6 +6,7 @@ lo script che lo costruisce e un'immagine di anteprima renderizzata con Cycles.
 
 | Cartella | Modello | File |
 |---|---|---|
+| [`prova_citta_1`](prova_citta_1) | Borgo italiano in miniatura con municipio, piazza, palazzi, case riutilizzate, viali, parchi e autobus | `citta.blend`, `genera_citta.py`, `anteprima.png` |
 | [`albero_1`](albero_1) | Albero a foglia larga con chioma, radici e foglie a terra | `albero.blend`, `genera_albero.py`, `anteprima.png` |
 | [`albero_2`](albero_2) | Ciliegio ornamentale in fiore: ~56 000 mazzetti istanziati (GN), petali a terra e in aria, erba | `ciliegio.blend`, `genera_ciliegio.py`, `anteprima.png` |
 | [`casa_1`](casa_1) | Casale a due piani con tetto in coppi, serramenti, balcone e giardino | `casa.blend`, `genera_casa.py`, `anteprima.png` |
@@ -20,4 +21,5 @@ cd casa_1 && python3 genera_casa.py --render
 cd casa_2 && python3 genera_villa.py --render
 cd casa_3 && python3 genera_chalet.py --render
 cd albero_2 && python3 genera_ciliegio.py -- --render
+cd prova_citta_1 && python3 genera_citta.py --quick  # richiede Blender 5.0+
 ```
