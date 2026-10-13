@@ -14,19 +14,21 @@ in un unico contesto.
   **Piazza delle Querce**, animata dal **mercato settimanale**: dieci
   bancarelle a righe, ombrelloni, carretto con cassette e lavagna;
 - **pieve romanica** con navata, abside, rosone, campanile in mattoni con
-  orologio e sagrato in basolato con cipressi e panche;
+  orologio, basamento in pietra e sagrato in basolato con cipressi e panche;
 - fontana a due vasche, pavimentazione in lastre, caffè all'aperto, panchine,
   lampioni, aiuole, festoni colorati e due **rotatorie fiorite** con fontana;
-- **otto palazzi** residenziali/commerciali con vetrine, balconi, tende,
-  insegne, marcapiani, corpo scala vetrato e **coperture calpestabili**:
+- **otto palazzi** residenziali/commerciali su basamento in pietra, con
+  vetrine, balconi, tende, insegne, marcapiani, corpo scala vetrato e
+  **coperture calpestabili**:
   pergolato, tavolo e sedie, lettini, ombrellone, fioriere, stendino, comignoli,
   due lucernari, corpo scala con ringhiera e fotovoltaico inclinato;
 - **trentatré case** istanziate dai modelli esistenti (casale, villa
   contemporanea, chalet alpino) con giardini privati, siepi, orti e frutteti;
 - viali, incroci rialzati, marciapiedi, attraversamenti pedonali, segnaletica,
-  lampioni stradali, due parcheggi di quartiere con auto in sosta, automobili,
-  autobus, furgone del mercato, scooter, biciclette e pensilina;
-- **prati curati**: dieci isolati con manto erboso tagliato a bande alternate,
+  lampioni stradali, due **piazzali di testata** di Viale Roma, due parcheggi
+  di quartiere con auto in sosta, automobili, autobus, furgone del mercato,
+  scooter, biciclette e pensilina;
+- **prati curati**: undici isolati con manto erboso tagliato a bande alternate,
   cordolo di chiusura e bordura di fiori, e piazzole di ghiaia con corona di
   fiori ai ventisei alberi da viale e da parco, legate da siepi basse;
 - **vita di strada**: pedoni, ciclisti, persone sedute, piccioni in piazza e
@@ -108,6 +110,55 @@ Tre interventi mirati su acqua, viale e sosta:
    marciapiede; ora la affiancano un portabiciclette ad arco con tre posti,
    una panchina per i pendolari, un cestino portarifiuti con coperchio e una
    bacheca orari con cornice metallica e vetro di protezione.
+
+## Miglioramenti della sesta versione
+
+Tre interventi su errori di impianto che la veduta mostrava in primo piano:
+
+1. **Testate di Viale Roma e rotatorie** — l'asse maggiore e l'aiuola
+   spartitraffico passavano dentro Residenza Aurora e nell'Albergo del Borgo:
+   la carreggiata entrava nella facciata e ne usciva dal retro, e la siepe
+   centrale attraversava anche le quattro intersezioni del viale. Ora il viale
+   corre a tronconi fra un incrocio e l'altro e si chiude su due **piazzali di
+   testata** davanti alle facciate: platea in asfalto con fascia in pietra
+   davanti alle vetrine, isola centrale alberata, due attraversamenti ai lati,
+   aiuole fiorite, panchine e lampioni ornamentali; lo spartitraffico fiorito
+   si interrompe in corrispondenza degli incroci e l'incrocio nord, che ne era
+   privo, riceve le strisce pedonali. Le quattro case che stavano a ±12 m dai
+   fondali, con i loro giardini, sono arretrate di sei metri e mezzo: entravano
+   di due metri dentro i palazzi. Nelle due rotatorie, infine, i marciapiedi
+   delle strade afferenti tagliavano l'anello da parte a parte, sospesi nove
+   centimetri sopra la carreggiata: ora si fermano dove incontrano il cerchio,
+   una corona di marciapiede con i suoi cordoli chiude i quarti fra le strade,
+   e le isole salvagente con le strisce tornano sui quattro assi di afflusso.
+2. **La pieve in asse e i volumi a terra** — la navata della pieve era girata
+   di un quarto di giro rispetto a tutto ciò che le sta intorno: il tetto
+   attraversava il volume per traverso sporgendo sei metri per lato, l'abside
+   restava staccata di tre metri dal muro di fondo e il portale galleggiava in
+   mezzo al sagrato. La navata è rimessa in asse, con la profondità portata a
+   venti metri e il corpo spostato di due metri verso est e di uno e mezzo
+   verso sud, così l'abside non entra nella strada di via −70. Sotto la pieve,
+   come sotto tutti e otto i palazzi, mancava il basamento: i volumi partivano
+   da quota 0,30 mentre il rilievo
+   della città sta a −0,06, e in controluce restava una fascia vuota da 36 a
+   41 cm, leggibile come un'ombra staccata da terra. Ora uno zoccolo in pietra
+   scende fino a −0,60 e la muratura vi poggia sopra. Lo stesso richiamo a
+   terra riguarda sagrato, prati dei parchi e siepi del centro civico:
+   partivano da un minimo di un centimetro a un massimo di diciassette sopra il
+   terreno, e mostravano il vuoto sotto le fronde e sotto il basolato.
+3. **L'ingresso del municipio e il mercato** — la scalinata del portico era
+   rovesciata: il gradino più alto stava dalla parte del sagrato, così dalla
+   piazza si saliva al portico e poi si scendeva verso la porta, la cui soglia
+   restava mezzo metro sotto l'ultima pedata. Ora quattro pedate a ventaglio
+   salgono verso il portale — con le spallette laterali che ne seguono la
+   sfumatura — e soglia, stipiti, architrave e maniglia sono riportati alla
+   quota giusta. Il mercato, che con la seconda fila a y = 10,9 m infilava i
+   montanti delle bancarelle nei plinti delle colonne e piantava un ombrellone
+   in mezzo ai gradini, è arretrato di due metri: i tre ombrelloni passano due
+   ai lati del mercato e uno davanti alla fontana, e la panchina che finiva
+   dentro una bancarella è sostituita da due panchine ai fianchi. Chiude
+   l'intervento un nuovo prato a ponente del municipio, che fa da specchio a
+   quello di levante.
 
 ## Miglioramenti della quinta versione
 
