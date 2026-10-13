@@ -19,7 +19,7 @@ in un unico contesto.
   lampioni, aiuole, festoni colorati e due **rotatorie fiorite** con fontana;
 - **sei palazzi** residenziali/commerciali con vetrine, balconi, tende,
   insegne, marcapiani, corpo scala vetrato e pannelli solari;
-- **trentasette case** istanziate dai modelli esistenti (casale, villa
+- **trentatré case** istanziate dai modelli esistenti (casale, villa
   contemporanea, chalet alpino) con giardini privati, siepi, orti e frutteti;
 - viali, incroci rialzati, marciapiedi, attraversamenti pedonali, segnaletica,
   automobili, autobus, furgone del mercato, scooter, biciclette e pensilina;

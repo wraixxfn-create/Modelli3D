@@ -409,7 +409,27 @@ def load_collection_assets(path, collection_names, template_name, excluded=()):
     return template, list(objects.values())
 
 
+SOURCE_MODELS = (
+    os.path.join("casa_1", "casa.blend"),
+    os.path.join("casa_2", "villa.blend"),
+    os.path.join("casa_3", "chalet.blend"),
+    os.path.join("albero_2", "ciliegio.blend"),
+)
+
+
+def check_source_models():
+    """Verifica che i modelli di casa_1, casa_2, casa_3 e albero_2 siano presenti."""
+    missing = [rel for rel in SOURCE_MODELS
+               if not os.path.isfile(os.path.join(REPO, rel))]
+    if missing:
+        raise FileNotFoundError(
+            "Modelli sorgente mancanti in %s: %s. Lo script va eseguito dentro "
+            "il repository Modelli3D, con le cartelle originali accanto a "
+            "prova_citta_1." % (REPO, ", ".join(missing)))
+
+
 def import_city_assets():
+    check_source_models()
     houses = {}
     houses["casale"], _ = load_collection_assets(
         os.path.join(REPO, "casa_1", "casa.blend"),
@@ -1573,7 +1593,9 @@ def hill_height(x, y):
 
 def build_countryside(B, mats, col):
     """Anello di campagna con colline dolci, colture e un borgo sul colle."""
-    half, step = 215.0, 10.75
+    # Griglia a passo 5.4 m: dossi morbidi, senza le facce a bande visibili
+    # sulle colline a distanza.
+    half, step = 215.0, 5.375
     n = int(half * 2 / step)
     rows = []
     for j in range(n + 1):
