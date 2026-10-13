@@ -24,7 +24,8 @@ in un unico contesto.
 - **trentatré case** istanziate dai modelli esistenti (casale, villa
   contemporanea, chalet alpino) con giardini privati, siepi, orti e frutteti;
 - viali, incroci rialzati, marciapiedi, attraversamenti pedonali, segnaletica,
-  automobili, autobus, furgone del mercato, scooter, biciclette e pensilina;
+  lampioni stradali, due parcheggi di quartiere con auto in sosta, automobili,
+  autobus, furgone del mercato, scooter, biciclette e pensilina;
 - **prati curati**: dieci isolati con manto erboso tagliato a bande alternate,
   cordolo di chiusura e bordura di fiori, e piazzole di ghiaia con corona di
   fiori ai ventisei alberi da viale e da parco, legate da siepi basse;
@@ -35,7 +36,8 @@ in un unico contesto.
 - ciliegi fioriti ripresi dal modello `albero_2`, alberature urbane
   procedurali e cipressi;
 - **campagna circostante**: colline dolci che si chiudono sull'orizzonte senza
-  gradini, campi di grano e uliveti a filari, cipressi isolati e il borgo sul
+  gradini, boschi di macchia mediterranea sui pendii, campi di grano e uliveti
+  a filari, cipressi isolati e il borgo sul
   colle a nord-ovest — pieve con abside e rosone, campanile a vela, sei case a
   capanna su zoccoli quotati, muro di cinta, uliveto e una **strada bianca**
   che scende fino all'anello stradale della città.
@@ -106,6 +108,33 @@ Tre interventi mirati su acqua, viale e sosta:
    marciapiede; ora la affiancano un portabiciclette ad arco con tre posti,
    una panchina per i pendolari, un cestino portarifiuti con coperchio e una
    bacheca orari con cornice metallica e vetro di protezione.
+
+## Miglioramenti della quinta versione
+
+Tre interventi mirati, uno per ciascun piano della veduta:
+
+1. **Illuminazione stradale fuori dalla piazza** — i soli punti luce della
+   città erano i dodici lampioni ornamentali della piazza: viali e strade di
+   quartiere, con il sole a 19° e le ombre già lunghe, restavano al buio.
+   Ora ventotto lampioni stradali scandiscono i marciapiedi — dodici su
+   Viale Roma, sedici sulle trasversali y = ±32 — con palo antracite,
+   collarino dorato, braccio rivolto alla carreggiata e testa a luce calda;
+   le posizioni stanno sui marciapiedi esistenti, a distanza da incroci,
+   rotatorie e filari alberati, così pali e chiome non si toccano.
+2. **Parcheggi di quartiere pavimentati** — della sosta restavano solo
+   quattro strisce bianche disegnate sull'erba accanto ai palazzi del viale,
+   senza platea né accesso. Ora ci sono due piazzali veri: davanti alle
+   Botteghe Ovest e sul retro di Casa del Mercato, entrambi raccordati ai
+   marciapiedi. Ognuno ha la platea in asfalto con cordoli di testata, tre
+   stalli segnati con fermaruota in calcestruzzo, un'isola d'ombra con
+   albero all'angolo, il cartello «P» all'ingresso e tre auto in sosta.
+3. **Boschi di macchia sulle colline** — i pendii della campagna erano
+   dossi lisci e completamente nudi, e lo sfondo della veduta restava una
+   distesa verde uniforme. Tredici macchie di bosco — nove alberi l'una
+   fra latifoglie, olivi e qualche cipresso, 117 alberi in tutto —
+   punteggiano ora i versanti, con ogni fusto quotato punto per punto su
+   `hill_height` e i centri tenuti dentro il margine della griglia del
+   rilievo, lontano da campi coltivati, strada bianca e borgo sul colle.
 
 La scena ha dimensioni di circa **214 × 214 metri** per l'abitato, inseriti in
 una piana di campagna che si estende fino all'orizzonte collinare, ed è

@@ -15,7 +15,11 @@ zoccoli quotati sul pendio, cipressi, uliveto e una strada bianca d'accesso.
 La quarta versione aggiunge un bordo sassoso al laghetto con un ponticello
 in legno ad arco, lo spartitraffico fiorito su Viale Roma con siepe e fiori a
 passo regolare, e l'area attrezzata alla fermata autobus con portabiciclette,
-panchina, cestino e bacheca orari.
+panchina, cestino e bacheca orari. La quinta versione porta l'illuminazione
+pubblica fuori dalla piazza con lampioni stradali su Viale Roma e sulle
+trasversali, trasforma le quattro strisce di stallo disegnate sull'erba accanto
+ai palazzi del viale in due parcheggi di quartiere pavimentati e abitati, e
+popola i pendii nudi della campagna con boschi di macchia mediterranea.
 
 Richiede Blender 5.0+ e i modelli originali presenti nelle cartelle sorelle.
 
@@ -525,7 +529,8 @@ def add_zebra_v(B, x, y, road_width=8.0):
 
 def build_roads(mats, road_col, plaza_col):
     keys = ("asphalt", "sidewalk", "curb", "road_white", "road_yellow",
-            "tile_a", "tile_b", "tile_c")
+            "tile_a", "tile_b", "tile_c", "grass", "leaf", "leaf_light",
+            "flower", "cloth_yellow", "cloth_violet")
     B = make_batch_set(mats, road_col, keys)
     # Rete leggibile: due anelli, quattro assi di quartiere e viale centrale.
     for y in (-70, 70):
@@ -609,8 +614,9 @@ def build_roads(mats, road_col, plaza_col):
     # Strisce gialle ai margini della piazza e stalli di sosta.
     for x in (-23, 23):
         B["road_yellow"].box((x, 0, 0.04), (0.12, 16, 0.025))
-    for x, y, yaw in [(-39, -12, 0), (-39, -17, 0), (39, 12, 0), (39, 17, 0)]:
-        B["road_white"].box((x, y, 0.04), (2.2, 0.12, 0.025), yaw)
+    # Gli stalli di sosta accanto ai palazzi del viale non sono più quattro
+    # strisce isolate sull'erba: li disegna build_parking_lots su due piazzali
+    # pavimentati, con fermaruota, isole d'ombra e auto in sosta.
     # Piazza centrale in pietra: cornice, letto e mosaico di lastre.
     make_cube("Basamento della piazza", (0, 0, -0.04), (31.8, 27.8, 0.20),
               mats["curb"], plaza_col, bevel=0.08)
@@ -2039,6 +2045,41 @@ def build_hill_village(B, hx, hy):
         B["trim"].quad(left[i], right[i], right[i + 1], left[i + 1])
 
 
+def build_hill_woods(B):
+    """Boschi di macchia sui pendii della campagna attorno al borgo.
+
+    Le colline erano dossi lisci e completamente nudi: a parte il colle del
+    borgo lontano, nessun pendio portava vegetazione e lo sfondo della
+    veduta restava una distesa verde uniforme. Tredici macchie di bosco —
+    latifoglie, olivi e qualche cipresso, nove alberi per macchia a
+    disposizione deterministica — punteggiano ora i versanti seguendo punto
+    per punto la quota di `hill_height`. I centri restano dentro il margine
+    della griglia del rilievo, dove la quota non è ancora riassorbita verso
+    la piana lontana, e lontano da campi, strada bianca e borgo sul colle,
+    così nessun fusto affonda né galleggia sul pendio.
+    """
+    clusters = ((-118, 168), (-52, 172), (28, 170), (96, 156), (148, 128),
+                (170, 48), (156, -92), (118, -150), (46, -170), (-38, -172),
+                (-118, -154), (-170, -72), (-172, 18))
+    for ci, (cx, cy) in enumerate(clusters):
+        for j in range(9):
+            ang = j * 2.39996 + ci * 0.7
+            rad = 3.0 + (j % 3) * 2.0
+            x, y = cx + math.cos(ang) * rad, cy + math.sin(ang) * rad
+            z = hill_height(x, y)
+            s = 0.85 + 0.13 * ((j + ci) % 3)
+            if (j + ci) % 4 == 3:
+                # Un cipresso ogni tanto, a rompere le chiome tonde.
+                B["cypress"].cylinder((x, y, z + 2.6 * s), 0.16 * s, 5.2 * s, 8)
+                B["cypress"].cone((x, y, z + 4.2 * s), 0.95 * s, 0.0, 5.4 * s, 10)
+                continue
+            B["bark"].cylinder((x, y, z + 1.5 * s), 0.13 * s, 3.2 * s, 7)
+            B["leaf"].sphere((x, y, z + 3.6 * s), 2.0 * s, (1.0, 0.92, 0.78),
+                             9, 6)
+            B["olive"].sphere((x + 0.9 * s, y + 0.3 * s, z + 4.3 * s),
+                              1.35 * s, (1.0, 1.0, 0.85), 8, 6)
+
+
 # ---------------------------------------------------------------------------
 # Alberi procedurali di città e istanze di modelli preesistenti
 # ---------------------------------------------------------------------------
@@ -2214,6 +2255,42 @@ def build_bus_shelter(B, x, y, yaw=0):
     lbox(B["wood_light"], x, y, yaw, -0.1, -0.3, 0.56, 2.2, 0.58, 0.12)
 
 
+def build_street_lighting(B):
+    """Lampioni stradali su Viale Roma e sulle due vie trasversali.
+
+    Finora l'illuminazione pubblica esisteva solo dentro la piazza — dodici
+    lampioni ornamentali — mentre viali e strade di quartiere, con il sole a
+    19° e le ombre già lunghe, restavano senza un solo punto luce. Ora
+    ventotto lampioni stradali con braccio rivolto alla carreggiata e testa
+    luminosa calda scandiscono i marciapiedi del viale e delle trasversali
+    y = ±32. Le posizioni cadono sui marciapiedi esistenti, a distanza dagli
+    incroci e dagli alberi da viale già piantati, così pali e chiome non si
+    toccano.
+    """
+    def lamp(x, y, ax, ay):
+        # Palo con collarino dorato, braccio verso la carreggiata (ax, ay è
+        # la direzione unitaria dal marciapiede alla strada) e testa calda.
+        B["metal"].cylinder((x, y, 2.45), 0.075, 4.9, 10)
+        B["metal_gold"].cylinder((x, y, 0.30), 0.17, 0.32, 10)
+        yaw = math.atan2(ay, ax)
+        B["metal"].box((x + ax * 0.38, y + ay * 0.38, 4.82),
+                       (0.95, 0.075, 0.075), yaw)
+        hx, hy = x + ax * 0.80, y + ay * 0.80
+        B["metal"].box((hx, hy, 4.74), (0.34, 0.34, 0.10), yaw)
+        B["lamp"].box((hx, hy, 4.58), (0.42, 0.36, 0.26), yaw)
+
+    # Viale Roma, entrambi i marciapiedi (x = ±6,35), fuori dagli incroci
+    # con le trasversali y = -70, -32, 32, 70 e dagli alberi a x = ±7,9.
+    for y in (-84, -62, -40, 42, 64, 86):
+        for sx in (-1, 1):
+            lamp(sx * 6.35, y, -sx, 0)
+    # Vie trasversali y = ±32, lato esterno dei marciapiedi (y = ±37,3):
+    # passo sfalsato rispetto ai filari alberati a y = ±39,5.
+    for y, ay in ((-37.3, 1), (37.3, -1)):
+        for x in (-52, -30, 30, 52):
+            lamp(x, y, 0, ay)
+
+
 def build_transport(B, mats, traffic_col):
     # Automobili parcheggiate e bus di linea, con dettagli leggibili dall'alto.
     build_car(B, -45, -30.6, 0, "red", "Auto rossa")
@@ -2270,6 +2347,73 @@ def build_transport(B, mats, traffic_col):
         B["metal"].box((9.8 + sy * 0.46, -63.5, 2.0), (0.05, 0.14, 1.22))
     for sz in (-1, 1):
         B["metal"].box((9.8, -63.5, 2.0 + sz * 0.61), (0.92, 0.14, 0.05))
+
+
+def build_parking_lots(mats, col, traffic_batches):
+    """Due parcheggi di quartiere accanto ai palazzi di Viale Roma.
+
+    Della sosta, finora, restavano solo quattro strisce bianche disegnate
+    sull'erba accanto a Palazzo delle Logge e Casa del Mercato: nessuno stallo
+    era raggiungibile né pavimentato. Ora i due piazzali — davanti alle
+    Botteghe Ovest e sul retro di Casa del Mercato — hanno una platea in
+    asfalto appoggiata ai marciapiedi esistenti, con cordoli di testata,
+    tre stalli segnati e fermaruota in calcestruzzo, un'isola d'ombra con
+    albero all'angolo, il cartello «P» all'ingresso e tre auto in sosta per
+    parte, disegnate con lo stesso batch dei veicoli in strada.
+    """
+    P = make_batch_set(mats, col, ("asphalt", "sidewalk", "curb", "road_white",
+                                   "concrete", "grass", "metal", "blue", "bark",
+                                   "leaf", "leaf_light"))
+
+    def lot(cx, cy, stall_cx, car_cx, centers, island, sign, sign_yaw,
+            colors, apron=None):
+        # Piazzale e cordoli di testata sui lati corti.
+        P["asphalt"].box((cx, cy, 0.02), (9.6, 12.4, 0.07))
+        for ey in (cy - 6.2, cy + 6.2):
+            P["curb"].box((cx, ey, 0.06), (9.6, 0.24, 0.14))
+        if apron is not None:
+            P["sidewalk"].box(apron, (2.4, 3.4, 0.09))
+        # Stalli lungo il lato edificio del piazzale: righe di delimitazione,
+        # linea di fondo e fermaruota per ogni posto auto.
+        span = centers[-1] - centers[0] + 3.9
+        P["road_white"].box((stall_cx - 2.35, cy, 0.075), (0.12, span, 0.03))
+        bounds = [centers[0] - 1.95] + \
+                 [(a + b) / 2 for a, b in zip(centers, centers[1:])] + \
+                 [centers[-1] + 1.95]
+        for by in bounds:
+            P["road_white"].box((stall_cx, by, 0.075), (4.9, 0.12, 0.03))
+        for sy in centers:
+            P["concrete"].box((stall_cx - 1.85, sy, 0.10), (0.28, 1.5, 0.16))
+            # Le auto usano il batch traffico, chiuso insieme agli altri.
+            build_car(traffic_batches, car_cx, sy, 0.0,
+                      colors[centers.index(sy) % len(colors)], "Auto in sosta")
+        # Isola d'ombra all'angolo: cordolo, prato e un albero da parcheggio.
+        ix, iy = island
+        P["curb"].box((ix, iy, 0.07), (1.8, 1.8, 0.16))
+        P["grass"].box((ix, iy, 0.14), (1.5, 1.5, 0.08))
+        P["bark"].cylinder((ix, iy, 1.05), 0.09, 2.1, 8)
+        P["leaf"].sphere((ix, iy, 2.80), 1.30, (1.0, 0.95, 0.80), 10, 7)
+        P["leaf_light"].sphere((ix + 0.55, iy + 0.20, 3.30), 0.85,
+                               (1.0, 1.0, 0.85), 8, 6)
+        # Cartello «P» all'ingresso, rivolto verso la strada.
+        sx, sy = sign
+        fx, fy = math.sin(sign_yaw), -math.cos(sign_yaw)
+        P["metal"].cylinder((sx, sy, 1.10), 0.05, 2.2, 8)
+        P["blue"].box((sx, sy, 2.35), (0.62, 0.08, 0.62), sign_yaw)
+        add_text("P", "Cartello parcheggio",
+                 (sx + fx * 0.06, sy + fy * 0.06, 2.35), 0.44,
+                 mats["white"], col, yaw=sign_yaw)
+
+    # Piazzale davanti alle Botteghe Ovest, contro il marciapiede di via -23
+    # (a sud c'è il sagrato della pieve, con il campanile a -36, -8).
+    lot(-34.1, 14.5, -36.3, -36.1, (10.6, 14.5, 18.4),
+        (-30.5, 9.7), (-29.9, 19.3), PI / 2, ("blue", "white", "red"))
+    # Retro est di Casa del Mercato, con raccordo al marciapiede di via 70.
+    lot(58.6, 0.0, 56.3, 56.4, (-3.9, 0.0, 3.9),
+        (62.3, 5.1), (63.0, -2.6), PI / 2, ("white", "red", "blue"),
+        apron=(64.3, 0.0, 0.045))
+    for batch in P.values():
+        batch.flush()
 
 
 # ---------------------------------------------------------------------------
@@ -2490,6 +2634,9 @@ def main():
          "wood", "wood_light", "road_white", "lamp"))
     build_crosswalk_signals(traffic_batches, mats, sign_col)
     build_transport(traffic_batches, mats, traffic_col)
+    # Illuminazione stradale e parcheggi di quartiere accanto ai palazzi.
+    build_street_lighting(traffic_batches)
+    build_parking_lots(mats, traffic_col, traffic_batches)
     # Nuovi landmark: pieve, mercato, rotatorie, laghetto, parco giochi,
     # vita di strada e giardini privati degli isolati.
     life_batches = make_batch_set(mats, furnishing_col, LIFE_KEYS)
@@ -2504,6 +2651,7 @@ def main():
     # Campagna circostante: colline, colture, cipressi e borgo sul colle.
     country_batches = make_batch_set(mats, terrain_col, COUNTRY_KEYS)
     build_countryside(country_batches, mats, terrain_col)
+    build_hill_woods(country_batches)
     # Chiude tutte le mesh batch per materiale.
     for group in (green_batches, detail_batches, civic_batches, traffic_batches,
                   life_batches, country_batches):
