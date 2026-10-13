@@ -17,40 +17,74 @@ in un unico contesto.
   orologio e sagrato in basolato con cipressi e panche;
 - fontana a due vasche, pavimentazione in lastre, caffè all'aperto, panchine,
   lampioni, aiuole, festoni colorati e due **rotatorie fiorite** con fontana;
-- **sei palazzi** residenziali/commerciali con vetrine, balconi, tende,
-  insegne, marcapiani, corpo scala vetrato e pannelli solari;
+- **otto palazzi** residenziali/commerciali con vetrine, balconi, tende,
+  insegne, marcapiani, corpo scala vetrato e **coperture calpestabili**:
+  pergolato, tavolo e sedie, lettini, ombrellone, fioriere, stendino, comignoli,
+  due lucernari, corpo scala con ringhiera e fotovoltaico inclinato;
 - **trentatré case** istanziate dai modelli esistenti (casale, villa
   contemporanea, chalet alpino) con giardini privati, siepi, orti e frutteti;
 - viali, incroci rialzati, marciapiedi, attraversamenti pedonali, segnaletica,
   automobili, autobus, furgone del mercato, scooter, biciclette e pensilina;
+- **prati curati**: dieci isolati con manto erboso tagliato a bande alternate,
+  cordolo di chiusura e bordura di fiori, e piazzole di ghiaia con corona di
+  fiori ai ventisei alberi da viale e da parco, legate da siepi basse;
 - **vita di strada**: pedoni, ciclisti, persone sedute, piccioni in piazza e
   uccelli in volo, panni stesi sui balconi, cassonetti, edicola e tombini;
 - **Parco delle Rose** con laghetto, anatre, ninfee, canne e pontile in legno,
   e **Giardino del Borgo** con parco giochi: altalene, scivolo, sabbiera;
 - ciliegi fioriti ripresi dal modello `albero_2`, alberature urbane
   procedurali e cipressi;
-- **campagna circostante**: colline dolci, campi di grano e uliveti a filari,
-  cipressi isolati e un borgo con campanile sul colle a nord-ovest.
+- **campagna circostante**: colline dolci che si chiudono sull'orizzonte senza
+  gradini, campi di grano e uliveti a filari, cipressi isolati e il borgo sul
+  colle a nord-ovest — pieve con abside e rosone, campanile a vela, sei case a
+  capanna su zoccoli quotati, muro di cinta, uliveto e una **strada bianca**
+  che scende fino all'anello stradale della città.
 
 ## Miglioramenti di questa versione
 
 Tre interventi mirati, uno per ciascun piano della veduta:
 
-1. **Retro dei palazzi completato** — le facciate posteriori (+Y locale) di
-   tutti gli otto palazzi erano completamente cieche; ora hanno le stesse
-   finestre del fronte con balconi sfalsati di una campata, persiane, porta
-   di servizio con gradino e luce esterna, così gli edifici sono finiti da
-   ogni lato della camera.
-2. **Filari alberati e alberi nei parchi** — 26 nuovi alberi urbani
-   istanziati: filari sul prato fuori dai marciapiedi delle strade
-   intermedie (y = ±32) e di Viale Roma, più sei esemplari negli angoli
-   liberi di Parco delle Rose e Giardino del Borgo, lontano da incroci,
-   facciate, laghetto e parco giochi.
-3. **Colline con ombreggiatura morbida** — il rilievo di campagna è ora una
-   mesh dedicata con vertici condivisi tra le facce adiacenti: prima i
-   vertici duplicati dei batch impedivano la media delle normali e i pendii
-   uscivano a bande nette nonostante lo smooth shading, ora le colline sono
-   sfumate in modo continuo.
+1. **Coperture dei palazzi finite e abitate** — fra il cornicione e il
+   parapetto la soletta non esisteva: i tre pannelli solari e i due manufatti
+   in calcestruzzo flottavano a mezzo metro sopra il vuoto, e i tetti erano
+   lastre bianche completamente lisce. Ogni palazzo riceve ora l'impalcato di
+   copertura con parapetto e copertina in pietra, la grondaia sul fronte, il
+   fotovoltaico inclinato di 16° su telaietti metallici, due comignoli in
+   laterizio con cieloletto, due sfiati, il corpo scala con porta, maniglione e
+   ringhiera di salita, due lucernari illuminati e una terrazza con pergolato a
+   listelli, tavolo, sedie, due lettini, ombrellone, tre fioriere in coccio e
+   uno stendino con i panni. Tutto è scritto in coordinate locali e ruota
+   quindi con l'edificio, su tutti e otto i palazzi.
+2. **Prati urbani, piazzole e bordure** — fra un isolato e l'altro non c'era
+   che il cubo di terreno della città: un unico verde piatto, senza cuciture e
+   senza manutenzione. Dieci isolati liberi fra i marciapiedi — quote ricavate
+   dal reticolo stradale, così da non toccare edifici, giardini e arredi —
+   ricevono un tappeto d'erba affondato nel rilievo e tagliato a bande
+   alternate di prato e prato chiaro, chiuso da un cordolo con bordura di fiori
+   sul lato strada; i viali alberati hanno la piazzola di ghiaia sotto ogni
+   chioma con cinque ciuffi fioriti, e i due filari a y = ±39,5 sono legati da
+   siepi basse. Le vecchie aiuole coniche di parco e piazza, che lasciavano
+   vedere la parete interna del cordolo come un buco nero, sono ora dischi
+   pieni.
+3. **Il colle e il borgo lontano** — il grappolo di scatole in cima al rilievo
+   era il pezzo più visibile e meno finito della scena: tetti conici orientati
+   a rombo su muri rettangolari, una sola quota per tutti i volumi (così le
+   case ai bordi flottavano o affondavano) e nessun collegamento con la città.
+   Ora il borgo ha una pieve con navata, abside, lesene, rosone, portale e
+   croce di colmo, un campanile con celle, orologio, guglia allineata alla
+   muratura e pennone; sei case a capanna con frontoni nel filo della
+   muratura, gronda aggettante, finestre scure, porta, comignolo e orto
+   fiorito, ognuna sul proprio zoccolo quotato punto per punto sul pendio; un
+   muro di cinta a denti di sega segue l'isoipsa, sei cipressi fiancheggiano
+   la salita e un uliveto la chiude a monte. La strada bianca scende dal
+   sagrato fino all'anello di circonvallazione e i suoi bordi sono calcolati
+   sulla direzione media della dorsale, così il nastro non scagliona nelle
+   curve. Due cuciture chiudono il fondo: la lastra di terreno della città,
+   che affiorando di quattro centimetri proiettava col sole basso una linea a
+   denti di sega su tutta la campagna, è portata sotto il rilievo, e gli
+   ultimi 34 m di griglia del rilievo sono riportati alla quota della piana
+   lontana con uno smoothstep — il gradino che si leggeva come taglio netto
+   all'orizzonte non c'è più.
 
 La scena ha dimensioni di circa **214 × 214 metri** per l'abitato, inseriti in
 una piana di campagna che si estende fino all'orizzonte collinare, ed è
