@@ -32,6 +32,26 @@ in un unico contesto.
 - **campagna circostante**: colline dolci, campi di grano e uliveti a filari,
   cipressi isolati e un borgo con campanile sul colle a nord-ovest.
 
+## Miglioramenti di questa versione
+
+Tre interventi mirati, uno per ciascun piano della veduta:
+
+1. **Retro dei palazzi completato** — le facciate posteriori (+Y locale) di
+   tutti gli otto palazzi erano completamente cieche; ora hanno le stesse
+   finestre del fronte con balconi sfalsati di una campata, persiane, porta
+   di servizio con gradino e luce esterna, così gli edifici sono finiti da
+   ogni lato della camera.
+2. **Filari alberati e alberi nei parchi** — 26 nuovi alberi urbani
+   istanziati: filari sul prato fuori dai marciapiedi delle strade
+   intermedie (y = ±32) e di Viale Roma, più sei esemplari negli angoli
+   liberi di Parco delle Rose e Giardino del Borgo, lontano da incroci,
+   facciate, laghetto e parco giochi.
+3. **Colline con ombreggiatura morbida** — il rilievo di campagna è ora una
+   mesh dedicata con vertici condivisi tra le facce adiacenti: prima i
+   vertici duplicati dei batch impedivano la media delle normali e i pendii
+   uscivano a bande nette nonostante lo smooth shading, ora le colline sono
+   sfumate in modo continuo.
+
 La scena ha dimensioni di circa **214 × 214 metri** per l'abitato, inseriti in
 una piana di campagna che si estende fino all'orizzonte collinare, ed è
 organizzata in collezioni Blender distinte per edifici, strada, verde, arredo

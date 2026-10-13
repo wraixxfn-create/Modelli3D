@@ -642,27 +642,29 @@ def add_hip_roof(batch, cx, cy, width, depth, z0, z1, material_yaw=0.0):
 
 def add_front_window(B, cx, cy, yaw, local_x, zc, width, height,
                      facade_depth, balcony=False, shutter=False,
-                     glass_key="glass", frame_key="trim"):
-    # La facciata principale locale è sul lato -Y.
-    face = -facade_depth / 2
-    lbox(B[glass_key], cx, cy, yaw, local_x, face - 0.055, zc,
+                     glass_key="glass", frame_key="trim", side=-1):
+    # Facciata sul lato locale `side` * Y (-1 = fronte principale, +1 = retro):
+    # gli scostamenti verso l'esterno seguono il segno del lato, così la stessa
+    # finestra completa può chiudere anche il retro, prima del tutto cieco.
+    face = side * facade_depth / 2
+    lbox(B[glass_key], cx, cy, yaw, local_x, face + side * 0.055, zc,
          width, 0.085, height)
     fw = 0.12
     # Cornice, montanti e davanzale.
     for sx in (-1, 1):
         lbox(B[frame_key], cx, cy, yaw, local_x + sx * (width / 2 + fw / 2),
-             face - 0.12, zc, fw, 0.18, height + 0.20)
+             face + side * 0.12, zc, fw, 0.18, height + 0.20)
     for sz in (-1, 1):
-        lbox(B[frame_key], cx, cy, yaw, local_x, face - 0.12,
+        lbox(B[frame_key], cx, cy, yaw, local_x, face + side * 0.12,
              zc + sz * (height / 2 + fw / 2), width + 0.24, 0.18, fw)
-    lbox(B["metal"], cx, cy, yaw, local_x, face - 0.16, zc,
+    lbox(B["metal"], cx, cy, yaw, local_x, face + side * 0.16, zc,
          0.055, 0.055, height)
     if balcony:
         slab_z = zc - height / 2 - 0.26
-        lbox(B["concrete"], cx, cy, yaw, local_x, face - 0.52, slab_z,
+        lbox(B["concrete"], cx, cy, yaw, local_x, face + side * 0.52, slab_z,
              width + 0.78, 1.0, 0.20)
         # Balaustra e corrimano in metallo; aste a passo regolare.
-        rail_y = face - 1.04
+        rail_y = face + side * 1.04
         rail_h = 0.58
         lbox(B["metal"], cx, cy, yaw, local_x, rail_y,
              slab_z + 0.20 + rail_h, width + 0.75, 0.085, 0.09)
@@ -672,17 +674,17 @@ def add_front_window(B, cx, cy, yaw, local_x, zc, width, height,
             bx = local_x - (width + 0.58) / 2 + i * (width + 0.58) / 5
             lbox(B["metal"], cx, cy, yaw, bx, rail_y,
                  slab_z + 0.49, 0.045, 0.05, 0.52)
-        for side in (-1, 1):
-            lbox(B["metal"], cx, cy, yaw, local_x + side * (width / 2 + 0.35),
-                 face - 0.54, slab_z + 0.47, 0.06, 0.95, 0.055)
+        for sx in (-1, 1):
+            lbox(B["metal"], cx, cy, yaw, local_x + sx * (width / 2 + 0.35),
+                 face + side * 0.54, slab_z + 0.47, 0.06, 0.95, 0.055)
     if shutter:
-        for side in (-1, 1):
-            lbox(B["wood"], cx, cy, yaw, local_x + side * (width / 2 + 0.31),
-                 face - 0.16, zc, 0.30, 0.11, height * 0.92)
+        for sx in (-1, 1):
+            lbox(B["wood"], cx, cy, yaw, local_x + sx * (width / 2 + 0.31),
+                 face + side * 0.16, zc, 0.30, 0.11, height * 0.92)
             for j in range(5):
                 z = zc - height * 0.38 + j * (height * 0.19)
                 lbox(B["wood_light"], cx, cy, yaw,
-                     local_x + side * (width / 2 + 0.31), face - 0.23, z,
+                     local_x + sx * (width / 2 + 0.31), face + side * 0.23, z,
                      0.29, 0.045, 0.045)
 
 
@@ -778,6 +780,20 @@ def build_apartment(B, mats, decor_col, cx, cy, yaw, width, depth,
         lbox(B["trim"], cx, cy, yaw, 0, face_y - 0.12,
              ground_h + level * upper_h + 0.10,
              width + 0.20, 0.19, 0.13)
+    # Retro (+Y) non più cieco: stesse finestre del fronte, con balconi
+    # sfalsati di una campata, più porta di servizio e luce al piano terra.
+    back_y = depth / 2
+    for level in range(upper_floors):
+        zc = ground_h + 0.26 + level * upper_h + 1.10
+        for col, x in enumerate(x_positions):
+            add_front_window(B, cx, cy, yaw, x, zc, 1.28, 1.72, depth,
+                             balcony=(col + level) % 2 == 1,
+                             shutter=not modern and col in (1, cols - 2),
+                             frame_key="trim", side=1)
+    lbox(B["wood"], cx, cy, yaw, 0, back_y + 0.07, 1.55, 0.95, 0.12, 2.2)
+    lbox(B["trim"], cx, cy, yaw, 0, back_y + 0.10, 2.78, 1.25, 0.16, 0.14)
+    lbox(B["concrete"], cx, cy, yaw, 0, back_y + 0.55, 0.16, 1.7, 1.1, 0.18)
+    lbox(B["lamp"], cx, cy, yaw, 0.85, back_y + 0.16, 2.95, 0.19, 0.08, 0.30)
     # Finestre sui fianchi visibili: vetro, cornice e davanzale.
     side_x = width / 2
     for sign in (-1, 1):
@@ -1604,13 +1620,30 @@ def build_countryside(B, mats, col):
             x, y = -half + i * step, -half + j * step
             row.append((x, y, hill_height(x, y) - 0.06))
         rows.append(row)
+    # Mesh dedicata con vertici condivisi tra quad adiacenti: nei Batch gli
+    # stessi punti vengono duplicati a ogni faccia, quindi lo smooth shading
+    # non poteva mediare le normali e le colline uscivano a bande nette.
+    # Qui ogni punto della griglia esiste una sola volta per materiale e le
+    # normali risultano davvero morbide lungo i pendii.
+    verts = [point for row in rows for point in row]
+    faces = {"ground": [], "ground_far": []}
     for j in range(n):
         for i in range(n):
             cxm = -half + (i + 0.5) * step
             cym = -half + (j + 0.5) * step
             key = "ground_far" if math.hypot(cxm, cym) > 148 else "ground"
-            B[key].poly((rows[j][i], rows[j][i + 1],
-                         rows[j + 1][i + 1], rows[j + 1][i]), smooth=True)
+            a = j * (n + 1) + i
+            faces[key].append((a, a + 1, a + n + 2, a + n + 1))
+    for key, key_faces in faces.items():
+        if not key_faces:
+            continue
+        mesh = bpy.data.meshes.new("Rilievo collinare — " + key)
+        mesh.from_pydata(verts, [], key_faces)
+        mesh.materials.append(mats[key])
+        mesh.update()
+        mesh.polygons.foreach_set("use_smooth", [True] * len(key_faces))
+        relief = bpy.data.objects.new("Rilievo collinare — " + key, mesh)
+        col.objects.link(relief)
     # Pianura sconfinata oltre le colline: chiude l'orizzonte senza "mare".
     ring = [(math.cos(TAU * i / 72) * 6000.0,
              math.sin(TAU * i / 72) * 6000.0, -0.55) for i in range(72)]
@@ -1690,6 +1723,21 @@ def add_city_trees(tree_template, blossom_template, mats, tree_col, green_col):
         create_instance("Albero urbano %02d" % (i + 1), tree_template, tree_col,
                         (x, y, 0.02), yaw=random.uniform(0, TAU),
                         scale=random.uniform(0.78, 1.05))
+    # Filari da viale e alberi da parco: le strade intermedie (y = ±32) e
+    # Viale Roma avevano alberi solo in piazza. Le posizioni stanno sul prato
+    # appena fuori dai marciapiedi, lontane da incroci, facciate, laghetto e
+    # parco giochi; rotazione e scala sono formule dell'indice e non
+    # consumano numeri casuali, così il resto della scena resta invariato.
+    avenue_positions = [(x, -39.5) for x in (-58, -47, -36, 36, 47, 58)]
+    avenue_positions += [(x, 39.5) for x in (-58, -47, -36, 36, 47, 58)]
+    avenue_positions += [(sx, y) for sx in (-7.9, 7.9)
+                         for y in (-88, -77, 81, 92)]
+    park_positions = [(-64, 63), (-41, 61), (-41, 43),
+                      (41, -63), (64, -63), (64, -41)]
+    for i, (x, y) in enumerate(avenue_positions + park_positions):
+        create_instance("Albero da viale %02d" % (i + 1), tree_template,
+                        tree_col, (x, y, 0.02), yaw=(i * 2.399) % TAU,
+                        scale=0.82 + 0.05 * ((i * 37) % 5))
     # Ciliegio fiorito: ripreso direttamente dal modello esistente albero_2.
     blossoms = [(-18.1, -9.4), (18.1, -9.4), (-18.1, 9.4), (18.1, 9.4),
                 (-62, 59), (62, -59)]
