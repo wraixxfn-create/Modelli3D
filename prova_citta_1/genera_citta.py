@@ -12,6 +12,10 @@ calpestabili e abitate (pergole, fioriere, lettini, fotovoltaico inclinato,
 corpi scala e lucernari), prati urbani con sfalcio a strisce, cordoli, bordure
 fiorite e piazzole ai viali alberati, e il borgo sul colle con tetti a capanna,
 zoccoli quotati sul pendio, cipressi, uliveto e una strada bianca d'accesso.
+La quarta versione aggiunge un bordo sassoso al laghetto con un ponticello
+in legno ad arco, lo spartitraffico fiorito su Viale Roma con siepe e fiori a
+passo regolare, e l'area attrezzata alla fermata autobus con portabiciclette,
+panchina, cestino e bacheca orari.
 
 Richiede Blender 5.0+ e i modelli originali presenti nelle cartelle sorelle.
 
@@ -535,6 +539,27 @@ def build_roads(mats, road_col, plaza_col):
     # Viale Roma: la piazza e il municipio interrompono il tratto centrale.
     add_road_v(B, 0, -100, -16, 10.0)
     add_road_v(B, 0, 29, 100, 10.0)
+    # Spartitraffico fiorito lungo i due tratti di Viale Roma: un'aiuola
+    # rialzata con siepe bassa e fiori a passo regolare divide le corsie,
+    # dando al viale principale il carattere di boulevard alberato.
+    for y0, y1 in ((-98, -18), (31, 98)):
+        mid_y = (y0 + y1) / 2
+        length = y1 - y0
+        # Cordolo perimetrale dell'aiuola spartitraffico.
+        B["curb"].box((0, mid_y, 0.10), (1.2, length, 0.18))
+        # Tappeto erboso dentro il cordolo.
+        B["grass"].box((0, mid_y, 0.20), (1.0, length - 0.4, 0.10))
+        # Siepe bassa continua al centro.
+        B["leaf"].box((0, mid_y, 0.52), (0.5, length - 1.0, 0.50))
+        # Fiori a passo regolare lungo la siepe, colori alternati.
+        flower_keys = ("flower", "cloth_yellow", "cloth_violet", "flower")
+        step = 4.5
+        n_flowers = max(1, int(length / step))
+        for i in range(n_flowers):
+            fy = y0 + 1.5 + (y1 - y0 - 3.0) * (i + 0.5) / n_flowers
+            key = flower_keys[i % len(flower_keys)]
+            B[key].sphere((0, fy, 0.68), 0.18, (1.0, 0.85, 0.6), 7, 5)
+            B["leaf_light"].sphere((0.05, fy, 0.50), 0.20, (1.0, 1.0, 0.55), 6, 4)
     # Raccordi leggermente rialzati: evitano la sovrapposizione coplanare delle
     # superfici nei nodi della griglia, lasciando leggibili le strisce pedonali.
     crossings_x = (-70, -23, 0, 23, 70)
@@ -1486,6 +1511,52 @@ def build_pond(B, cx, cy):
     for px, py in ((cx + 3.2, cy - 2.5), (cx + 4.6, cy - 2.5),
                    (cx + 3.2, cy - 1.1), (cx + 4.6, cy - 1.1)):
         B["wood"].cylinder((px, py, 0.10), 0.06, 0.7, 8)
+    # Bordo sassoso: massi irregolari lungo la sponda per un aspetto naturale.
+    for i in range(18):
+        a = TAU * i / 18 + random.uniform(-0.12, 0.12)
+        rr = 4.2 + random.uniform(-0.3, 0.4)
+        sx, sy = cx + math.cos(a) * rr, cy + math.sin(a) * rr
+        # Evita il pontile: la zona con x > cx + 3 e y intorno a cy - 1.8 è libera.
+        if sx > cx + 2.8 and -3.0 < sy - cy < -0.5:
+            continue
+        r_rock = random.uniform(0.14, 0.30)
+        B["concrete"].sphere((sx, sy, 0.10 + r_rock * 0.5), r_rock,
+                             (random.uniform(0.8, 1.2), random.uniform(0.8, 1.1),
+                              random.uniform(0.6, 0.9)), 7, 5)
+    # Ponticello in legno ad arco sul lato opposto al pontile.
+    bx, by = cx - 2.2, cy + 3.6
+    arc_pts = 7
+    for i in range(arc_pts):
+        t = i / (arc_pts - 1)
+        lx = bx - 1.8 + t * 3.6
+        lz = 0.28 + math.sin(t * PI) * 0.45
+        B["wood_light"].box((lx, by, lz), (0.60, 1.5, 0.10))
+    # Corrimano del ponticello con montanti.
+    for side in (-1, 1):
+        for i in range(5):
+            t = (i + 0.5) / 5
+            px = bx - 1.6 + t * 3.2
+            pz = 0.38 + math.sin(t * PI) * 0.45
+            B["wood"].box((px, by + side * 0.68, pz), (0.08, 0.08, 0.55))
+        # Trave superiore che segue l'arco.
+        for i in range(4):
+            t0 = i / 4
+            t1 = (i + 1) / 4
+            x0 = bx - 1.6 + t0 * 3.2
+            x1 = bx - 1.6 + t1 * 3.2
+            z0 = 0.65 + math.sin(t0 * PI) * 0.45
+            z1 = 0.65 + math.sin(t1 * PI) * 0.45
+            B["wood"].box(((x0 + x1) / 2, by + side * 0.68, (z0 + z1) / 2),
+                          (math.dist((x0, z0), (x1, z1)) + 0.04, 0.07, 0.07),
+                          math.atan2(z1 - z0, x1 - x0))
+    # Canneti più fitti dietro i massi, sul lato nord-ovest.
+    for i in range(8):
+        a = PI * 0.7 + i * 0.12
+        rx, ry = cx + math.cos(a) * 4.3, cy + math.sin(a) * 4.3
+        for k in range(2):
+            B["leaf_light"].cone((rx + random.uniform(-0.15, 0.15),
+                                   ry + random.uniform(-0.15, 0.15),
+                                   0.65 + 0.10 * k), 0.04, 0.01, 0.7, 5)
 
 
 # ---------------------------------------------------------------------------
@@ -2176,6 +2247,29 @@ def build_transport(B, mats, traffic_col):
     add_text("FERMATA  •  LINEA 1", "Insegna fermata autobus",
              (-3.0, -63.22, 3.70), 0.24, bpy.data.materials["Bianco avorio"],
              traffic_col)
+    # Area attrezzata alla fermata: portabiciclette, panchina, cestino e
+    # bacheca orari creano un piccolo hub di sosta oltre la pensilina.
+    # Portabiciclette ad arco: tre posti bici con struttura metallica.
+    for i in range(3):
+        bx = -7.5 + i * 1.2
+        B["metal"].cylinder((bx, -64.5, 0.42), 0.38, 0.06, 14, axis="Y")
+        B["metal"].box((bx, -64.5, 0.82), (0.06, 0.06, 0.72))
+        B["metal"].box((bx, -64.5, 1.18), (0.40, 0.06, 0.06))
+    # Panchina in legno e metallo per i pendolari in attesa.
+    make_bench(B, 3.5, -65, 0.0)
+    # Cestino portarifiuti con coperchio e supporto.
+    B["metal"].cylinder((7.5, -64.2, 0.52), 0.22, 0.85, 12)
+    B["metal"].cylinder((7.5, -64.2, 0.98), 0.24, 0.08, 12)
+    B["metal"].box((7.5, -64.2, 0.10), (0.06, 0.06, 0.12))
+    # Bacheca orari: palo, bacheca vetrata e testo dell'orario.
+    B["metal"].cylinder((9.8, -63.5, 1.10), 0.06, 2.2, 10)
+    B["white"].box((9.8, -63.5, 2.0), (0.90, 0.12, 1.20))
+    B["glass"].box((9.8, -63.5 - 0.08, 2.0), (0.82, 0.04, 1.10))
+    # Cornice metallica attorno alla bacheca.
+    for sy in (-1, 1):
+        B["metal"].box((9.8 + sy * 0.46, -63.5, 2.0), (0.05, 0.14, 1.22))
+    for sz in (-1, 1):
+        B["metal"].box((9.8, -63.5, 2.0 + sz * 0.61), (0.92, 0.14, 0.05))
 
 
 # ---------------------------------------------------------------------------

@@ -86,6 +86,27 @@ Tre interventi mirati, uno per ciascun piano della veduta:
    lontana con uno smoothstep — il gradino che si leggeva come taglio netto
    all'orizzonte non c'è più.
 
+## Miglioramenti della quarta versione
+
+Tre interventi mirati su acqua, viale e sosta:
+
+1. **Laghetto con bordo sassoso e ponticello** — la sponda del laghetto era un
+   cilindro netto senza transizione con il prato; ora diciotto massi irregolari
+   in calcestruzzo — dimensione, colore e posizione variati — cingono la riva
+   lasciando libero solo l'accesso al pontile, e un ponticello in larice ad
+   arco scavalca il lato nord-ovest: sette assiti seguono la curvatura con
+   corrimano a montanti e trave superiore che asseconda l'arco, e un secondo
+   ciuffo di canne si infittisce dietro i sassi.
+2. **Spartitraffico fiorito su Viale Roma** — i due tratti a nord e a sud
+   della piazza erano corsie senza carattere; ora un'aiuola rialzata con
+   cordolo, manto erboso e siepe bassa divide le carreggiate per tutta la
+   lunghezza, e fiori a passo regolare — lilla, gialli, viola, lilla —
+   punteggiano la siepe con macchie di colore leggibili dal viale.
+3. **Area attrezzata alla fermata autobus** — la pensilina restava isolata sul
+   marciapiede; ora la affiancano un portabiciclette ad arco con tre posti,
+   una panchina per i pendolari, un cestino portarifiuti con coperchio e una
+   bacheca orari con cornice metallica e vetro di protezione.
+
 La scena ha dimensioni di circa **214 × 214 metri** per l'abitato, inseriti in
 una piana di campagna che si estende fino all'orizzonte collinare, ed è
 organizzata in collezioni Blender distinte per edifici, strada, verde, arredo
