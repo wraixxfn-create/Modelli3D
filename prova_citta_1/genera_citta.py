@@ -6,7 +6,12 @@ aggiunge piazza, municipio, palazzi, negozi, viabilità, verde e arredo urbano,
 e nella seconda versione anche pieve romanica con campanile, mercato
 settimanale in piazza, rotatorie fiorite, laghetto con anatre, parco giochi,
 pedoni e ciclisti, panni stesi, giardini privati e una campagna collinare
-con colture, cipressi e un borgo lontano sul colle.
+con colture, cipressi e un borgo lontano sul colle. La terza versione rifinisce
+ciò che la veduta mostra ma la scena non aveva ancora: coperture dei palazzi
+calpestabili e abitate (pergole, fioriere, lettini, fotovoltaico inclinato,
+corpi scala e lucernari), prati urbani con sfalcio a strisce, cordoli, bordure
+fiorite e piazzole ai viali alberati, e il borgo sul colle con tetti a capanna,
+zoccoli quotati sul pendio, cipressi, uliveto e una strada bianca d'accesso.
 
 Richiede Blender 5.0+ e i modelli originali presenti nelle cartelle sorelle.
 
@@ -46,7 +51,8 @@ LIFE_KEYS = ("asphalt", "curb", "grass", "grass_light", "leaf", "leaf_light",
              "canvas_blue", "canvas_red", "canvas_yellow", "produce_red",
              "produce_green", "produce_orange", "produce_yellow", "roof_dark")
 COUNTRY_KEYS = ("ground", "ground_far", "wheat", "grass", "grass_light", "olive", "bark",
-                "cypress", "cream", "ochre", "terracotta", "brick")
+                "cypress", "cream", "ochre", "terracotta", "brick", "trim",
+                "white", "roof_dark", "metal_gold", "flower", "leaf")
 
 
 # ---------------------------------------------------------------------------
@@ -617,6 +623,31 @@ def lbox(batch, cx, cy, yaw, x, y, z, sx, sy, sz):
     batch.box((wx, wy, z), (sx, sy, sz), yaw)
 
 
+def lbox_tilt(batch, cx, cy, yaw, x, y, z, sx, sy, sz, pitch=0.0):
+    """Scatola in coordinate locali, ruotata anche attorno a X (inclinazione).
+
+    Serve per gli elementi appoggiati sulle coperture — pannelli fotovoltaici,
+    lucernari, tende a falda — che devono seguire la pendenza e non possono
+    essere box ortogonali come quelli di `lbox`.
+    """
+    co, si = math.cos(yaw), math.sin(yaw)
+    cp, sp = math.cos(pitch), math.sin(pitch)
+    pts = []
+    for ix, iy, iz in ((0, 0, 0), (0, 0, 1), (0, 1, 0), (0, 1, 1),
+                       (1, 0, 0), (1, 0, 1), (1, 1, 0), (1, 1, 1)):
+        lx = (ix - 0.5) * sx
+        ly = (iy - 0.5) * sy
+        lz = (iz - 0.5) * sz
+        ry = ly * cp - lz * sp
+        rz = ly * sp + lz * cp
+        pts.append((cx + lx * co - ry * si, cy + lx * si + ry * co, z + rz))
+    start = len(batch.verts)
+    batch.verts.extend(pts)
+    for f in Batch.FACES:
+        batch.faces.append(tuple(start + i for i in f))
+        batch.smooth.append(False)
+
+
 def add_hip_roof(batch, cx, cy, width, depth, z0, z1, material_yaw=0.0):
     # Tetto a padiglione con colmo trasversale: quattro falde pulite.
     co, si = math.cos(material_yaw), math.sin(material_yaw)
@@ -816,25 +847,119 @@ def build_apartment(B, mats, decor_col, cx, cy, yaw, width, depth,
         for level in range(floors):
             lbox(B["trim"], cx, cy, yaw, sign * (width / 2 + 0.13), -depth * 0.02,
                  0.5 + level * upper_h + 0.2, 0.16, 2.9, 0.16)
-    # Parapetto e terrazza tecnica con fotovoltaico, scale e sfiati.
-    ztop = base_z + height + 0.56
+    # Copertura: impalcato, parapetto con copertina, fotovoltaico e terrazza
+    # abitata. Finora la soletta non esisteva del tutto — cornicione e parapetto
+    # erano due anelli separati da mezzo metro di vuoto, e i pannelli flottavano
+    # a metà. Ora la quota di calpestio c'è e ogni manufatto le è appoggiato; le
+    # posizioni sono frazionarie, così la disposizione regge anche sulle palazzine
+    # più strette (16 × 11 m) senza bucare il parapetto.
+    roof_z = base_z + height + 0.10
+    lbox(B["concrete"], cx, cy, yaw, 0, 0, roof_z - 0.10,
+         width - 0.10, depth - 0.10, 0.26)
     for x in (-width / 2, width / 2):
-        lbox(B["trim"], cx, cy, yaw, x, 0, ztop + 0.47, 0.20, depth + 0.2, 0.90)
+        lbox(B["trim"], cx, cy, yaw, x, 0, roof_z + 0.42, 0.22, depth + 0.22, 0.84)
     for y in (-depth / 2, depth / 2):
-        lbox(B["trim"], cx, cy, yaw, 0, y, ztop + 0.47, width + 0.2, 0.20, 0.90)
-    # Pannelli solari inclinati, nella parte posteriore della copertura.
+        lbox(B["trim"], cx, cy, yaw, 0, y, roof_z + 0.42, width + 0.22, 0.22, 0.84)
+    # Copertina in pietra sul parapetto e grondaia aggettante sul fronte.
+    for x in (-width / 2, width / 2):
+        lbox(B["concrete"], cx, cy, yaw, x, 0, roof_z + 0.90, 0.40, depth + 0.40, 0.12)
+    for y in (-depth / 2, depth / 2):
+        lbox(B["concrete"], cx, cy, yaw, 0, y, roof_z + 0.90, width + 0.40, 0.40, 0.12)
+    lbox(B["metal"], cx, cy, yaw, 0, -depth / 2 - 0.16, roof_z + 0.06,
+         width + 0.44, 0.30, 0.14)
+    # Pannelli fotovoltaici su telaietto, inclinati di 16° verso il fronte.
+    pitch = math.radians(16.0)
     for i in range(3):
-        lbox(B["roof_dark"], cx, cy, yaw, -width * 0.25 + i * 2.4,
-             depth * 0.18, ztop + 0.14, 1.95, 2.6, 0.13)
-        lbox(B["glass"], cx, cy, yaw, -width * 0.25 + i * 2.4,
-             depth * 0.18, ztop + 0.23, 1.78, 2.38, 0.035)
+        px = -width * 0.30 + i * 2.45
+        lbox(B["metal"], cx, cy, yaw, px, depth * 0.30, roof_z + 0.13,
+             2.00, 2.45, 0.14)
+        lbox_tilt(B["roof_dark"], cx, cy, yaw, px, depth * 0.30,
+                  roof_z + 0.33, 1.92, 2.42, 0.10, pitch)
+        lbox_tilt(B["glass"], cx, cy, yaw, px, depth * 0.30,
+                  roof_z + 0.41, 1.74, 2.24, 0.04, pitch)
+    # Ciminiere in laterizio con cieloletto e due sfiati metallici.
     for i in range(2):
-        lbox(B["concrete"], cx, cy, yaw, width * 0.27, -depth * 0.10 + i * 2.0,
-             ztop + 0.65, 0.85, 1.0, 0.62)
-    # Pluviali verticali e applique sulle facciate.
+        ch = 1.30 + 0.34 * i
+        chx = width * (0.30 + 0.08 * i)
+        lbox(B["brick"], cx, cy, yaw, chx, depth * 0.34, roof_z + ch / 2,
+             0.62, 0.62, ch)
+        lbox(B["terracotta"], cx, cy, yaw, chx, depth * 0.34, roof_z + ch + 0.12,
+             0.82, 0.82, 0.18)
+    for i in range(2):
+        lbox(B["metal"], cx, cy, yaw, width * 0.16 - i * 1.0, depth * 0.44,
+             roof_z + 0.22, 0.36, 0.36, 0.44)
+    # Corpo scala che sbuca in copertura: porta, maniglione, ringhiera di salita
+    # e due lucernari inclinati verso la piazza.
+    bx, by = -width * 0.34, -depth * 0.30
+    lbox(B["concrete"], cx, cy, yaw, bx, by, roof_z + 1.12, 2.30, 1.90, 2.24)
+    lbox(B["trim"], cx, cy, yaw, bx, by, roof_z + 2.32, 2.56, 2.16, 0.20)
+    lbox(B["wood"], cx, cy, yaw, bx, by - 1.02, roof_z + 1.02, 0.98, 0.12, 1.92)
+    lbox(B["metal_gold"], cx, cy, yaw, bx + 0.34, by - 1.10, roof_z + 1.02,
+         0.05, 0.06, 0.22)
+    for i in range(5):
+        lbox(B["metal"], cx, cy, yaw, bx - 1.02 + i * 0.51, by - 1.16,
+             roof_z + 2.62, 0.05, 0.05, 0.42)
+    lbox(B["metal"], cx, cy, yaw, bx, by - 1.16, roof_z + 2.86, 2.30, 0.07, 0.07)
+    for i in range(2):
+        lbox_tilt(B["metal"], cx, cy, yaw, bx + 2.05 + i * 1.60, by + 0.15,
+                  roof_z + 0.14, 1.42, 1.42, 0.10, -0.28)
+        lbox_tilt(B["glass_warm"], cx, cy, yaw, bx + 2.05 + i * 1.60, by + 0.15,
+                  roof_z + 0.22, 1.24, 1.24, 0.06, -0.28)
+    # Terrazza abitata: pergolato a listelli, tavolo con sedie, due lettini,
+    # ombrellone, fioriere in coccio e stendino. È la quota più esposta della
+    # città, quella che dall'alto si legge prima di ogni altra.
+    tx, ty = width * 0.20, -depth * 0.05
+    for px2, py2 in ((-2.05, -1.15), (2.05, -1.15), (-2.05, 1.15), (2.05, 1.15)):
+        lbox(B["wood_light"], cx, cy, yaw, tx + px2, ty + py2, roof_z + 1.16,
+             0.15, 0.15, 2.32)
+    for i in range(6):
+        lbox(B["wood"], cx, cy, yaw, tx - 2.15 + i * 0.86, ty, roof_z + 2.42,
+             0.12, 2.95, 0.18)
+    for sy2 in (-1.2, 1.2):
+        lbox(B["wood"], cx, cy, yaw, tx, ty + sy2, roof_z + 2.30, 4.55, 0.14, 0.28)
+    lbox(B["wood_light"], cx, cy, yaw, tx, ty, roof_z + 0.78, 1.35, 0.95, 0.09)
+    lbox(B["metal"], cx, cy, yaw, tx, ty, roof_z + 0.39, 0.14, 0.14, 0.72)
+    for sy2 in (-0.92, 0.92):
+        lbox(B["metal"], cx, cy, yaw, tx, ty + sy2, roof_z + 0.46, 0.48, 0.44, 0.07)
+        lbox(B["metal"], cx, cy, yaw, tx, ty + sy2 + (0.19 if sy2 > 0 else -0.19),
+             roof_z + 0.76, 0.44, 0.07, 0.54)
+    # Due lettini in linea d'aria sul fronte, a prua della terrazza.
+    for i in range(2):
+        lx0 = width * 0.02 + i * 0.90
+        ly0 = -depth / 2 + 1.35
+        lbox_tilt(B["white"], cx, cy, yaw, lx0, ly0, roof_z + 0.20,
+                  0.72, 1.95, 0.12, -0.20)
+        lbox_tilt(B["red" if i == 0 else "blue"], cx, cy, yaw, lx0, ly0,
+                  roof_z + 0.29, 0.62, 1.80, 0.05, -0.20)
+        for k in range(2):
+            lbox(B["metal"], cx, cy, yaw, lx0 - 0.28 + k * 0.56, ly0,
+                 roof_z + 0.09, 0.10, 1.75, 0.18)
+    # Ombrellone aperto all'angolo, accanto al pergolato.
+    up = lbox_point(cx, cy, yaw, width * 0.38, ty - depth * 0.02, roof_z + 1.14)
+    B["metal"].cylinder(up, 0.05, 2.28, 10)
+    B["red"].cone((up[0], up[1], roof_z + 2.46), 1.35, 0.10, 0.48, 12)
+    # Fioriere lungo il parapetto del fronte.
+    for i in range(3):
+        fx = -width * 0.30 + i * 1.35
+        lbox(B["terracotta"], cx, cy, yaw, fx, -depth / 2 + 0.46, roof_z + 0.22,
+             1.15, 0.42, 0.44)
+        for j in range(4):
+            lbox(B["flower"], cx, cy, yaw, fx - 0.42 + j * 0.28,
+                 -depth / 2 + 0.46, roof_z + 0.50, 0.22, 0.22, 0.22)
+    # Stendino al centro della copertura, con quattro panni.
+    for i in range(2):
+        lbox(B["wood"], cx, cy, yaw, -width * 0.16 + (i * 2 - 1) * 2.25,
+             depth * 0.02, roof_z + 0.75, 0.10, 0.10, 1.50)
+    lbox(B["metal"], cx, cy, yaw, -width * 0.16, depth * 0.02, roof_z + 1.44,
+         4.70, 0.05, 0.05)
+    for i in range(4):
+        lbox(B[("red", "cream", "sage", "white")[i]], cx, cy, yaw,
+             -width * 0.16 - 1.5 + i * 1.0, depth * 0.02 + 0.02,
+             roof_z + 1.10, 0.66, 0.14, 0.78)
+    # Pluviali verticali fino alla quota della copertina e applique sui fronti.
     for side in (-1, 1):
         lbox(B["metal"], cx, cy, yaw, side * (width / 2 + 0.12),
-             face_y - 0.08, base_z + height / 2, 0.12, 0.12, height)
+             face_y - 0.08, base_z + (height + 0.86) / 2, 0.12, 0.12, height + 0.86)
         lbox(B["lamp"], cx, cy, yaw, -width * 0.42, face_y - 0.28, 3.65,
              0.19, 0.08, 0.30)
     return mass
@@ -1002,8 +1127,10 @@ def build_trees_and_park(B, mats, green_col, road_col):
                  (-52, 44), (-59, 52), (-45, 58), (43, -44), (59, -57)]
     for x, y in positions:
         # Cerchio/aiuola alla base degli alberi.
-        B["curb"].cylinder((x, y, 0.12), 1.05, 0.18, 20, radius2=0.95)
-        B["grass"].cylinder((x, y, 0.21), 0.90, 0.05, 20)
+        # Dischi pieni: con il bordo rastremato fra ghiaia e cordolo restava
+        # una fessura interna che in controluce si leggeva come un buco nero.
+        B["curb"].cylinder((x, y, 0.11), 1.05, 0.30, 20)
+        B["grass"].cylinder((x, y, 0.24), 0.90, 0.10, 20)
     # Siepi basse e bordi verdi del centro civico.
     for x in (-17.2, 17.2):
         B["leaf"].box((x, 0, 0.72), (0.48, 21, 1.1))
@@ -1200,6 +1327,30 @@ def build_church(B, mats, col):
              2.0, 0.5, 0.10)
     lbox(B["trim"], cx, cy, yaw, 6.9, -6.0, 1.5, 0.5, 0.9, 1.9)
     lbox(B["metal_gold"], cx, cy, yaw, 6.62, -6.0, 1.6, 0.10, 0.5, 0.7)
+
+
+def add_gable_roof(batch, wall_batch, cx, cy, w, d, eave_z, ridge_z, ov=0.30):
+    """Tetto a capanna: due falde e frontoni tamponati, colmo lungo Y."""
+    x0, x1 = cx - w / 2 - ov, cx + w / 2 + ov
+    y0, y1 = cy - d / 2 - ov, cy + d / 2 + ov
+    batch.quad((x0, y0, eave_z), (x0, y1, eave_z), (cx, y1, ridge_z), (cx, y0, ridge_z))
+    batch.quad((x1, y1, eave_z), (x1, y0, eave_z), (cx, y0, ridge_z), (cx, y1, ridge_z))
+    # I frontoni stanno nel filo della muratura: la falda esce a gronda.
+    wx0, wx1 = cx - w / 2, cx + w / 2
+    wy0, wy1 = cy - d / 2, cy + d / 2
+    wall_batch.tri((wx0, wy0, eave_z), (wx1, wy0, eave_z), (cx, wy0, ridge_z))
+    wall_batch.tri((wx1, wy1, eave_z), (wx0, wy1, eave_z), (cx, wy1, ridge_z))
+    batch.box((cx, cy, ridge_z + 0.08), (0.30, d + 2 * ov + 0.2, 0.16))
+
+
+def add_pyramid(batch, cx, cy, w, d, z0, z1):
+    """Quattro facce piane sopra una base rettangolare: guglie e torri."""
+    corners = ((cx - w / 2, cy - d / 2), (cx + w / 2, cy - d / 2),
+               (cx + w / 2, cy + d / 2), (cx - w / 2, cy + d / 2))
+    for i in range(4):
+        ax, ay = corners[i]
+        bx, by = corners[(i + 1) % 4]
+        batch.tri((ax, ay, z0), (bx, by, z0), (cx, cy, z1))
 
 
 def lbox_point(cx, cy, yaw, x, y, z):
@@ -1618,7 +1769,16 @@ def build_countryside(B, mats, col):
         row = []
         for i in range(n + 1):
             x, y = -half + i * step, -half + j * step
-            row.append((x, y, hill_height(x, y) - 0.06))
+            z = hill_height(x, y) - 0.06
+            # Cornice del rilievo: l'ultimo tratto di colline è riportato alla
+            # quota della piana lontana, così il mesh si chiude sul piano senza
+            # il gradino netto che si leggeva come taglio all'orizzonte.
+            edge = half - max(abs(x), abs(y))
+            if edge < 34.0:
+                t = max(0.0, edge / 34.0)
+                t = t * t * (3 - 2 * t)
+                z = -0.55 + (z + 0.55) * t
+            row.append((x, y, z))
         rows.append(row)
     # Mesh dedicata con vertici condivisi tra quad adiacenti: nei Batch gli
     # stessi punti vengono duplicati a ogni faccia, quindi lo smooth shading
@@ -1675,19 +1835,137 @@ def build_countryside(B, mats, col):
         z = hill_height(x, y)
         B["cypress"].cylinder((x, y, z + 3.2), 0.24, 6.0, 8)
         B["cypress"].cone((x, y, z + 5.0), 1.15, 0.0, 7.0, 10)
-    # Borgo lontano sul colle a nord-ovest: campanile e tetti minuti.
-    hx, hy = -168.0, 152.0
-    hz = hill_height(hx, hy)
-    B["cream"].box((hx, hy, hz + 3.0), (7.0, 11.0, 6.0))
-    B["terracotta"].cone((hx, hy, hz + 7.4), 6.4, 0.4, 3.2, 4)
-    B["brick"].box((hx + 5.5, hy - 4.0, hz + 7.0), (2.6, 2.6, 14.0))
-    B["terracotta"].cone((hx + 5.5, hy - 4.0, hz + 15.2), 2.0, 0.1, 2.4, 4)
-    for i, (ox, oy, ow, od) in enumerate(((-6, 8, 5, 4), (7, 6, 4, 5),
-                                          (-8, -6, 4, 4), (6, -7, 5, 4))):
-        B["cream" if i % 2 else "ochre"].box((hx + ox, hy + oy, hz + 1.6),
-                                             (ow, od, 3.2))
-        B["terracotta"].cone((hx + ox, hy + oy, hz + 3.9),
-                             max(ow, od) * 0.78, 0.3, 1.9, 4)
+    # Borgo lontano sul colle a nord-ovest.
+    build_hill_village(B, -168.0, 152.0)
+
+
+def build_hill_village(B, hx, hy):
+    """Borgo sul colle: chiesetta, case in pietra, muretti, cipressi, strada.
+
+    Sostituisce il grappolo di volumi con tetti a padiglione che da lontano
+    leggeva come un mucchio di scatole bianche. Qui ogni edificio ha la falda a
+    capanna, lo zoccolo aggrappato al pendio — la quota è campionata punto per
+    punto, non una sola per tutto il borgo — comignolo, finestre scure e orto;
+    in più il sagrato, sei cipressi e una strada bianca che scende alla città.
+    """
+    def terrace(px, py, tw, td, lift=0.34):
+        """Platea di fondazione: restituisce il piano di calpestio quotato."""
+        z = hill_height(px, py)
+        B["trim"].box((px, py, z + lift - 1.20), (tw, td, 2.40))
+        return z + lift
+
+    def house(px, py, w, d, floors, seed):
+        zt = terrace(px, py, w + 1.1, d + 1.1)
+        wall = "cream" if seed % 2 == 0 else "ochre"
+        hgt = 2.9 + 2.5 * (floors - 1)
+        B[wall].box((px, py, zt + hgt / 2), (w, d, hgt))
+        add_gable_roof(B["terracotta"], B[wall], px, py, w, d, zt + hgt,
+                       zt + hgt + max(1.3, w * 0.30))
+        # Finestre scure sui due fronti lunghi e porta su quello a valle.
+        for lvl in range(floors):
+            zc = zt + 1.55 + lvl * 2.5
+            for k in range(2):
+                off = -w * 0.24 + k * w * 0.48
+                B["roof_dark"].box((px - w / 2 - 0.05, py + off, zc),
+                                   (0.18, 0.75, 1.05))
+                B["roof_dark"].box((px + w / 2 + 0.05, py - off, zc),
+                                   (0.18, 0.75, 1.05))
+            if lvl == 0:
+                B["roof_dark"].box((px + w / 2 + 0.06, py + d * 0.28, zt + 1.15),
+                                   (0.18, 1.0, 1.7))
+        B["brick"].box((px + w * 0.30, py - d * 0.34, zt + hgt + 1.35),
+                       (0.62, 0.62, 2.0))
+        B["trim"].box((px + w * 0.30, py - d * 0.34, zt + hgt + 2.42),
+                      (0.82, 0.82, 0.18))
+        # Orto con fiori sul lato a valle della casa.
+        B["grass_light"].box((px, py - d / 2 - 2.0, zt + 0.05),
+                             (w * 0.8, 2.4, 0.10))
+        for k in range(3):
+            B["flower"].sphere((px - 1.4 + k * 1.4, py - d / 2 - 2.0, zt + 0.34),
+                               0.34, (1.0, 1.0, 0.7), 7, 5)
+
+    # La chiesa: navata, abside, facciata a capanna e campanile in mattoni.
+    cz = terrace(hx, hy, 10.5, 15.0, 0.55)
+    B["cream"].box((hx, hy, cz + 3.0), (7.0, 11.0, 6.0))
+    add_gable_roof(B["terracotta"], B["cream"], hx, hy, 7.0, 11.0, cz + 6.0,
+                   cz + 8.5)
+    B["cream"].cylinder((hx, hy + 6.0, cz + 2.6), 2.6, 5.2, 18)
+    B["terracotta"].cone((hx, hy + 6.0, cz + 5.7), 3.0, 0.5, 1.9, 18)
+    for sx in (-1, 1):
+        B["trim"].box((hx + sx * 3.1, hy - 5.6, cz + 3.0), (0.5, 0.5, 6.0))
+    B["trim"].box((hx, hy - 5.62, cz + 6.15), (7.6, 0.5, 0.4))
+    B["trim"].cylinder((hx, hy - 5.78, cz + 4.9), 0.95, 0.22, 16, axis="Y")
+    B["roof_dark"].cylinder((hx, hy - 5.90, cz + 4.9), 0.72, 0.16, 16, axis="Y")
+    B["roof_dark"].box((hx, hy - 5.75, cz + 1.7), (1.8, 0.3, 3.0))
+    B["trim"].box((hx, hy - 5.80, cz + 3.35), (2.3, 0.3, 0.32))
+    B["metal_gold"].box((hx, hy - 5.5, cz + 9.35), (0.14, 0.14, 1.1))
+    B["metal_gold"].box((hx, hy - 5.5, cz + 9.75), (0.7, 0.14, 0.14))
+    tx, ty = hx + 5.4, hy - 3.2
+    tz = terrace(tx, ty, 5.0, 5.0, 0.55)
+    B["brick"].box((tx, ty, tz + 6.4), (3.3, 3.3, 12.8))
+    for zz in (0.5, 6.2, 12.5):
+        B["trim"].box((tx, ty, tz + zz), (3.8, 3.8, 0.38))
+    for sx, sy in ((0, -1), (0, 1), (-1, 0), (1, 0)):
+        B["roof_dark"].box((tx + sx * 1.72, ty + sy * 1.72, tz + 9.9),
+                           (0.3 if sx else 1.0, 1.0 if sx else 0.3, 2.3))
+    B["white"].box((tx - 1.72, ty, tz + 6.6), (0.26, 1.5, 1.5))
+    B["roof_dark"].box((tx - 1.86, ty, tz + 6.6), (0.12, 1.1, 1.1))
+    add_pyramid(B["terracotta"], tx, ty, 4.2, 4.2, tz + 12.8, tz + 16.2)
+    B["metal_gold"].box((tx, ty, tz + 16.7), (0.16, 0.16, 1.1))
+    # Le case del borgo, lungo l'isoipsa attorno alla chiesa.
+    for i, (ox, oy, w, d, floors) in enumerate((
+            (-7.5, -6.5, 5.4, 4.4, 2), (6.0, -8.5, 4.8, 4.2, 1),
+            (-8.0, 4.5, 4.6, 4.0, 1), (7.5, 5.0, 5.2, 4.2, 2),
+            (-1.0, -12.5, 6.0, 4.0, 1), (2.5, 11.5, 4.4, 3.8, 1))):
+        house(hx + ox, hy + oy, w, d, floors, i)
+    # Muro di cinta a valle, cipressi del viale e uliveto a monte.
+    for i in range(11):
+        px = hx - 13.0 + i * 2.55
+        z = hill_height(px, hy - 14.5)
+        B["trim"].box((px, hy - 14.5, z + 0.75), (2.7, 0.7, 2.4))
+    for i in range(6):
+        t = i / 5.0
+        px, py = hx + 13.0 + t * 21.0, hy - 17.5 + t * 21.0
+        z = hill_height(px, py)
+        B["cypress"].cylinder((px, py, z + 3.1), 0.26, 5.8, 9)
+        B["cypress"].cone((px, py, z + 4.9), 1.2, 0.0, 7.0, 11)
+    for i in range(7):
+        ox = hx - 19.0 + (i % 4) * 3.4
+        oy = hy + 9.0 + (i // 4) * 3.2
+        z = hill_height(ox, oy)
+        B["bark"].cylinder((ox, oy, z + 0.5), 0.14, 1.0, 6)
+        B["olive"].sphere((ox, oy, z + 1.5), 1.05, (1.0, 1.0, 0.8), 8, 5)
+    # Strada bianca: un nastro di breccia dal sagrato fino all'anello stradale.
+    # Prima scende dal colle, poi punta al varco nord-ovest della citta: le
+    # due anse finali sono sulla piana, fuori dal tessuto urbano.
+    path = ((hx + 11.0, hy - 16.0), (hx + 19.0, hy - 30.0), (hx + 30.0, hy - 44.0),
+            (hx + 44.0, hy - 57.0), (hx + 58.0, hy - 67.0), (hx + 70.0, hy - 73.0),
+            (hx + 78.0, hy - 75.2))  # all'attacco del viale di circonvallazione
+    span = len(path) * 14
+    spine = []
+    for k in range(span):
+        t = k / float(span - 1)
+        f = t * (len(path) - 1)
+        i = min(len(path) - 2, int(f))
+        u = f - i
+        u = u * u * (3 - 2 * u)
+        px = path[i][0] + (path[i + 1][0] - path[i][0]) * u
+        py = path[i][1] + (path[i + 1][1] - path[i][1]) * u
+        spine.append((px, py, hill_height(px, py) + 0.12))
+    # Bordi calcolati sulla direzione media della dorsale: il nastro resta
+    # continuo nelle curve invece di scaglionarsi ad ogni segmento.
+    left, right = [], []
+    last = len(spine) - 1
+    for i, (px, py, pz) in enumerate(spine):
+        qx, qy = spine[max(0, i - 1)][:2]
+        rx, ry = spine[min(last, i + 1)][:2]
+        dx, dy = rx - qx, ry - qy
+        ln = math.hypot(dx, dy) or 1.0
+        nx, ny = -dy / ln * 1.9, dx / ln * 1.9
+        left.append((px + nx, py + ny, pz))
+        right.append((px - nx, py - ny, pz))
+    for i in range(last):
+        B["trim"].quad(left[i], right[i], right[i + 1], left[i + 1])
 
 
 # ---------------------------------------------------------------------------
@@ -1717,6 +1995,78 @@ def make_local_tree_template(mats):
     return col
 
 
+# Posizioni degli alberi nuovi: i filari da viale (y = ±39.5 e lungo Viale
+# Roma) e gli esemplari d'angolo nei due parchi. Sono condivise fra le istanze
+# e le aiuole, così piazzole e sfalci combaciano esattamente con le chiome.
+AVENUE_TREES = ([(x, -39.5) for x in (-58, -47, -36, 36, 47, 58)] +
+                [(x, 39.5) for x in (-58, -47, -36, 36, 47, 58)] +
+                [(sx, y) for sx in (-7.9, 7.9) for y in (-88, -77, 81, 92)])
+PARK_TREES = ((-64, 63), (-41, 61), (-41, 43),
+              (41, -63), (64, -63), (64, -41))
+
+# Isolati liberi fra i marciapiedi: gli unici prati cittadini non occupati da
+# edifici, giardini o attrezzature. Le quote seguono il reticolo stradale.
+MOWN_BLOCKS = ((-63.6, -29.4, -63.6, -42.6), (-38.0, -29.4, 38.4, 63.6),
+               (29.4, 38.0, -63.6, -38.4), (29.4, 43.0, 38.4, 63.6),
+               (-16.6, -7.4, 50.0, 63.6), (7.4, 16.6, 50.0, 63.6),
+               (-16.6, -7.4, -63.6, -50.0), (7.4, 16.6, -63.6, -50.0),
+               (-16.6, -7.4, -25.6, -13.4), (11.5, 16.6, 13.4, 25.6))
+
+
+def build_lawn_care(B):
+    """Prati urbani: manto erboso, sfalcio a strisce, aiuole e filari fioriti.
+
+    Fra un isolato e l'altro non c'era che il cubo di terreno della città: un
+    colore unico, senza cuciture e senza manutenzione. Qui gli isolati liberi
+    ricevono un tappeto d'erba tagliato a bande alternate e racchiuso da un
+    cordolo con bordura di fiori; ogni albero da viale ha la sua piazzola di
+    ghiaia con corona di fiori, e le due file lungo i viali sono legate da
+    siepi basse.
+    """
+    for idx, (x0, x1, y0, y1) in enumerate(MOWN_BLOCKS):
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+        w, d = x1 - x0, y1 - y0
+        # Tappeto erboso: quattro centimetri più su del terreno, con il fondo
+        # affondato nel rilievo così che il bordo non mostri il vuoto.
+        B["grass"].box((cx, cy, -0.03), (w, d, 0.10))
+        # Cordolo di chiusura sui quattro lati.
+        for ex in (x0 + 0.16, x1 - 0.16):
+            B["concrete"].box((ex, cy, 0.045), (0.32, d, 0.23))
+        for ey in (y0 + 0.16, y1 - 0.16):
+            B["concrete"].box((cx, ey, 0.045), (w, 0.32, 0.23))
+        # Sfalcio a bande: l'erba tagliata si vede anche dall'alto.
+        band = 2.3
+        n = max(1, int((d - 1.0) / band))
+        for i in range(n):
+            if i % 2:
+                continue
+            cy2 = y0 + 0.5 + band * (i + 0.5)
+            B["grass_light"].box((cx, cy2, 0.022), (w - 0.9, band * 0.8, 0.05))
+        # Bordura fiorita sul lato strada, a passo regolare.
+        flowers = y1 - 0.55 if idx % 2 == 0 else y0 + 0.55
+        k = max(2, int((w - 2.0) / 2.6))
+        for i in range(k):
+            fx = x0 + 1.0 + (w - 2.0) * (i + 0.5) / k
+            B["flower"].sphere((fx, flowers, 0.26), 0.20, (1.0, 0.8, 0.6), 7, 5)
+            B["leaf_light"].sphere((fx, flowers, 0.16), 0.22, (1.0, 1.0, 0.5), 6, 4)
+    # Piazzole e filari dei viali alberati.
+    for i, (x, y) in enumerate(list(AVENUE_TREES) + list(PARK_TREES)):
+        B["curb"].cylinder((x, y, 0.05), 1.42, 0.18, 20)
+        B["sand"].cylinder((x, y, 0.13), 1.16, 0.09, 20)
+        B["leaf_light"].sphere((x, y, 0.36), 0.42, (1.0, 1.0, 0.62), 8, 5)
+        for j in range(5):
+            a = TAU * j / 5 + i * 0.4
+            B["flower"].sphere((x + math.cos(a) * 1.16, y + math.sin(a) * 1.16,
+                               0.24), 0.15, (1.0, 0.9, 0.6), 6, 4)
+    # Siepi basse fra un albero e l'altro dei due filari sud e nord.
+    for row, ry in enumerate((-39.5, 39.5)):
+        for seg in range(2):
+            x0 = (-58.0 if seg == 0 else 36.0)
+            x1 = (-36.0 if seg == 0 else 58.0)
+            B["leaf"].box(((x0 + x1) / 2, ry + (0.9 if row == 0 else -0.9), 0.42),
+                          (abs(x1 - x0) - 2.4, 0.42, 0.72))
+
+
 def add_city_trees(tree_template, blossom_template, mats, tree_col, green_col):
     broad_positions = [(-52, 44), (-59, 52), (-45, 58), (43, -44), (59, -57)]
     for i, (x, y) in enumerate(broad_positions):
@@ -1728,13 +2078,7 @@ def add_city_trees(tree_template, blossom_template, mats, tree_col, green_col):
     # appena fuori dai marciapiedi, lontane da incroci, facciate, laghetto e
     # parco giochi; rotazione e scala sono formule dell'indice e non
     # consumano numeri casuali, così il resto della scena resta invariato.
-    avenue_positions = [(x, -39.5) for x in (-58, -47, -36, 36, 47, 58)]
-    avenue_positions += [(x, 39.5) for x in (-58, -47, -36, 36, 47, 58)]
-    avenue_positions += [(sx, y) for sx in (-7.9, 7.9)
-                         for y in (-88, -77, 81, 92)]
-    park_positions = [(-64, 63), (-41, 61), (-41, 43),
-                      (41, -63), (64, -63), (64, -41)]
-    for i, (x, y) in enumerate(avenue_positions + park_positions):
+    for i, (x, y) in enumerate(list(AVENUE_TREES) + list(PARK_TREES)):
         create_instance("Albero da viale %02d" % (i + 1), tree_template,
                         tree_col, (x, y, 0.02), yaw=(i * 2.399) % TAU,
                         scale=0.82 + 0.05 * ((i * 37) % 5))
@@ -1759,8 +2103,8 @@ def add_city_trees(tree_template, blossom_template, mats, tree_col, green_col):
 def build_tree_beds(B):
     # Bordure e terreno sotto gli alberi della piazza.
     for x, y in ((-18.1, -9.4), (18.1, -9.4), (-18.1, 9.4), (18.1, 9.4)):
-        B["curb"].cylinder((x, y, 0.16), 1.15, 0.22, 24)
-        B["grass"].cylinder((x, y, 0.28), 0.98, 0.06, 24)
+        B["curb"].cylinder((x, y, 0.10), 1.15, 0.34, 24)
+        B["grass"].cylinder((x, y, 0.26), 0.98, 0.08, 24)
 
 
 # ---------------------------------------------------------------------------
@@ -1953,8 +2297,11 @@ def main():
     traffic_col = child_collection(root, "07 — Mobilità e fermate")
     sign_col = child_collection(root, "08 — Insegne e segnaletica")
     mats = create_materials()
-    # Il suolo continuo evita un orizzonte tagliato attorno alla città.
-    make_cube("Terreno del borgo", (0, 0, -0.42), (214, 214, 0.80),
+    # Il suolo continuo evita un orizzonte tagliato attorno alla città. Sta
+    # quattro centimetri sotto il rilievo: come lastrone affiorante lasciava
+    # vedere il proprio bordo e proiettava, col sole basso, una linea a denti
+    # di sega su tutta la campagna attorno all'abitato.
+    make_cube("Terreno del borgo", (0, 0, -0.55), (214, 214, 0.90),
               mats["ground"], terrain_col, bevel=0.20)
     # Importa i modelli originali, poi li istanzia in lotti urbani.
     house_templates, cherry_template = import_city_assets()
@@ -1962,11 +2309,12 @@ def main():
     road_batches = build_roads(mats, road_col, furnishing_col)
     # Aree verdi, alberi urbani e ciliegi provenienti dal repository.
     green_batches = make_batch_set(mats, green_col,
-                                   ("grass", "tile_b", "curb", "leaf", "leaf_light",
-                                    "flower", "concrete", "water", "wood", "wood_light",
-                                    "metal", "metal_gold"))
+                                   ("grass", "grass_light", "tile_b", "curb", "leaf",
+                                    "leaf_light", "flower", "concrete", "water", "wood",
+                                    "wood_light", "metal", "metal_gold", "sand"))
     build_trees_and_park(green_batches, mats, green_col, road_col)
     build_tree_beds(green_batches)
+    build_lawn_care(green_batches)
     # Alberi generici a chioma ampia + istanze del modello di ciliegio già esistente.
     urban_tree = make_local_tree_template(mats)
     add_city_trees(urban_tree, cherry_template, mats, green_col, green_col)
