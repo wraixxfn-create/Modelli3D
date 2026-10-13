@@ -20,6 +20,13 @@ pubblica fuori dalla piazza con lampioni stradali su Viale Roma e sulle
 trasversali, trasforma le quattro strisce di stallo disegnate sull'erba accanto
 ai palazzi del viale in due parcheggi di quartiere pavimentati e abitati, e
 popola i pendii nudi della campagna con boschi di macchia mediterranea.
+La sesta versione chiude tre errori di impianto: Viale Roma e la sua aiuola
+spartitraffico entravano dentro Residenza Aurora e nell'Albergo del Borgo, e
+ora due piazzali di testata chiudono l'asse contro le facciate; la navata della
+pieve era girata di un quarto di giro rispetto a tetto, abside e portale, e
+tutti i volumi della città galleggiavano da 36 a 41 cm sopra il rilievo, dove
+ora scendono i basamenti in pietra; la scalinata del municipio era rovesciata e
+il mercato occupava il portico.
 
 Richiede Blender 5.0+ e i modelli originali presenti nelle cartelle sorelle.
 
@@ -49,7 +56,7 @@ TAU = 2.0 * PI
 SUN_ELEVATION = 19.0
 SUN_ROTATION = 140.0
 # Materiali usati dai batch della "vita di strada" e dei nuovi landmark.
-LIFE_KEYS = ("asphalt", "curb", "grass", "grass_light", "leaf", "leaf_light",
+LIFE_KEYS = ("asphalt", "curb", "sidewalk", "grass", "grass_light", "leaf", "leaf_light",
              "bark", "flower", "road_white", "water", "wood", "wood_light",
              "metal", "metal_gold", "lamp", "trim", "concrete", "terracotta",
              "cream", "brick", "white", "glass", "cypress", "sand", "rubber",
@@ -490,27 +497,49 @@ def make_batch_set(mats, col, keys):
     return {key: Batch("Geometria — " + key, mats[key], col) for key in keys}
 
 
-def add_road_h(B, y, x0=-100, x1=100, width=8.0, sidewalk=True):
+def spans_outside(a, b, gaps):
+    """Tratti di [a, b] che restano fuori dagli intervalli `gaps`.
+
+    Serve a interrompere cordoli e marciapiedi dove la strada incontra una
+    rotatoria: l'anello è una superficie propria e i marciapiedi devono
+    fermarsi sul cerchio, non attraversarlo come barriere sopraelevate.
+    """
+    cuts = [a]
+    for g0, g1 in sorted(gaps):
+        if g1 <= a or g0 >= b:
+            continue
+        cuts.append(max(a, g0))
+        cuts.append(min(b, g1))
+    cuts.append(b)
+    return [(cuts[i], cuts[i + 1]) for i in range(0, len(cuts), 2)
+            if cuts[i + 1] - cuts[i] > 0.05]
+
+
+def add_road_h(B, y, x0=-100, x1=100, width=8.0, sidewalk=True, gaps=()):
     B["asphalt"].box(((x0 + x1) / 2, y, 0.005), (x1 - x0, width, 0.045))
     # Cordoli e marciapiedi su entrambi i lati.
-    for sign in (-1, 1):
-        edge_y = y + sign * width / 2
-        B["curb"].box(((x0 + x1) / 2, edge_y + sign * 0.12, 0.07),
-                      (x1 - x0, 0.24, 0.14))
-        if sidewalk:
-            B["sidewalk"].box(((x0 + x1) / 2, edge_y + sign * 1.25, 0.055),
-                              (x1 - x0, 2.25, 0.11))
+    for sa, sb in spans_outside(x0, x1, gaps):
+        mid = (sa + sb) / 2
+        for sign in (-1, 1):
+            edge_y = y + sign * width / 2
+            B["curb"].box((mid, edge_y + sign * 0.12, 0.07),
+                          (sb - sa, 0.24, 0.14))
+            if sidewalk:
+                B["sidewalk"].box((mid, edge_y + sign * 1.25, 0.055),
+                                  (sb - sa, 2.25, 0.11))
 
 
-def add_road_v(B, x, y0=-100, y1=100, width=8.0, sidewalk=True):
+def add_road_v(B, x, y0=-100, y1=100, width=8.0, sidewalk=True, gaps=()):
     B["asphalt"].box((x, (y0 + y1) / 2, 0.005), (width, y1 - y0, 0.045))
-    for sign in (-1, 1):
-        edge_x = x + sign * width / 2
-        B["curb"].box((edge_x + sign * 0.12, (y0 + y1) / 2, 0.07),
-                      (0.24, y1 - y0, 0.14))
-        if sidewalk:
-            B["sidewalk"].box((edge_x + sign * 1.25, (y0 + y1) / 2, 0.055),
-                              (2.25, y1 - y0, 0.11))
+    for sa, sb in spans_outside(y0, y1, gaps):
+        mid = (sa + sb) / 2
+        for sign in (-1, 1):
+            edge_x = x + sign * width / 2
+            B["curb"].box((edge_x + sign * 0.12, mid, 0.07),
+                          (0.24, sb - sa, 0.14))
+            if sidewalk:
+                B["sidewalk"].box((edge_x + sign * 1.25, mid, 0.055),
+                                  (2.25, sb - sa, 0.11))
 
 
 def add_zebra_h(B, x, y, road_width=8.0):
@@ -527,27 +556,89 @@ def add_zebra_v(B, x, y, road_width=8.0):
         B["road_white"].box((x, yy, 0.041), (road_width - 1.1, 0.48, 0.025))
 
 
+def build_viale_head(B, sign):
+    """Testata di Viale Roma: il piazzale d'arrivo davanti al fondale.
+
+    L'asse maggiore finiva infilandosi sotto Residenza Aurora e Albergo del
+    Borgo: la carreggiata e la siepe spartitraffico entravano negli edifici e
+    ne riuscivano dal lato opposto. Ora il viale si chiude contro le facciate
+    con un piazzale pavimentato: isola centrale alberata, due attraversamenti
+    ai lati, aiuole, panchine e lampioni. `sign` +1 = testata nord.
+    """
+    y_facade = 43.5 * sign            # filo della facciata del fondale
+    y0 = y_facade - sign * 7.0        # bordo verso la piazza
+    y1 = y_facade + sign * 0.40       # un poco sotto la facciata, per cucire
+    mid = (y0 + y1) / 2
+    length = abs(y1 - y0)
+    # Platea: copre anche gli ultimi metri di carreggiata e marciapiede, così
+    # il piazzale non lascia gradini né fessure sul raccordo.
+    B["asphalt"].box((0, mid, -0.020), (22.0, length, 0.280))
+    B["tile_b"].box((0, y_facade - sign * 1.70, 0.128), (21.0, 2.6, 0.016))
+    # Cordolo perimetrale: solo sui fianchi e sulle due estremità del fronte,
+    # così l'imbocco centrale resta aperto al passaggio delle auto.
+    for sx in (-1, 1):
+        B["curb"].box((sx * 7.75, y0 + sign * 0.14, 0.10), (6.50, 0.28, 0.20))
+        B["curb"].box((sx * 10.86, mid, 0.10), (0.28, length, 0.20))
+    # Isola centrale alberata, in asse con la siepe spartitraffico.
+    yc = y_facade - sign * 4.20
+    B["curb"].cylinder((0, yc, 0.09), 2.55, 0.24, 32)
+    B["grass"].cylinder((0, yc, 0.21), 2.30, 0.10, 32)
+    B["bark"].cylinder((0, yc, 1.70), 0.17, 3.00, 12)
+    B["leaf"].sphere((0, yc, 4.05), 2.05, (1.0, 0.92, 0.78), 12, 8)
+    B["leaf_light"].sphere((0.75, yc + 0.35, 4.75), 1.30, (1.0, 1.0, 0.85), 10, 7)
+    for i in range(6):
+        a = TAU * i / 6 + 0.3
+        B["flower"].sphere((math.cos(a) * 1.75, yc + math.sin(a) * 1.75, 0.34),
+                           0.17, (1.0, 0.85, 0.60), 7, 5)
+    # Attraversamenti pedonali ai due lati dell'isola.
+    for su in (-3.70, 3.70):
+        for j in range(5):
+            yy = yc - 1.30 + j * 0.62
+            B["road_white"].box((su, yy, 0.140), (2.40, 0.44, 0.030))
+    # Aiuole, panchine e lampioni: il piazzale è anche un luogo di sosta.
+    for sx in (-1, 1):
+        ax, ay = sx * 6.60, y_facade - sign * 5.60
+        B["curb"].box((ax, ay, 0.10), (3.60, 1.70, 0.20))
+        B["grass"].box((ax, ay, 0.20), (3.30, 1.40, 0.10))
+        for i in range(4):
+            fx = ax - 1.20 + i * 0.80
+            B["flower"].sphere((fx, ay, 0.34), 0.17, (1.0, 0.85, 0.60), 7, 5)
+            B["leaf_light"].sphere((fx, ay, 0.24), 0.18, (1.0, 1.0, 0.55), 6, 4)
+        make_bench(B, sx * 8.90, y_facade - sign * 2.60,
+                   -PI / 2 if sx > 0 else PI / 2)
+        add_lamp(B, sx * 10.10, y_facade - sign * 1.30, height=5.4, ornate=True)
+
+
 def build_roads(mats, road_col, plaza_col):
     keys = ("asphalt", "sidewalk", "curb", "road_white", "road_yellow",
             "tile_a", "tile_b", "tile_c", "grass", "leaf", "leaf_light",
-            "flower", "cloth_yellow", "cloth_violet")
+            "flower", "cloth_yellow", "cloth_violet", "bark", "concrete",
+            "metal", "metal_gold", "lamp", "wood", "wood_light")
     B = make_batch_set(mats, road_col, keys)
     # Rete leggibile: due anelli, quattro assi di quartiere e viale centrale.
-    for y in (-70, 70):
-        add_road_h(B, y, -100, 100, 8.0)
-    for x in (-70, 70):
-        add_road_v(B, x, -100, 100, 8.0)
-    for y in (-32, 32):
-        add_road_h(B, y, -100, 100, 8.0)
-    for x in (-23, 23):
-        add_road_v(B, x, -100, 100, 8.0)
-    # Viale Roma: la piazza e il municipio interrompono il tratto centrale.
-    add_road_v(B, 0, -100, -16, 10.0)
-    add_road_v(B, 0, 29, 100, 10.0)
-    # Spartitraffico fiorito lungo i due tratti di Viale Roma: un'aiuola
+    # Nelle due rotatorie il cordolo e il marciapiede si interrompono sul
+    # cerchio: l'anello ha un marciapiede proprio che ne fa il giro.
+    for y, gx in ((-70, None), (70, None), (-32, -23), (32, 23)):
+        add_road_h(B, y, -100, 100, 8.0,
+                   gaps=() if gx is None else ((gx - 6.5, gx + 6.5),))
+    for x, gy in ((-70, None), (70, None), (-23, -32), (23, 32)):
+        add_road_v(B, x, -100, 100, 8.0,
+                   gaps=() if gy is None else ((gy - 6.5, gy + 6.5),))
+    # Viale Roma: la piazza, il municipio e i due fondali ne spezzano l'asse.
+    # La carreggiata non entra più dentro Residenza Aurora e Albergo del Borgo:
+    # ogni troncone corre fra due incroci, o fra un incrocio e una testata.
+    for y0, y1 in ((-100, -59), (-43, -16), (29, 43), (59, 100)):
+        add_road_v(B, 0, y0, y1, 10.0)
+    # Testate del viale: due piazzali d'arrivo davanti ai fondali.
+    build_viale_head(B, 1)
+    build_viale_head(B, -1)
+    # Spartitraffico fiorito lungo i tratti di Viale Roma: un'aiuola
     # rialzata con siepe bassa e fiori a passo regolare divide le corsie,
-    # dando al viale principale il carattere di boulevard alberato.
-    for y0, y1 in ((-98, -18), (31, 98)):
+    # dando al viale principale il carattere di boulevard alberato. Ora si
+    # interrompe in corrispondenza degli incroci (prima la siepe attraversava
+    # le quattro intersezioni) e delle due testate.
+    for y0, y1 in ((-98, -74), (-66, -59), (-43, -36), (-28, -18),
+                    (36, 43), (59, 66), (74, 98)):
         mid_y = (y0 + y1) / 2
         length = y1 - y0
         # Cordolo perimetrale dell'aiuola spartitraffico.
@@ -570,6 +661,15 @@ def build_roads(mats, road_col, plaza_col):
     crossings_x = (-70, -23, 0, 23, 70)
     crossings_y = (-70, -32, 32, 70)
     roundabouts = ((23, 32), (-23, -32))
+    # Angoli degli incroci che cadono dentro i due piazzali di testata:
+    # i marciapiedi rialzati del nodo resterebbero un centimetro e mezzo
+    # sopra la platea, e si leggerebbero come due lastre staccate.
+    heads = ((-11.0, 11.0, 36.5, 43.9), (-11.0, 11.0, -43.9, -36.5))
+
+    def in_head(px, py):
+        return any(gx0 <= px <= gx1 and gy0 <= py <= gy1
+                   for gx0, gx1, gy0, gy1 in heads)
+
     for ix in crossings_x:
         for iy in crossings_y:
             if (ix, iy) in roundabouts:
@@ -577,6 +677,8 @@ def build_roads(mats, road_col, plaza_col):
             B["asphalt"].box((ix, iy, 0.034), (8.0, 8.0, 0.014))
             for sx in (-1, 1):
                 for sy in (-1, 1):
+                    if in_head(ix + sx * 5.25, iy + sy * 5.25):
+                        continue
                     B["sidewalk"].box((ix + sx * 5.25, iy + sy * 5.25, 0.122),
                                       (2.18, 2.18, 0.024))
                     B["curb"].box((ix + sx * 4.12, iy + sy * 4.12, 0.078),
@@ -610,7 +712,10 @@ def build_roads(mats, road_col, plaza_col):
         add_zebra_h(B, 70, y, 8)
     for x, y in ((-70, 32), (70, 32), (-23, 32), (23, -32)):
         add_zebra_v(B, x, y, 8)
+    # L'incrocio nord di Viale Roma era l'unico senza strisce: ora i due
+    # attraversamenti dell'asse principale sono simmetrici.
     add_zebra_v(B, 0, -32, 10)
+    add_zebra_v(B, 0, 32, 10)
     # Strisce gialle ai margini della piazza e stalli di sosta.
     for x in (-23, 23):
         B["road_yellow"].box((x, 0, 0.04), (0.12, 16, 0.025))
@@ -781,6 +886,11 @@ def build_apartment(B, mats, decor_col, cx, cy, yaw, width, depth,
     bodymat = mats[facade_key]
     mass = make_cube(title + " — corpo", (cx, cy, base_z + height / 2),
                      (width, depth, height), bodymat, decor_col, yaw=yaw, bevel=0.10)
+    # Basamento in pietra. Il volume partiva da quota 0,30 mentre il rilievo
+    # della città sta a -0,06: sotto ogni palazzo restava una fascia vuota di
+    # 36 cm, che col sole basso si leggeva come un'ombra staccata da terra.
+    # Lo zoccolo scende ora fino a -0,60 e la muratura vi poggia sopra.
+    lbox(B["concrete"], cx, cy, yaw, 0, 0, -0.05, width + 0.25, depth + 0.25, 1.10)
     face_y = -depth / 2
     # Zoccolo, marcapiani e cornicione continuo.
     for z, h, out in ((0.63, 0.28, 0.25), (ground_h, 0.18, 0.24),
@@ -1014,17 +1124,27 @@ def build_town_hall(B, mats, col):
             add_front_window(B, cx, cy, 0.0, x, zc, 1.36, 1.96, d,
                              balcony=(zc > 4.0 and abs(x) in (4.8,)),
                              frame_key="trim")
-    # Portale centrale con doppia porta, lunetta e due rampe di gradini.
-    B["wood"].box((0, front - 0.11, 1.72), (2.55, 0.22, 3.1))
-    B["metal_gold"].box((-0.18, front - 0.25, 1.72), (0.045, 0.06, 0.27))
-    B["trim"].box((-1.53, front - 0.16, 1.78), (0.32, 0.34, 3.7))
-    B["trim"].box((1.53, front - 0.16, 1.78), (0.32, 0.34, 3.7))
-    B["trim"].box((0, front - 0.16, 3.58), (3.38, 0.34, 0.36))
-    B["trim"].box((0, front - 0.16, 0.14), (3.44, 0.34, 0.22))
-    B["wood"].box((0, front - 0.36, 1.73), (2.35, 0.10, 3.00))
+    # Portale centrale con doppia porta, architrave e soglia. La soglia è
+    # alla quota dell'ultima pedata: prima restava mezzo metro più in basso.
+    B["wood"].box((0, front - 0.11, 2.23), (2.55, 0.22, 3.00))
+    B["metal_gold"].box((-0.18, front - 0.25, 2.28), (0.045, 0.06, 0.27))
+    B["trim"].box((-1.53, front - 0.16, 2.34), (0.32, 0.34, 3.7))
+    B["trim"].box((1.53, front - 0.16, 2.34), (0.32, 0.34, 3.7))
+    B["trim"].box((0, front - 0.16, 3.90), (3.38, 0.34, 0.36))
+    B["trim"].box((0, front - 0.16, 0.84), (3.44, 0.34, 0.22))
+    B["wood"].box((0, front - 0.36, 2.26), (2.35, 0.10, 2.94))
+    # Scalinata a ventaglio dentro il portico: quattro pedate che salgono
+    # verso la porta. Prima erano rovesciate — il gradino più alto dalla
+    # parte del sagrato — e la prima pedata sfiorava i plinti delle colonne.
+    # Le spallette laterali seguono la sfumatura dei gradini.
     for i in range(4):
-        B["concrete"].box((0, front - 0.50 - i * 0.50, 0.13 + i * 0.13),
-                           (4.3 + i * 0.65, 0.54, 0.26))
+        y = front - 1.45 + i * 0.40
+        top = 0.34 + i * 0.13
+        width = 5.60 - i * 0.45
+        B["concrete"].box((0, y, top / 2), (width, 0.40, top))
+        for side in (-1, 1):
+            B["concrete"].box((side * (width / 2 + 0.10), y, (top + 0.14) / 2),
+                              (0.20, 0.40, top + 0.14))
     # Portico: cinque colonne scanalate, capitelli e architrave.
     portico_y = front - 2.05
     for x in (-5.5, -2.75, 0, 2.75, 5.5):
@@ -1116,7 +1236,9 @@ def build_trees_and_park(B, mats, green_col, road_col):
     # Un piccolo parco-giardino con aiuole geometriche e sentieri diagonali.
     parks = [(-52, 52, "Parco delle Rose"), (52, -52, "Giardino del Borgo")]
     for cx, cy, name in parks:
-        make_cube(name + " — prato", (cx, cy, 0.03), (28, 28, 0.10),
+        # Prato più spesso: con soli dieci centimetri il bordo restava
+        # sospeso quattro sopra il rilievo e si vedeva la fessura.
+        make_cube(name + " — prato", (cx, cy, -0.02), (28, 28, 0.20),
                   mats["grass"], green_col, bevel=0.15)
         # Camminamenti incrociati e piastrelle d'accesso.
         B["tile_b"].box((cx, cy, 0.12), (2.4, 28, 0.12))
@@ -1162,9 +1284,10 @@ def build_trees_and_park(B, mats, green_col, road_col):
         # una fessura interna che in controluce si leggeva come un buco nero.
         B["curb"].cylinder((x, y, 0.11), 1.05, 0.30, 20)
         B["grass"].cylinder((x, y, 0.24), 0.90, 0.10, 20)
-    # Siepi basse e bordi verdi del centro civico.
+    # Siepi basse e bordi verdi del centro civico. La quota le tiene con il
+    # piede dentro il terreno: prima partivano da 0,17 e si vedeva il vuoto.
     for x in (-17.2, 17.2):
-        B["leaf"].box((x, 0, 0.72), (0.48, 21, 1.1))
+        B["leaf"].box((x, 0, 0.44), (0.48, 21, 1.1))
     for y in (-15.6, 15.6):
         if y != 15.6:
             B["leaf"].box((0, y, 0.70), (25, 0.5, 1.0))
@@ -1193,8 +1316,10 @@ def build_town_square(B, mats, furnishing_col):
                  (-19, -19), (19, -19), (-19, 19), (19, 19),
                  (-44, -31), (44, -31), (-44, 31), (44, 31)):
         add_lamp(B, x, y, 5.6, ornate=(abs(x) < 20))
-    # Panchine e tavolini all'aperto.
-    for x, y, yaw in ((-8, 0, 0), (8, 0, PI), (0, 9, PI / 2), (0, -9, -PI / 2)):
+    # Panchine e tavolini all'aperto. Le due di servizio al mercato sono
+    # spostate sui lati: quella in asse finiva dentro una bancarella.
+    for x, y, yaw in ((-8, 0, 0), (8, 0, PI), (0, -9, -PI / 2),
+                      (-12.6, 6.9, PI / 2), (12.6, 6.9, -PI / 2)):
         make_bench(B, x, y, yaw)
     # Chioschetto/caffè scenografico presso il lato sud della piazza.
     make_cube("Gazebo caffè — pavimento", (0, -11.4, 0.45), (5.2, 3.8, 0.20),
@@ -1264,10 +1389,24 @@ def build_crosswalk_signals(B, mats, sign_col):
 # ---------------------------------------------------------------------------
 def build_church(B, mats, col):
     """Pieve con navata, abside, rosone, campanile e sagrato in basolato."""
-    cx, cy, yaw = -50.0, -16.0, PI / 2  # fronte verso est, sul viale
-    w, d, h = 13.0, 24.0, 9.6
-    make_cube("Pieve — navata", (cx, cy, 0.35 + h / 2), (d, w, h),
+    # La navata era girata di un quarto di giro rispetto a tutto ciò che le
+    # sta intorno: `make_cube` riceveva (d, w, h) mentre falde, abside,
+    # rosone e portale sono scritti in coordinate locali con w lungo X e d
+    # lungo Y. Il volume girava quindi di 90°: il tetto attraversava la
+    # navata per traverso sporgendo sei metri per lato, l'abside restava
+    # staccata tre metri dal muro di fondo e il portale galleggiava in mezzo
+    # al sagrato. Rimessa in asse, con la profondità ridotta a venti metri
+    # e il corpo arretrato a ovest, così l'abside non entra nella strada.
+    cx, cy, yaw = -48.0, -17.5, PI / 2  # fronte verso est, sul viale
+    w, d, h = 13.0, 20.0, 9.6
+    make_cube("Pieve — navata", (cx, cy, 0.35 + h / 2), (w, d, h),
               mats["cream"], col, yaw=yaw, bevel=0.10)
+    # Basamento: la muratura si fermava a 0,17 sopra un rilievo che sta a
+    # -0,06, e sotto la navata restava una fascia vuota di 41 cm. Ora lo
+    # zoccolo scende sotto il piano di campagna e l'abside ha il suo.
+    lbox(B["concrete"], cx, cy, yaw, 0, 0, -0.05, w + 0.5, d + 0.5, 1.20)
+    B["concrete"].cylinder(lbox_point(cx, cy, yaw, 0, d / 2 + 1.6, -0.05),
+                           4.70, 1.20, 24)
     # Falde del tetto a capanna con colmo lungo l'asse locale Y.
     ridge = h + 0.35 + 3.1
     eave = h + 0.35
@@ -1318,7 +1457,7 @@ def build_church(B, mats, col):
     # Abside semicircolare con calotta sul retro.
     B["cream"].cylinder(lbox_point(cx, cy, yaw, 0, d / 2 + 1.6, 0.35 + h * 0.42),
                         4.4, h * 0.84, 24)
-    B["terracotta"].cone(lbox_point(cx, cy, yaw, 0, d / 2 + 1.6, eave - 0.1),
+    B["terracotta"].cone(lbox_point(cx, cy, yaw, 0, d / 2 + 1.6, eave - 0.24),
                          4.7, 0.4, 2.6, 24)
     for i in range(5):
         a = PI * (0.2 + 0.15 * i)
@@ -1344,17 +1483,18 @@ def build_church(B, mats, col):
     B["terracotta"].cone(lbox_point(cx, cy, yaw, tx, ty, 22.2), 2.6, 0.1, 3.0, 4)
     lbox(B["metal_gold"], cx, cy, yaw, tx, ty, 24.1, 0.09, 0.09, 1.0)
     lbox(B["metal_gold"], cx, cy, yaw, tx, ty, 24.3, 0.56, 0.09, 0.09)
-    # Sagrato in basolato con sagrestia, cipressi e lampioni.
-    make_cube("Sagrato della pieve", (-33.6, -16.0, 0.10), (11.6, 17.5, 0.18),
+    # Sagrato in basolato con sagrestia, cipressi e lampioni. Più spesso di
+    # prima: con soli 18 cm il bordo lasciava vedere il vuoto sul terreno.
+    make_cube("Sagrato della pieve", (-33.6, -17.5, 0.06), (11.6, 17.5, 0.30),
               mats["basolato"], col, bevel=0.05)
-    for px, py in ((-29.0, -22.6), (-29.0, -9.4)):
+    for px, py in ((-29.0, -24.1), (-29.0, -10.9)):
         B["cypress"].cylinder((px, py, 3.4), 0.24, 6.4, 10)
         B["cypress"].cone((px, py, 5.6), 1.15, 0.0, 7.4, 12)
-    for px, py in ((-29.6, -19.5), (-29.6, -12.5)):
+    for px, py in ((-29.6, -21.0), (-29.6, -14.0)):
         add_lamp(B, px, py, height=4.4, ornate=True)
     # Panche del sagrato e piccola edicola votiva.
-    for py in (-19.0, -13.0):
-        lbox(B["wood_light"], -34.5, -16.0, PI / 2, 0, py + 16.0, 0.55,
+    for py in (-20.5, -14.5):
+        lbox(B["wood_light"], -34.5, -17.5, PI / 2, 0, py + 17.5, 0.55,
              2.0, 0.5, 0.10)
     lbox(B["trim"], cx, cy, yaw, 6.9, -6.0, 1.5, 0.5, 0.9, 1.9)
     lbox(B["metal_gold"], cx, cy, yaw, 6.62, -6.0, 1.6, 0.10, 0.5, 0.7)
@@ -1433,13 +1573,17 @@ def build_market_stall(B, x, y, yaw, canvas_key):
 def build_market_square(B, mats, col):
     """Mercato settimanale sul lato nord della piazza, verso il municipio."""
     canvases = ("canvas_red", "canvas_green", "canvas_blue", "canvas_yellow")
-    for row, ry in enumerate((6.6, 10.9)):
+    # Due file arretrate di quattro metri: la seconda infilava i montanti nel
+    # colonnato del portico e le tende traversavano le colonne.
+    for row, ry in enumerate((5.0, 8.8)):
         for i, x in enumerate((-8.6, -4.3, 0.0, 4.3, 8.6)):
             build_market_stall(B, x, ry, PI if row else 0.0,
                                canvases[(i + row) % 4])
-    # Ombrelloni con palo e stecche agli angoli del mercato.
-    for ux, uy, key in ((-13, 5, "canvas_red"), (13, 5, "canvas_yellow"),
-                        (0, 13.0, "canvas_green")):
+    # Ombrelloni con palo e stecche: due ai lati del mercato e uno che
+    # ombreggia la panchina davanti alla fontana. Quello centrale stava
+    # piantato in mezzo alla scalinata del municipio.
+    for ux, uy, key in ((-13.4, 3.0, "canvas_red"), (13.4, 3.0, "canvas_yellow"),
+                        (0, -7.0, "canvas_green")):
         B["metal"].cylinder((ux, uy, 1.25), 0.055, 2.5, 10)
         B[key].cone((ux, uy, 2.62), 1.75, 0.12, 0.60, 12)
     # Carretto con cassette e lavagna dei prezzi.
@@ -1456,11 +1600,65 @@ def build_market_square(B, mats, col):
 # ---------------------------------------------------------------------------
 # Rotatorie fiorite al posto di due incroci
 # ---------------------------------------------------------------------------
+def in_sector(angle, radius, axes, half_width):
+    """Vero se `angle` cade nel cono di una strada afferente alla rotatoria.
+
+    Il cono si apre con il raggio: una strada larga `2 * half_width` copre un
+    arco tanto più ampio quanto più ci si avvicina al centro, quindi i settori
+    da lasciare liberi vanno calcolati quota per quota e non a gradi fissi.
+    """
+    if not axes or half_width <= 0.0:
+        return False
+    half = math.asin(min(0.999, half_width / radius))
+    return any(abs(((angle - ax + PI) % TAU) - PI) < half for ax in axes)
+
+
+def add_ring_slab(batch, cx, cy, r_in, r_out, z, segments=72,
+                  axes=(), half_width=0.0):
+    """Corona piana (marciapiede, banchina) con i settori esclusi."""
+    for i in range(segments):
+        a0 = TAU * i / segments
+        a1 = TAU * (i + 1) / segments
+        am = (a0 + a1) / 2
+        if in_sector(am, (r_in + r_out) / 2, axes, half_width):
+            continue
+        p_in0 = (cx + r_in * math.cos(a0), cy + r_in * math.sin(a0), z)
+        p_out0 = (cx + r_out * math.cos(a0), cy + r_out * math.sin(a0), z)
+        p_out1 = (cx + r_out * math.cos(a1), cy + r_out * math.sin(a1), z)
+        p_in1 = (cx + r_in * math.cos(a1), cy + r_in * math.sin(a1), z)
+        batch.quad(p_in0, p_out0, p_out1, p_in1)
+
+
+def add_ring_curb(batch, cx, cy, r, z, width=0.22, height=0.20, segments=72,
+                  axes=(), half_width=0.0):
+    """Cordolo continuo su un cerchio, interrotto in corrispondenza delle strade."""
+    for i in range(segments):
+        a = TAU * (i + 0.5) / segments
+        if in_sector(a, r, axes, half_width):
+            continue
+        px, py = cx + r * math.cos(a), cy + r * math.sin(a)
+        arc = TAU * r / segments
+        batch.box((px, py, z), (arc + 0.08, width, height), a + PI / 2)
+
+
 def build_roundabout(B, x, y):
-    r = 7.6
-    B["asphalt"].cylinder((x, y, 0.028), r, 0.05, 40)
-    B["curb"].ring((x, y, 0.10), 4.3, 0.16, 40, 8)
-    B["grass"].cylinder((x, y, 0.16), 4.15, 0.16, 40)
+    """Rotatoria: anello, isola fiorita e attraversamenti sugli assi.
+
+    I marciapiedi delle due strade afferenti tagliavano l'anello da parte a
+    parte: restavano sospesi nove centimetri sopra la carreggiata come due
+    barriere, perché le strade li disegnano continui per tutta la loro
+    lunghezza. Ora i cordoli si fermano dove incontrano il cerchio (il taglio
+    è calcolato in `build_roads`), una corona di marciapiede chiude i quattro
+    quarti fra le strade e le isole salvagente con le strisce tornano sugli
+    assi di afflusso, dove i pedoni le aspettano.
+    """
+    r_out, r_island = 7.6, 4.6
+    axes = (0.0, PI / 2, PI, -PI / 2)
+    # Anello carrabile alla quota delle carreggiate afferenti.
+    B["asphalt"].cylinder((x, y, 0.005), r_out, 0.045, 48)
+    # Isola centrale: cordolo, prato e fontana.
+    B["curb"].cylinder((x, y, 0.09), r_island + 0.22, 0.24, 40)
+    B["grass"].cylinder((x, y, 0.20), r_island, 0.10, 40)
     B["concrete"].cylinder((x, y, 0.42), 1.15, 0.5, 24)
     B["water"].cylinder((x, y, 0.66), 0.95, 0.04, 24)
     B["trim"].cylinder((x, y, 1.05), 0.28, 0.8, 16)
@@ -1470,12 +1668,32 @@ def build_roundabout(B, x, y):
         fx, fy = x + math.cos(a) * 3.3, y + math.sin(a) * 3.3
         B["flower"].sphere((fx, fy, 0.42), 0.20, (1.0, 0.8, 0.55), 8, 5)
         B["leaf_light"].sphere((fx, fy, 0.30), 0.17, (1.0, 1.0, 0.7), 8, 5)
-    # Isole salvagente negli approcci.
-    for a in range(4):
-        ang = a * PI / 2 + PI / 4
-        ix, iy = x + math.cos(ang) * 6.0, y + math.sin(ang) * 6.0
-        B["curb"].box((ix, iy, 0.10), (1.5, 0.5, 0.16), ang + PI / 2)
-        B["road_white"].box((ix, iy, 0.19), (1.3, 0.3, 0.04), ang + PI / 2)
+    # Marciapiede anulare di perimetro: raccorda le quattro testate.
+    add_ring_slab(B["sidewalk"], x, y, r_out, 9.9, 0.12, 72, axes, 4.15)
+    # Cordoli interno ed esterno, aperti in corrispondenza delle strade.
+    add_ring_curb(B["curb"], x, y, r_out, 0.09, 0.22, 0.20, 72, axes, 4.30)
+    add_ring_curb(B["curb"], x, y, 9.9, 0.09, 0.22, 0.20, 72, axes, 4.30)
+    # Isole salvagente e attraversamenti sui quattro assi di afflusso.
+    for k in range(4):
+        ang = k * PI / 2
+        ca, sa = math.cos(ang), math.sin(ang)
+        ix, iy = x + ca * 6.20, y + sa * 6.20
+        B["curb"].box((ix, iy, 0.10), (0.90, 2.60, 0.22), ang + PI / 2)
+        B["grass"].box((ix, iy, 0.21), (0.70, 2.40, 0.09), ang + PI / 2)
+        for j in range(3):
+            v = 5.55 + j * 0.65
+            B["flower"].sphere((x + ca * v, y + sa * v, 0.34), 0.17,
+                               (1.0, 0.85, 0.60), 7, 5)
+        # Due bande pedonali tangenziali, una per senso di marcia. Le misure
+        # tengono i vertici esterni dentro l'anello: le strisce non sbordano
+        # sull'erba dei quarti.
+        for su in (-1.80, 1.80):
+            for j in range(5):
+                v = 5.00 + j * 0.45
+                px = x + ca * v - sa * su
+                py = y + sa * v + ca * su
+                B["road_white"].box((px, py, 0.041), (2.20, 0.40, 0.025),
+                                    ang + PI / 2)
 
 
 # ---------------------------------------------------------------------------
@@ -1768,8 +1986,8 @@ def build_street_life(B, mats, col):
 # ---------------------------------------------------------------------------
 def build_gardens(B):
     """Siepi, frutteti e orti domestici a corredo delle case riutilizzate."""
-    lots = [(-12, 44, 12, 12), (12, 44, 12, 12), (-12, -44, 12, 12),
-            (12, -44, 12, 12), (-6, 61, 14, 7), (6, -61, 14, 7),
+    lots = [(-18.5, 44, 12, 12), (18.5, 44, 12, 12), (-18.5, -44, 12, 12),
+            (18.5, -44, 12, 12), (-6, 61, 14, 7), (6, -61, 14, 7),
             (-59, 15, 10, 12), (57, 16, 10, 12), (33.5, -24, 9, 8), (40, 17, 20, 15),
             (-49, 71, 16, 8), (49, 71, 16, 8), (-49, -71, 16, 8),
             (49, -71, 16, 8), (-71, -48, 8, 14), (71, 48, 8, 14)]
@@ -2122,7 +2340,10 @@ MOWN_BLOCKS = ((-63.6, -29.4, -63.6, -42.6), (-38.0, -29.4, 38.4, 63.6),
                (29.4, 38.0, -63.6, -38.4), (29.4, 43.0, 38.4, 63.6),
                (-16.6, -7.4, 50.0, 63.6), (7.4, 16.6, 50.0, 63.6),
                (-16.6, -7.4, -63.6, -50.0), (7.4, 16.6, -63.6, -50.0),
-               (-16.6, -7.4, -25.6, -13.4), (11.5, 16.6, 13.4, 25.6))
+               (-16.6, -7.4, -25.6, -13.4), (11.5, 16.6, 14.1, 25.6),
+               # Prato a ponente del municipio: prima il taglio era solo a
+               # levante, e il blocco civico restava asimmetrico.
+               (-16.6, -11.5, 14.1, 25.6))
 
 
 def build_lawn_care(B):
@@ -2170,12 +2391,13 @@ def build_lawn_care(B):
             a = TAU * j / 5 + i * 0.4
             B["flower"].sphere((x + math.cos(a) * 1.16, y + math.sin(a) * 1.16,
                                0.24), 0.15, (1.0, 0.9, 0.6), 6, 4)
-    # Siepi basse fra un albero e l'altro dei due filari sud e nord.
+    # Siepi basse fra un albero e l'altro dei due filari sud e nord: anche
+    # qui il piede della siepe scende sotto la quota del rilievo.
     for row, ry in enumerate((-39.5, 39.5)):
         for seg in range(2):
             x0 = (-58.0 if seg == 0 else 36.0)
             x1 = (-36.0 if seg == 0 else 58.0)
-            B["leaf"].box(((x0 + x1) / 2, ry + (0.9 if row == 0 else -0.9), 0.42),
+            B["leaf"].box(((x0 + x1) / 2, ry + (0.9 if row == 0 else -0.9), 0.30),
                           (abs(x1 - x0) - 2.4, 0.42, 0.72))
 
 
@@ -2578,8 +2800,11 @@ def main():
         scale2 = (0.76, 0.84, 0.63, 0.78)[i]
         place_house(model2, 80, y, "W", scale2, "Casa est — " + model2)
     # Secondo tessuto residenziale: isolati interni e casali di campagna.
-    inner_lots = [(-12, 44, "chalet", 0.70, "S"), (12, 44, "villa", 0.58, "S"),
-                  (-12, -44, "casale", 0.70, "N"), (12, -44, "chalet", 0.66, "N"),
+    # Le due coppie di case ai lati dei fondali sono arretrate: con i
+    # piazzali di testata del viale, a ±12 m entravano di due metri dentro
+    # Residenza Aurora e nell'Albergo del Borgo.
+    inner_lots = [(-18.5, 44, "chalet", 0.70, "S"), (18.5, 44, "villa", 0.58, "S"),
+                  (-18.5, -44, "casale", 0.70, "N"), (18.5, -44, "chalet", 0.66, "N"),
                   (-59, 15, "casale", 0.66, "E"), (-34, 4, "chalet", 0.60, "E"),
                   (57, 16, "casale", 0.70, "W"), (33.5, -16, "chalet", 0.66, "W"),
                   (59, -16, "casale", 0.70, "W")]
