@@ -26,7 +26,14 @@ ora due piazzali di testata chiudono l'asse contro le facciate; la navata della
 pieve era girata di un quarto di giro rispetto a tetto, abside e portale, e
 tutti i volumi della città galleggiavano da 36 a 41 cm sopra il rilievo, dove
 ora scendono i basamenti in pietra; la scalinata del municipio era rovesciata e
-il mercato occupava il portico.
+il mercato occupava il portico. La settima versione lavora sui tre piani del
+fondo della veduta: la pianura lontana, che era un disco piatto tagliato da un
+bordo netto contro il cielo, diventa un anello di colline in foschia che chiude
+l'orizzonte; i campi del mezzogiorno, prima lastre piatte con palline di olivo,
+ricevono solcature, balle di fieno, uliveti veri e vigne a filari e riempiono il
+triangolo ovest dell'inquadratura; il cielo, gradiente vuoto per un quarto del
+fotogramma, accoglie sei cumuli leggeri sull'orizzonte, senza ombre sulla
+campagna.
 
 Richiede Blender 5.0+ e i modelli originali presenti nelle cartelle sorelle.
 
@@ -67,7 +74,7 @@ LIFE_KEYS = ("asphalt", "curb", "sidewalk", "grass", "grass_light", "leaf", "lea
              "produce_green", "produce_orange", "produce_yellow", "roof_dark")
 COUNTRY_KEYS = ("ground", "ground_far", "wheat", "grass", "grass_light", "olive", "bark",
                 "cypress", "cream", "ochre", "terracotta", "brick", "trim",
-                "white", "roof_dark", "metal_gold", "flower", "leaf")
+                "white", "roof_dark", "metal_gold", "flower", "leaf", "wood")
 
 
 # ---------------------------------------------------------------------------
@@ -328,6 +335,10 @@ def create_materials():
     defs = {
         "ground": ("Terreno verde", (92, 116, 66), 0.95, 0.0, 6, 0.12),
         "ground_far": ("Campagna lontana", (118, 138, 104), 0.95, 0.0, 4, 0.08),
+        "ground_mid": ("Piana intermedia", (128, 148, 114), 0.95, 0.0, 4, 0.07),
+        "ground_haze": ("Colline in foschia", (136, 150, 154), 0.95, 0.0, 3, 0.04),
+        "cloud": ("Nuvole", (240, 238, 232), 0.92, 0.0, 0, 0,
+                  ((255, 246, 232), 0.04)),
         "grass": ("Prato", (84, 126, 66), 0.92, 0.0, 18, 0.08),
         "grass_light": ("Prato chiaro", (126, 160, 97), 0.90, 0.0, 16, 0.06),
         "asphalt": ("Asfalto", (46, 50, 52), 0.88, 0.0, 125, 0.14),
@@ -2053,6 +2064,147 @@ def hill_height(x, y):
     return t * h + 15.0 * rim * wob
 
 
+def smooth01(t):
+    """Interpolazione morbida, clippata su [0, 1]."""
+    t = min(1.0, max(0.0, t))
+    return t * t * (3 - 2 * t)
+
+
+def relief_height(x, y):
+    """Quota del rilievo della campagna, con la sfumatura del bordo.
+
+    L'ultimo tratto di colline è riportato alla quota della piana lontana,
+    così il mesh si chiude sul piano senza il gradino netto che si leggeva
+    come taglio netto all'orizzonte.
+    """
+    z = hill_height(x, y) - 0.06
+    edge = 215.0 - max(abs(x), abs(y))
+    if edge < 34.0:
+        z = -0.55 + (z + 0.55) * smooth01(edge / 34.0)
+    return z
+
+
+def far_height(x, y):
+    """Quota della pianura lontana: onde morbide e catena d'orizzonte.
+
+    Oltre il rilievo della città la scena finiva con un disco piatto a 6 km
+    che si leggeva come un mare grigio, tagliato da un bordo netto contro il
+    cielo. Qui la piana ondeggia appena, si rialza in dossi sparsi e infine
+    in una catena lontana — più alta verso nord-ovest, nella direzione della
+    veduta — che chiude l'orizzonte con un profilo morbido.
+    """
+    r = math.hypot(x, y)
+    h = -0.55
+    # Tutto ciò che sta vicino al rilievo della città si spegne: il raccordo
+    # fra il quadrato del rilievo e l'anello radiale resta una piana piatta,
+    # senza spuntoni dei rilievi lontani che si sovrappongono al bordo.
+    near = smooth01((r - 320.0) / 180.0)
+    # Ondulazioni della piana fra la città e la catena.
+    w1 = smooth01((r - 360.0) / 260.0) * (1.0 - smooth01((r - 4800.0) / 2600.0))
+    h += near * w1 * (16.0 * math.sin(x * 0.0021 + 0.7) * math.cos(y * 0.0018 - 0.3)
+                      + 10.0 * math.sin(x * 0.0043 - 1.2) * math.cos(y * 0.0037 + 1.9))
+    # Dossi sparsi sulla piana media, a posizioni deterministiche.
+    fade = near * (1.0 - smooth01((r - 5200.0) / 2200.0))
+    for k in range(9):
+        ang = k * 2.39996 + 0.9
+        rad = 620.0 + 380.0 * math.sin(k * 1.7 + 0.4)
+        cx, cy = math.cos(ang) * rad, math.sin(ang) * rad
+        d2 = (x - cx) ** 2 + (y - cy) ** 2
+        amp = 26.0 + 14.0 * math.sin(k * 2.1)
+        sig = 190.0 + 60.0 * math.cos(k * 1.3)
+        h += amp * math.exp(-d2 / (sig * sig)) * fade
+    # Catena lontana: si alza verso nord-ovest, in direzione della veduta.
+    theta = math.atan2(y, x)
+    dth = (theta - 2.28 + PI) % TAU - PI
+    bump = math.exp(-(dth * dth) / (2.0 * 0.75 * 0.75))
+    wob = (0.72 + 0.30 * math.sin(3.0 * theta + 0.8)
+           + 0.18 * math.sin(7.0 * theta - 1.4)
+           + 0.12 * math.sin(13.0 * theta + 2.2))
+    crest = smooth01((r - 5000.0) / 2400.0) * (1.0 - smooth01((r - 11500.0) / 3200.0))
+    h += (70.0 + 300.0 * bump) * wob * crest
+    return h
+
+
+def build_far_horizon(mats, col):
+    """Pianura e colline lontane: un unico anello radiale fino all'orizzonte.
+
+    Sostituisce il disco piatto da 6 km: anelli concentrici quotati su
+    `far_height`, con tre fasce di materiale che smorzano il colore nella
+    foschia — campagna lontana vicino al rilievo, piana intermedia, colline
+    in foschia oltre i 3,2 km.
+    """
+    rings = (215, 258, 320, 420, 560, 750, 1000, 1350, 1800, 2400, 3200,
+             4300, 5800, 7600, 10000, 13000)
+    seg = 192
+    verts = []
+    for r in rings:
+        for i in range(seg):
+            a = TAU * i / seg
+            x, y = math.cos(a) * r, math.sin(a) * r
+            z = far_height(x, y)
+            # L'anello interno resta sopra il rilievo della città (che sul
+            # bordo si chiude a -0,55) senza produrre superfici incrociate.
+            z += 0.02 * (1.0 - smooth01((r - 230.0) / 150.0))
+            verts.append((x, y, z))
+    bands = (("ground_far", []), ("ground_mid", []), ("ground_haze", []))
+    for j in range(len(rings) - 1):
+        for i in range(seg):
+            k = (i + 1) % seg
+            a = j * seg + i
+            face = (a, a + seg, (j + 1) * seg + k, j * seg + k)
+            cx = (verts[face[0]][0] + verts[face[2]][0]) / 2
+            cy = (verts[face[0]][1] + verts[face[2]][1]) / 2
+            rr = math.hypot(cx, cy)
+            band = 0 if rr < 700 else (1 if rr < 3200 else 2)
+            bands[band][1].append(face)
+    for key, key_faces in bands:
+        if not key_faces:
+            continue
+        mesh = bpy.data.meshes.new("Piana lontana — " + key)
+        mesh.from_pydata(verts, [], key_faces)
+        mesh.materials.append(mats[key])
+        mesh.update()
+        mesh.polygons.foreach_set("use_smooth", [True] * len(key_faces))
+        relief = bpy.data.objects.new("Piana lontana — " + key, mesh)
+        col.objects.link(relief)
+
+
+def build_sky_clouds(mats, col):
+    """Cumuli leggeri sull'orizzonte, senza ombre sulla campagna.
+
+    Il cielo fisico non porta nubi e la fascia alta della veduta restava un
+    gradiente vuoto: questi cumuli — pochi, lontani, allineati alla direzione
+    della camera — chiudono il terzo piano dell'inquadratura. Le quote sono
+    scelte perché restino sotto il bordo alto del fotogramma e, dove
+    incontra la catena lontana, l'intersezione si legga come nuvole dietro
+    i rilievi.
+    """
+    B = Batch("Nuvole in cielo", mats["cloud"], col)
+    # (angolo dalla camera in gradi, distanza, quota, taglia): quote e
+    # distanze irregolari, così la fila non si legge come un soffitto.
+    clouds = ((109.0, 10400.0, 520.0, 270.0), (117.5, 7600.0, 330.0, 210.0),
+              (126.0, 12400.0, 640.0, 330.0), (136.5, 6800.0, 280.0, 180.0),
+              (144.0, 9600.0, 470.0, 250.0), (151.5, 11800.0, 560.0, 300.0))
+    # Cumuli con base piatta e cima a cupola: lobi appiattiti in basso,
+    # rotondi in alto, per la sagoma tipica del cumulo.
+    lobes = ((-0.30, 0.0, 0.0, 0.42), (0.28, 0.10, 0.02, 0.38),
+             (0.0, -0.18, 0.06, 0.34), (-0.12, 0.12, 0.30, 0.32),
+             (0.18, -0.08, 0.34, 0.28), (0.02, 0.04, 0.52, 0.24))
+    for i, (deg, dist, zc, size) in enumerate(clouds):
+        a = math.radians(deg)
+        cx = 118.0 + math.cos(a) * dist
+        cy = -138.0 + math.sin(a) * dist
+        for j, (ox, oy, oz, rs) in enumerate(lobes):
+            if j > 2 + (i % 3):
+                break
+            flat = 0.45 if oz < 0.10 else (0.72 if oz < 0.40 else 0.95)
+            B.sphere((cx + ox * size, cy + oy * size, zc + oz * size),
+                     rs * size, (1.35, 1.15, flat), 16, 10)
+    obj = B.flush()
+    if obj:
+        obj.visible_shadow = False
+
+
 def build_countryside(B, mats, col):
     """Anello di campagna con colline dolci, colture e un borgo sul colle."""
     # Griglia a passo 5.4 m: dossi morbidi, senza le facce a bande visibili
@@ -2064,15 +2216,7 @@ def build_countryside(B, mats, col):
         row = []
         for i in range(n + 1):
             x, y = -half + i * step, -half + j * step
-            z = hill_height(x, y) - 0.06
-            # Cornice del rilievo: l'ultimo tratto di colline è riportato alla
-            # quota della piana lontana, così il mesh si chiude sul piano senza
-            # il gradino netto che si leggeva come taglio all'orizzonte.
-            edge = half - max(abs(x), abs(y))
-            if edge < 34.0:
-                t = max(0.0, edge / 34.0)
-                t = t * t * (3 - 2 * t)
-                z = -0.55 + (z + 0.55) * t
+            z = relief_height(x, y)
             row.append((x, y, z))
         rows.append(row)
     # Mesh dedicata con vertici condivisi tra quad adiacenti: nei Batch gli
@@ -2099,27 +2243,107 @@ def build_countryside(B, mats, col):
         mesh.polygons.foreach_set("use_smooth", [True] * len(key_faces))
         relief = bpy.data.objects.new("Rilievo collinare — " + key, mesh)
         col.objects.link(relief)
-    # Pianura sconfinata oltre le colline: chiude l'orizzonte senza "mare".
-    ring = [(math.cos(TAU * i / 72) * 6000.0,
-             math.sin(TAU * i / 72) * 6000.0, -0.55) for i in range(72)]
-    B["ground_far"].poly(ring)
-    # Campi coltivati con colori diversi sulla piana esterna al borgo.
-    fields = [(-124, 42, 34, 46, "wheat"), (-124, -58, 32, 44, "grass_light"),
-              (124, -42, 34, 44, "wheat"), (124, 58, 32, 42, "grass"),
-              (42, 124, 44, 32, "grass_light"), (-58, 124, 44, 32, "wheat"),
-              (58, -124, 42, 32, "grass"), (-42, -124, 44, 32, "olive")]
+    # Oltre il rilievo, la pianura e le colline lontane chiudono l'orizzonte.
+    build_far_horizon(mats, col)
+    # Campi coltivati: base conformata al rilievo, solcature, filari e alberi.
+    def field_grid(key, fx, fy, fw, fd, cell=7.5):
+        """Base del campo conformata al rilievo, a maglia di quad condivisi."""
+        nx = max(2, int(round(fw / cell)))
+        ny = max(2, int(round(fd / cell)))
+        pts = []
+        for j in range(ny + 1):
+            py = fy - fd / 2 + fd * j / ny
+            row = []
+            for i in range(nx + 1):
+                px = fx - fw / 2 + fw * i / nx
+                row.append((px, py, relief_height(px, py) + 0.03))
+            pts.append(row)
+        for j in range(ny):
+            for i in range(nx):
+                B[key].quad(pts[j][i], pts[j][i + 1],
+                            pts[j + 1][i + 1], pts[j + 1][i])
+
+    def conform_box(key, cx, cy, sx, sy, sz, lift=0.02):
+        """Scatola appoggiata sul rilievo nel proprio centro."""
+        B[key].box((cx, cy, relief_height(cx, cy) + lift + sz / 2), (sx, sy, sz))
+
+    def wheat_field(fx, fy, fw, fd):
+        """Grano con solcature leggibili dall'alto e balle appena raccolte."""
+        field_grid("wheat", fx, fy, fw, fd)
+        along_x = fw >= fd
+        span = fw if along_x else fd
+        across = fd if along_x else fw
+        n = max(3, int(across / 3.4))
+        segs = max(1, int(span / 7.0))
+        for k in range(n):
+            off = -across / 2 + across * (k + 0.5) / n
+            for s in range(segs):
+                c = -span / 2 + span * (s + 0.5) / segs
+                cx, cy = (fx + c, fy + off) if along_x else (fx + off, fy + c)
+                if along_x:
+                    conform_box("grass_light", cx, cy, span / segs * 0.94, 1.15, 0.12)
+                else:
+                    conform_box("grass_light", cx, cy, 1.15, span / segs * 0.94, 0.12)
+        for k in range(2):
+            t = -0.22 + 0.44 * k
+            cx, cy = ((fx + span * t, fy + across * 0.18) if along_x
+                      else (fx + across * 0.18, fy + span * t))
+            z = relief_height(cx, cy)
+            if along_x:
+                B["wheat"].cylinder((cx, cy, z + 0.60), 0.60, 1.15, 12, axis="Y")
+            else:
+                B["wheat"].cylinder((cx, cy, z + 0.60), 0.60, 1.15, 12, axis="X")
+
+    def olive_grove(fx, fy, fw, fd):
+        """Ulivi veri — tronco e due globi di fogliame — in filari ordinati."""
+        field_grid("grass_light", fx, fy, fw, fd)
+        step = 5.4
+        nx, ny = int(fw / step), int(fd / step)
+        for j in range(ny):
+            for i in range(nx):
+                px = fx - fw / 2 + step * (i + 0.5) + 0.6 * (j % 2)
+                py = fy - fd / 2 + step * (j + 0.5)
+                if px > fx + fw / 2 - 1.2:
+                    continue
+                z = relief_height(px, py)
+                B["bark"].cylinder((px, py, z + 0.58), 0.16, 1.10, 7)
+                B["olive"].sphere((px, py, z + 1.88), 1.28, (1.0, 1.0, 0.72), 9, 6)
+                B["olive"].sphere((px + 0.62, py + 0.38, z + 2.32), 0.88,
+                                  (1.0, 1.0, 0.82), 8, 5)
+
+    def vineyard(fx, fy, fw, fd):
+        """Vigna a filari paralleli al lato lungo, con pali di sostegno."""
+        field_grid("grass", fx, fy, fw, fd)
+        along_x = fw >= fd
+        span = fw if along_x else fd
+        across = fd if along_x else fw
+        n = max(2, int(across / 3.1))
+        segs = max(1, int(span / 6.5))
+        for k in range(n):
+            off = -across / 2 + across * (k + 0.5) / n
+            for s in range(segs):
+                c = -span / 2 + span * (s + 0.5) / segs
+                cx, cy = (fx + c, fy + off) if along_x else (fx + off, fy + c)
+                z = relief_height(cx, cy)
+                row_len = span / segs * 0.94
+                if along_x:
+                    B["leaf"].box((cx, cy, z + 0.94), (row_len, 0.85, 1.35))
+                else:
+                    B["leaf"].box((cx, cy, z + 0.94), (0.85, row_len, 1.35))
+                B["wood"].box((cx, cy, z + 1.18), (0.14, 0.14, 2.10))
+
+    # I campi storici restano al loro posto e ricevono le nuove colture; il
+    # triangolo ovest della veduta — fra la circonvallazione, la strada
+    # bianca e i boschi — era erba uniforme e ora porta grano, ulivi e vigne.
+    kinds = {"wheat": wheat_field, "olive": olive_grove, "vine": vineyard}
+    fields = [(-124, 42, 34, 46, "wheat"), (-124, -58, 32, 44, "olive"),
+              (124, -42, 34, 44, "wheat"), (124, 58, 32, 42, "vine"),
+              (42, 124, 44, 32, "vine"), (-58, 124, 44, 32, "wheat"),
+              (58, -124, 42, 32, "olive"), (-42, -124, 44, 32, "wheat"),
+              (-162, 84, 30, 38, "vine"), (-172, 48, 24, 26, "wheat"),
+              (-152, -6, 26, 28, "olive"), (-12, 152, 30, 22, "vine")]
     for fx, fy, fw, fd, key in fields:
-        B[key].box((fx, fy, -0.03), (fw, fd, 0.08))
-    # Filari di vite e ulivi ordinati nei campi dedicati.
-    for fx, fy, fw, fd, key in fields:
-        if key not in ("wheat", "olive"):
-            continue
-        for row in range(5):
-            ry = fy - fd / 2 + fd * (row + 0.5) / 5
-            for k in range(int(fw / 3)):
-                px = fx - fw / 2 + 2 + k * 3
-                B["olive"].sphere((px, ry, 0.42), 0.55, (1.0, 0.8, 0.7), 8, 5)
-                B["bark"].cylinder((px, ry, 0.16), 0.06, 0.34, 6)
+        kinds[key](fx, fy, fw, fd)
     # Cipressi isolati sulla piana e filari sui primi pendii.
     for x, y, s in ((-112, 92, 1.0), (-95, 118, 0.9), (112, 100, 1.1),
                     (100, -112, 1.0), (-115, -100, 0.95), (118, 20, 1.05),
@@ -2695,7 +2919,9 @@ def setup_world_and_camera(root, mats):
     # colline sullo sfondo.
     cam_data = bpy.data.cameras.new("Camera — veduta del borgo")
     cam_data.lens = 46
-    cam_data.clip_end = 1600
+    # Il clip_end di default (1600 m) tagliava la campagna lontana: la piana
+    # finiva con un bordo netto contro il cielo proprio al piano di clip.
+    cam_data.clip_end = 40000
     cam_data.dof.use_dof = False
     cam = bpy.data.objects.new("Camera — veduta del borgo", cam_data)
     cam.location = (118, -138, 46)
@@ -2877,6 +3103,8 @@ def main():
     country_batches = make_batch_set(mats, terrain_col, COUNTRY_KEYS)
     build_countryside(country_batches, mats, terrain_col)
     build_hill_woods(country_batches)
+    # Cumuli sull'orizzonte, nel cielo sopra la catena lontana.
+    build_sky_clouds(mats, terrain_col)
     # Chiude tutte le mesh batch per materiale.
     for group in (green_batches, detail_batches, civic_batches, traffic_batches,
                   life_batches, country_batches):
