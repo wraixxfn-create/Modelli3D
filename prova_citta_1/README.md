@@ -48,6 +48,58 @@ in un unico contesto.
   città — e oltre le colline tre **dorsali lontane in foschia** che chiudono
   l'orizzonte, con **cumuli** nel cielo.
 
+## Miglioramenti dell'undicesima versione
+
+**Esattamente tre migliorie**, oltre alla correzione degli edifici in strada
+richiesta separatamente. Impianto stradale, illuminazione, inquadratura e i tre
+dettagli della decima versione restano invariati.
+
+1. **Fermata autobus coerente** — il bus era dentro l'Albergo del Borgo,
+   mentre la pensilina stava lontano dalla carreggiata. Ora l'autobus viaggia
+   verso est nella corsia sud della strada a y = −70, accanto alla fermata:
+   vetrature esterne anziché nascoste dentro la carrozzeria, due porte sul lato
+   del marciapiede, ruote orientate con il veicolo e display «1 CENTRO».
+   La pensilina è aperta verso la strada, su una piazzola raccordata al
+   marciapiede; portabici, panchina, cestino e bacheca sono arretrati per
+   lasciare libero un passaggio di almeno 1,775 m. Le due auto interferenti
+   con la zona di fermata e con Residenza Aurora tornano in corsia.
+2. **Ponticello continuo sul laghetto** — le sette tavole orizzontali e le
+   travi ruotate nel piano sbagliato diventano ventiquattro tavole inclinate,
+   con bordi contigui e due travi portanti che seguono l'arco. Entrambe le
+   estremità arrivano sulla terraferma; due correnti per lato e quattordici
+   montanti seguono la quota del piano di calpestio. Il ponte si collega a
+   ovest al marciapiede e a est al sentiero del parco, senza massi, canneti o
+   cordoli trasversali nell'accesso. Geometria scenografica, non progetto
+   esecutivo o certificazione di accessibilità/sicurezza.
+3. **Tricolore del municipio** — il telo monocromatico in materiale mattone
+   è sostituito da una bandiera con tre bande verticali verde-bianco-rosso
+   della stessa larghezza, in proporzione 2:3. Una superficie suddivisa e
+   ondulata mantiene contigue le cuciture; il bordo presso il pennone resta
+   fermo e due anelli lo fissano all'asta.
+
+### Correzione aggiuntiva richiesta: edifici fuori dalla strada
+
+Le posizioni precedenti consideravano solo l'origine delle case, non le
+sporgenze dei modelli riutilizzati. In particolare la villa ha un ingombro
+asimmetrico e, dopo la rotazione, tetti e balconi potevano invadere la strada
+anche quando il punto d'origine sembrava corretto.
+
+- **Tutte e 33 le case sono conservate**: 13 casali, 13 chalet e 7 ville.
+- Ogni lotto è esterno a carreggiate, marciapiedi e rotatorie. Posizione e,
+  solo dove necessario, scala sono adattate all'intero ingombro del modello,
+  con **40 cm di margine dal bordo del lotto**.
+- Le quattro case prima a (±18,5, ±44), troppo strette fra i palazzi di
+  testata e le strade x = ±23, sono trasferite nelle fasce residenziali a
+  nord e a sud. Le altre conservano il quartiere di appartenenza.
+- I sedici giardini privati, comprese le siepi che prima attraversavano le
+  carreggiate, sono riallineati fuori dalla viabilità e dagli ingombri delle
+  case; il modello sorgente di ogni edificio resta intatto.
+- Prima di salvare, il generatore controlla gli ingombri contro strade,
+  marciapiedi, rotatorie, altre case e volumi principali di municipio, pieve e
+  palazzi. Un conflitto interrompe la generazione invece di salvare una
+  scena con la stessa regressione. Lotto e ingombro sono anche registrati
+  come proprietà personalizzate delle istanze Blender.
+
 ## Miglioramenti della decima versione
 
 Esattamente tre interventi di dettaglio, senza modificare impianto urbano,
@@ -327,6 +379,7 @@ denoising OpenImageDenoise e view transform AgX.
 | `anteprima.png` | Render panoramico del borgo |
 | `genera_citta.py` | Script procedurale e importazione dei modelli esistenti |
 | `test_dettagli.py` | Sei controlli geometrici su fontana, altalena e scivolo |
+| `test_urbanistica.py` | Diciannove controlli su case, giardini, fermata, ponte e tricolore |
 
 ## Rigenerazione
 
@@ -343,11 +396,13 @@ python3 genera_citta.py --render         # render Cycles a qualità alta
 Il file `.blend` è salvato con le impostazioni di render finali; `--quick`
 riduce temporaneamente campioni e risoluzione solo per il PNG di controllo.
 
-Per verificare i tre dettagli della decima versione, dalla radice del
-repository, nello stesso ambiente Python con `bpy`:
+Per eseguire tutti i **25 test geometrici** (i sei della decima versione e i
+19 nuovi, inclusi i controlli sugli ingombri dei modelli sorgente reali), dalla
+radice del repository, nello stesso ambiente Python con `bpy`:
 
 ```bash
 python3 -m unittest discover -s prova_citta_1 -p 'test_*.py' -v
 ```
 
-I test non modificano il modello e non avviano render.
+I test caricano i modelli sorgente per misurarne gli ingombri, ma non aprono né
+modificano `citta.blend`, non salvano file e non avviano render.

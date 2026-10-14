@@ -45,6 +45,10 @@ sul pendio, e ricentra la camera sulla piazza per dare più spazio al cuore del
 paese senza perdere il borgo lontano. La decima versione modifica soltanto
 la fontana della piazza (getti parabolici e increspature), l'altalena (cavalletti
 inclinati e sospensioni collegate) e lo scivolo (discesa, pianerottolo e scala).
+L'undicesima versione migliora soltanto la fermata autobus, il ponticello del
+laghetto e il tricolore del municipio. Separatamente corregge le case che
+invadevano la viabilità: i loro ingombri reali ruotati vengono adattati a lotti
+liberi, con giardini riposizionati e validazione prima del salvataggio.
 
 Richiede Blender 5.0+ e i modelli originali presenti nelle cartelle sorelle.
 
@@ -59,6 +63,7 @@ import os
 import random
 import sys
 import time
+from dataclasses import dataclass
 
 import bpy
 from mathutils import Vector
@@ -452,6 +457,9 @@ def create_materials():
         "skin": ("Incarnato", (206, 160, 128), 0.62, 0.0, 0, 0),
         "hair_dark": ("Capelli scuri", (48, 36, 28), 0.7, 0.0, 0, 0),
         "hair_light": ("Capelli chiari", (168, 132, 78), 0.7, 0.0, 0, 0),
+        "flag_green": ("Tricolore — verde", (0, 146, 70), 0.82, 0.0, 0, 0),
+        "flag_white": ("Tricolore — bianco", (241, 242, 241), 0.82, 0.0, 0, 0),
+        "flag_red": ("Tricolore — rosso", (206, 43, 55), 0.82, 0.0, 0, 0),
         "cloth_red": ("Veste rossa", (168, 52, 48), 0.75, 0.0, 0, 0),
         "cloth_blue": ("Veste blu", (48, 78, 128), 0.75, 0.0, 0, 0),
         "cloth_green": ("Veste verde", (72, 118, 74), 0.75, 0.0, 0, 0),
@@ -567,6 +575,177 @@ def create_instance(name, template, collection, location, yaw=0.0, scale=1.0):
     obj.scale = (scale, scale, scale)
     collection.objects.link(obj)
     return obj
+
+
+# Ingombri condivisi da generazione e controlli: carreggiata + marciapiede.
+ROAD_X = (-70, -23, 23, 70)
+ROAD_Y = (-70, -32, 32, 70)
+VIALE_SPANS = ((-100, -59), (-43, -16), (29, 43), (59, 100))
+ROUNDABOUTS = ((23, 32), (-23, -32))
+SIDEWALK_REACH = 2.375
+HOUSE_FRONT = {"casale": -PI / 2, "villa": PI / 2, "chalet": -PI / 2}
+DIRECTIONS = {"N": PI / 2, "S": -PI / 2, "E": 0.0, "W": PI}
+
+
+def bounds_xy(points):
+    points = list(points)
+    return (min(p[0] for p in points), max(p[0] for p in points),
+            min(p[1] for p in points), max(p[1] for p in points))
+
+
+def collection_bounds_xy(template):
+    """Include tetti, balconi e aggetti, non solo il centro dell'istanza."""
+    return bounds_xy(obj.matrix_world @ Vector(v) - template.instance_offset
+                     for obj in template.all_objects if obj.type == "MESH"
+                     for v in obj.bound_box)
+
+
+def transformed_bounds_xy(bounds, x, y, yaw, scale=1.0):
+    x0, x1, y0, y1 = bounds
+    co, si = math.cos(yaw), math.sin(yaw)
+    return bounds_xy((x + scale * (u * co - v * si),
+                      y + scale * (u * si + v * co))
+                     for u in (x0, x1) for v in (y0, y1))
+
+
+def rectangles_overlap(a, b):
+    return (min(a[1], b[1]) - max(a[0], b[0]) > 1e-6 and
+            min(a[3], b[3]) - max(a[2], b[2]) > 1e-6)
+
+
+def street_rectangles(sidewalk=True):
+    reach = SIDEWALK_REACH if sidewalk else 0.0
+    return ([(-100, 100, y - 4 - reach, y + 4 + reach) for y in ROAD_Y] +
+            [(x - 4 - reach, x + 4 + reach, -100, 100) for x in ROAD_X] +
+            [(-5 - reach, 5 + reach, a, b) for a, b in VIALE_SPANS])
+
+
+def footprint_on_street(bounds, sidewalk=True):
+    if any(rectangles_overlap(bounds, r) for r in street_rectangles(sidewalk)):
+        return True
+    radius = 9.9 if sidewalk else 7.6
+    x0, x1, y0, y1 = bounds
+    return any(math.hypot(x - min(max(x, x0), x1),
+                          y - min(max(y, y0), y1)) < radius - 1e-6
+               for x, y in ROUNDABOUTS)
+
+
+@dataclass(frozen=True)
+class HouseLot:
+    name: str
+    model: str
+    direction: str
+    scale: float
+    preferred: tuple
+    bounds: tuple  # x minimo, x massimo, y minimo, y massimo
+
+
+@dataclass(frozen=True)
+class HousePlacement:
+    lot: HouseLot
+    x: float
+    y: float
+    yaw: float
+    scale: float
+    bounds: tuple
+
+
+def residential_lots():
+    """Trentatré lotti, tutti esterni alle carreggiate e ai marciapiedi.
+
+    I quattro lotti accanto ai fondali di Viale Roma non erano abbastanza
+    larghi: sono trasferiti nelle fasce residenziali nord/sud. Gli altri
+    conservano il quartiere, con origine e scala adattate all'ingombro reale.
+    """
+    lots = []
+
+    def add(name, model, direction, scale, xy, rect):
+        lots.append(HouseLot(name, model, direction, scale, xy, rect))
+
+    for x, model, scale, a, b in ((-49, "casale", .86, -63.625, -40.5),
+                                 (-19, "chalet", .74, -16.625, -7.375),
+                                 (19, "villa", .66, 7.375, 16.625),
+                                 (49, "casale", .82, 40.5, 63.625)):
+        add("Casa nord %d — %s" % (x, model), model, "S", scale, (x, 85),
+            (a, b, 76.375, 93))
+    for x, model, scale, a, b, bottom, top in (
+            (-49, "chalet", .78, -63.625, -40.5, -98, -76.375),
+            (-19, "casale", .86, -16.625, -7.375, -98, -76.375),
+            (19, "villa", .62, 7.375, 16.625, -98, -76.375),
+            (49, "chalet", .77, 40.5, 63.625, -100, -80)):
+        add("Casa sud %d — %s" % (x, model), model, "N", scale, (x, -87),
+            (a, b, bottom, top))
+    rows = ((-48, -63.625, -38.375), (-17, -25.625, -5),
+            (17, 5, 25.625), (48, 38.375, 63.625))
+    for i, (y, a, b) in enumerate(rows):
+        model, scale = (("casale", .84), ("villa", .62),
+                        ("chalet", .76), ("casale", .82))[i]
+        add("Casa ovest %d — %s" % (y, model), model, "E", scale, (-80, y),
+            (-91, -76.375, a, b))
+        model, scale = (("chalet", .76), ("casale", .84),
+                        ("villa", .63), ("chalet", .78))[i]
+        add("Casa est %d — %s" % (y, model), model, "W", scale, (80, y),
+            (76.375, 91, a, b))
+    # Le quattro case prima a (±18.5, ±44) stavano sulla strada x = ±23.
+    for x, y, model, scale, direction, rect in (
+            (-35, 84, "chalet", .70, "S", (-40, -29.375, 76.375, 93)),
+            (34, 84, "villa", .58, "S", (29.375, 40, 76.375, 93)),
+            (-35, -84, "casale", .70, "N", (-40, -29.375, -99, -76.375)),
+            (35, -84, "chalet", .66, "N", (29.375, 40, -99, -76.375)),
+            (-59, 15, "casale", .66, "E", (-63.625, -54, 7, 25.625)),
+            (-34, 4, "chalet", .60, "E", (-38.5, -29.375, -3, 7.6)),
+            (57, 16, "casale", .70, "W", (53.5, 63.625, 7, 25.625)),
+            (33.5, -16, "chalet", .66, "W", (29.375, 39.5, -25.625, -7)),
+            (59, -16, "casale", .70, "W", (54.5, 63.625, -25.625, -7))):
+        add("Isolato %d,%d — %s" % (x, y, model), model, direction, scale,
+            (x, y), rect)
+    for x, y, model, scale, direction, rect in (
+            (-96, 40, "casale", .90, "E", (-105, -91.5, 38.375, 63.625)),
+            (96, 40, "chalet", .88, "W", (91.5, 105, 38.375, 63.625)),
+            (-96, -40, "villa", .72, "E", (-105, -91.5, -63.625, -38.375)),
+            (96, -40, "casale", .88, "W", (91.5, 105, -63.625, -38.375)),
+            (40, 96, "chalet", .84, "S", (29.375, 63.625, 93.5, 105)),
+            (-40, 96, "casale", .86, "S", (-63.625, -29.375, 93.5, 105)),
+            (40, -96, "villa", .68, "N", (29.375, 44, -105, -92.5)),
+            (-40, -96, "chalet", .84, "N", (-63.625, -29.375, -105, -92.5))):
+        add("Campagna %d,%d — %s" % (x, y, model), model, direction, scale,
+            (x, y), rect)
+    return lots
+
+
+def plan_house_layout(templates, margin=0.40):
+    local_bounds = {model: collection_bounds_xy(col) for model, col in templates.items()}
+    layout = []
+    for lot in residential_lots():
+        yaw = DIRECTIONS[lot.direction] - HOUSE_FRONT[lot.model]
+        raw = transformed_bounds_xy(local_bounds[lot.model], 0, 0, yaw)
+        a, b, c, d = lot.bounds
+        scale = min(lot.scale, (b - a - 2 * margin) / (raw[1] - raw[0]),
+                    (d - c - 2 * margin) / (raw[3] - raw[2]))
+        if scale <= 0:
+            raise ValueError("Lotto troppo piccolo: " + lot.name)
+        x = min(max(lot.preferred[0], a + margin - raw[0] * scale),
+                b - margin - raw[1] * scale)
+        y = min(max(lot.preferred[1], c + margin - raw[2] * scale),
+                d - margin - raw[3] * scale)
+        bounds = transformed_bounds_xy(local_bounds[lot.model], x, y, yaw, scale)
+        layout.append(HousePlacement(lot, x, y, yaw, scale, bounds))
+    validate_house_layout(layout)
+    return layout
+
+
+def validate_house_layout(layout, architecture=()):
+    """Fallisce prima del salvataggio se una casa torna in strada o su un'altra."""
+    for i, house in enumerate(layout):
+        if footprint_on_street(house.bounds):
+            raise ValueError("Casa sulla viabilità: " + house.lot.name)
+        for other in layout[:i]:
+            if rectangles_overlap(house.bounds, other.bounds):
+                raise ValueError("Case sovrapposte: %s / %s" %
+                                 (house.lot.name, other.lot.name))
+        for name, bounds in architecture:
+            if rectangles_overlap(house.bounds, bounds):
+                raise ValueError("Casa dentro un edificio: %s / %s" % (house.lot.name, name))
 
 
 # ---------------------------------------------------------------------------
@@ -775,9 +954,9 @@ def build_roads(mats, road_col, plaza_col):
     # interruzione: a ogni nodo attraversavano la strada perpendicolare come
     # due passerelle rialzate. Ora ogni asse si arresta sul bordo esatto della
     # strada che incontra; nelle rotatorie il taglio si allarga fino all'anello.
-    crossings_x = (-70, -23, 0, 23, 70)
-    crossings_y = (-70, -32, 32, 70)
-    roundabouts = ((23, 32), (-23, -32))
+    crossings_x = tuple(sorted((*ROAD_X, 0)))
+    crossings_y = ROAD_Y
+    roundabouts = ROUNDABOUTS
 
     def horizontal_gaps(y):
         gaps = []
@@ -798,14 +977,14 @@ def build_roads(mats, road_col, plaza_col):
             gaps.append((y - half, y + half))
         return tuple(gaps)
 
-    for y in (-70, 70, -32, 32):
+    for y in ROAD_Y:
         add_road_h(B, y, -100, 100, 8.0, gaps=horizontal_gaps(y))
-    for x in (-70, 70, -23, 23):
+    for x in ROAD_X:
         add_road_v(B, x, -100, 100, 8.0, gaps=vertical_gaps(x))
     # Viale Roma: la piazza, il municipio e i due fondali ne spezzano l'asse.
     # La carreggiata non entra più dentro Residenza Aurora e Albergo del Borgo:
     # ogni troncone corre fra due incroci, o fra un incrocio e una testata.
-    for y0, y1 in ((-100, -59), (-43, -16), (29, 43), (59, 100)):
+    for y0, y1 in VIALE_SPANS:
         add_road_v(B, 0, y0, y1, 10.0, gaps=vertical_gaps(0, (y0, y1)))
     # Testate del viale: due piazzali d'arrivo davanti ai fondali.
     build_viale_head(B, 1)
@@ -1293,6 +1472,24 @@ def build_apartment(B, mats, decor_col, cx, cy, yaw, width, depth,
     return mass
 
 
+def build_tricolore(B, x, y, z, width=1.8, height=1.2):
+    """Tre bande verticali contigue (2:3), con l'inferitura ferma sul pennone."""
+    def point(i, j):
+        u, v = i / 18, j / 8
+        return (x + width * u,
+                y + 0.22 * u * math.sin(TAU * 1.3 * u + v * 0.7),
+                z + height * (v - 0.5) - 0.16 * u +
+                0.04 * u * math.sin(TAU * u))
+
+    for stripe, key in enumerate(("flag_green", "flag_white", "flag_red")):
+        for i in range(stripe * 6, (stripe + 1) * 6):
+            for j in range(8):
+                B[key].poly((point(i, j), point(i + 1, j),
+                             point(i + 1, j + 1), point(i, j + 1)), smooth=True)
+    for dz in (-height * 0.43, height * 0.43):
+        B["metal_gold"].ring((x - 0.05, y, z + dz), 0.068, 0.014, 12, 6)
+
+
 def build_town_hall(B, mats, col):
     cx, cy, w, d, h = 0.0, 20.0, 22.0, 12.0, 9.8
     make_cube("Municipio — volume principale", (cx, cy, h / 2), (w, d, h),
@@ -1395,8 +1592,7 @@ def build_town_hall(B, mats, col):
     B["metal_gold"].cone((tx, ty, 15.76), 0.20, 0.015, 0.40, 12)
     # Pennone con bandiera sul colmo.
     B["metal"].cylinder((8.9, cy + 1.2, 14.05), 0.055, 2.4, 12)
-    B["brick"].quad((8.95, cy + 1.2, 15.1), (10.7, cy + 1.2, 14.8),
-                    (10.7, cy + 1.2, 14.0), (8.95, cy + 1.2, 14.1))
+    build_tricolore(B, 8.95, cy + 1.2, 14.5)
     # Lampioni simmetrici all'ingresso.
     for x in (-8.2, 8.2):
         add_lamp(B, x, front - 1.1, height=4.2, ornate=True)
@@ -1431,7 +1627,11 @@ def build_trees_and_park(B, mats, green_col, road_col):
         B["tile_b"].box((cx, cy, 0.12), (2.4, 28, 0.12))
         B["tile_b"].box((cx, cy, 0.12), (28, 2.4, 0.12))
         for sign in (-1, 1):
-            B["curb"].box((cx + sign * 12.7, cy, 0.18), (0.18, 24, 0.18))
+            gaps = ((POND_CENTER[1] + BRIDGE_Y_OFFSET - 0.95,
+                     POND_CENTER[1] + BRIDGE_Y_OFFSET + 0.95),) if cx < 0 and sign < 0 else ()
+            for a, b in spans_outside(cy - 12, cy + 12, gaps):
+                B["curb"].box((cx + sign * 12.7, (a + b) / 2, 0.18),
+                              (0.18, b - a, 0.18))
             B["curb"].box((cx, cy + sign * 12.7, 0.18), (24, 0.18, 0.18))
         spots = ((cx + 8, cy + 8), (cx - 8, cy + 8), (cx + 8, cy - 8))
         if cx < 0:
@@ -1948,6 +2148,48 @@ def build_roundabout(B, x, y):
 # ---------------------------------------------------------------------------
 # Laghetto con anatre e canne nel parco
 # ---------------------------------------------------------------------------
+POND_CENTER = (-60, 44)
+BRIDGE_HALF_SPAN = 4.8
+BRIDGE_Y_OFFSET = 3.1
+BRIDGE_HALF_WIDTH = 0.78
+
+
+def bridge_point(cx, cy, t):
+    return (cx - BRIDGE_HALF_SPAN + 2 * BRIDGE_HALF_SPAN * t,
+            cy + BRIDGE_Y_OFFSET, 0.18 + 0.48 * 4 * t * (1 - t))
+
+
+def in_bridge_corridor(x, y, cx, cy):
+    return (abs(x - cx) < BRIDGE_HALF_SPAN + 0.30 and
+            abs(y - cy - BRIDGE_Y_OFFSET) < BRIDGE_HALF_WIDTH + 0.35)
+
+
+def build_pond_bridge(B, cx, cy):
+    # Ventiquattro tavole inclinate; i bordi in comune hanno la stessa quota.
+    # Le estremità superano entrambe le sponde, non terminano sopra l'acqua.
+    for i in range(24):
+        a, b = bridge_point(cx, cy, i / 24), bridge_point(cx, cy, (i + 1) / 24)
+        verts = [(p[0], p[1] + side * BRIDGE_HALF_WIDTH, p[2] - below)
+                 for p in (a, b) for side in (-1, 1) for below in (0.09, 0.0)]
+        for face in Batch.FACES:
+            B["wood_light"].poly([verts[j] for j in face])
+    for side in (-1, 1):
+        # Travi sotto il piano di calpestio e due correnti continui per lato.
+        for offset, radius in ((-0.14, 0.075), (0.48, 0.035), (0.90, 0.05)):
+            points = [(p[0], p[1] + side * 0.68, p[2] + offset)
+                      for p in (bridge_point(cx, cy, i / 24) for i in range(25))]
+            add_tube(B["wood"], points, radius)
+        for i in range(7):
+            x, y, z = bridge_point(cx, cy, i / 6)
+            add_tube(B["wood"], ((x, y + side * 0.68, z - 0.09),
+                                  (x, y + side * 0.68, z + 0.90)), 0.05)
+    for t in (0, 1):
+        x, y, _ = bridge_point(cx, cy, t)
+        B["concrete"].box((x, y, 0.04), (0.5, 1.56, 0.28))
+    # Ovest: marciapiede di via -70; est: camminamento centrale del parco.
+    B["sidewalk"].box((cx + 6.4, cy + BRIDGE_Y_OFFSET, 0.12), (3.2, 1.56, 0.12))
+
+
 def build_pond(B, cx, cy):
     B["curb"].cylinder((cx, cy, 0.10), 4.4, 0.22, 36, radius2=4.1)
     B["asphalt"].cylinder((cx, cy, 0.05), 4.0, 0.16, 36)
@@ -1956,9 +2198,9 @@ def build_pond(B, cx, cy):
         a = TAU * i / 14 + random.uniform(-0.1, 0.1)
         rx, ry = cx + math.cos(a) * 4.05, cy + math.sin(a) * 4.05
         for k in range(3):
-            B["leaf_light"].cone((rx + random.uniform(-0.2, 0.2),
-                                  ry + random.uniform(-0.2, 0.2),
-                                  0.55 + 0.12 * k), 0.05, 0.01, 0.8, 6)
+            px, py = rx + random.uniform(-0.2, 0.2), ry + random.uniform(-0.2, 0.2)
+            if not in_bridge_corridor(px, py, cx, cy):
+                B["leaf_light"].cone((px, py, 0.55 + 0.12 * k), 0.05, 0.01, 0.8, 6)
     # Ninfee e anatre.
     for i in range(6):
         a = random.uniform(0, TAU)
@@ -1993,43 +2235,19 @@ def build_pond(B, cx, cy):
         if sx > cx + 2.8 and -3.0 < sy - cy < -0.5:
             continue
         r_rock = random.uniform(0.14, 0.30)
-        B["concrete"].sphere((sx, sy, 0.10 + r_rock * 0.5), r_rock,
-                             (random.uniform(0.8, 1.2), random.uniform(0.8, 1.1),
-                              random.uniform(0.6, 0.9)), 7, 5)
-    # Ponticello in legno ad arco sul lato opposto al pontile.
-    bx, by = cx - 2.2, cy + 3.6
-    arc_pts = 7
-    for i in range(arc_pts):
-        t = i / (arc_pts - 1)
-        lx = bx - 1.8 + t * 3.6
-        lz = 0.28 + math.sin(t * PI) * 0.45
-        B["wood_light"].box((lx, by, lz), (0.60, 1.5, 0.10))
-    # Corrimano del ponticello con montanti.
-    for side in (-1, 1):
-        for i in range(5):
-            t = (i + 0.5) / 5
-            px = bx - 1.6 + t * 3.2
-            pz = 0.38 + math.sin(t * PI) * 0.45
-            B["wood"].box((px, by + side * 0.68, pz), (0.08, 0.08, 0.55))
-        # Trave superiore che segue l'arco.
-        for i in range(4):
-            t0 = i / 4
-            t1 = (i + 1) / 4
-            x0 = bx - 1.6 + t0 * 3.2
-            x1 = bx - 1.6 + t1 * 3.2
-            z0 = 0.65 + math.sin(t0 * PI) * 0.45
-            z1 = 0.65 + math.sin(t1 * PI) * 0.45
-            B["wood"].box(((x0 + x1) / 2, by + side * 0.68, (z0 + z1) / 2),
-                          (math.dist((x0, z0), (x1, z1)) + 0.04, 0.07, 0.07),
-                          math.atan2(z1 - z0, x1 - x0))
+        scale = (random.uniform(0.8, 1.2), random.uniform(0.8, 1.1),
+                 random.uniform(0.6, 0.9))
+        if not in_bridge_corridor(sx, sy, cx, cy):
+            B["concrete"].sphere((sx, sy, 0.10 + r_rock * 0.5), r_rock, scale, 7, 5)
+    build_pond_bridge(B, cx, cy)
     # Canneti più fitti dietro i massi, sul lato nord-ovest.
     for i in range(8):
         a = PI * 0.7 + i * 0.12
         rx, ry = cx + math.cos(a) * 4.3, cy + math.sin(a) * 4.3
         for k in range(2):
-            B["leaf_light"].cone((rx + random.uniform(-0.15, 0.15),
-                                   ry + random.uniform(-0.15, 0.15),
-                                   0.65 + 0.10 * k), 0.04, 0.01, 0.7, 5)
+            px, py = rx + random.uniform(-0.15, 0.15), ry + random.uniform(-0.15, 0.15)
+            if not in_bridge_corridor(px, py, cx, cy):
+                B["leaf_light"].cone((px, py, 0.65 + 0.10 * k), 0.04, 0.01, 0.7, 5)
 
 
 # ---------------------------------------------------------------------------
@@ -2271,13 +2489,19 @@ def build_street_life(B, mats, col):
 # ---------------------------------------------------------------------------
 # Giardini privati, orti e frutteti negli isolati
 # ---------------------------------------------------------------------------
+PRIVATE_GARDENS = ((-35, 90.3, 9.4, 4.2), (34.5, 90.3, 9.4, 4.2),
+                   (-35, -78.5, 9.4, 2.6), (35, -78.3, 9.4, 2.2),
+                   (-12, 61, 8, 4), (12, -61, 8, 4),
+                   (-59, 23.7, 8, 2.8), (58, 23.8, 9, 2.6),
+                   (34.5, -23.6, 8.5, 2.8), (40, 17, 20, 15),
+                   (-49, 78.9, 16, 3.4), (49, 78.9, 16, 3.4),
+                   (-49, -78.6, 16, 2.8), (49, -80.5, 16, 2.4),
+                   (-89, -48, 3.5, 12), (89, 48, 3.5, 12))
+
+
 def build_gardens(B):
     """Siepi, frutteti e orti domestici a corredo delle case riutilizzate."""
-    lots = [(-18.5, 44, 12, 12), (18.5, 44, 12, 12), (-18.5, -44, 12, 12),
-            (18.5, -44, 12, 12), (-6, 61, 14, 7), (6, -61, 14, 7),
-            (-59, 15, 10, 12), (57, 16, 10, 12), (33.5, -24, 9, 8), (40, 17, 20, 15),
-            (-49, 71, 16, 8), (49, 71, 16, 8), (-49, -71, 16, 8),
-            (49, -71, 16, 8), (-71, -48, 8, 14), (71, 48, 8, 14)]
+    lots = PRIVATE_GARDENS
     for lx, ly, lw, ld in lots:
         B["grass"].box((lx, ly, 0.02), (lw, ld, 0.08))
         B["leaf"].box((lx, ly + ld / 2, 0.36), (lw, 0.32, 0.6))
@@ -2292,7 +2516,7 @@ def build_gardens(B):
             B["produce_red"].sphere((px + 0.3, ly - ld * 0.22 + 0.2, 1.1),
                                     0.07, segments=6, rings=4)
         for i in range(3):
-            py = ly + ld * 0.12 + i * 0.55
+            py = ly + ld * (0.05 + i * 0.13)
             B["grass"].box((lx, py, 0.13), (lw * 0.7, 0.34, 0.10))
     # Vasi fioriti agli ingressi e pergolati nei cortili maggiori.
     for px, py in ((-40.5, -16), (-28.5, -22), (26.5, 9.5), (45.5, 22.5),
@@ -3061,12 +3285,82 @@ def build_car(B, cx, cy, yaw, body_key="blue", name="Auto"):
 
 def build_bus_shelter(B, x, y, yaw=0):
     for dx in (-2.7, 2.7):
-        lbox(B["metal"], x, y, yaw, dx, 0, 1.65, 0.12, 0.12, 3.3)
-    lbox(B["glass"], x, y, yaw, -1.3, 0, 1.55, 2.5, 0.07, 2.55)
-    lbox(B["glass"], x, y, yaw, 1.4, -1.0, 1.55, 0.07, 2.0, 2.55)
-    lbox(B["metal"], x, y, yaw, 0, -0.10, 3.30, 5.8, 2.35, 0.18)
-    lbox(B["glass"], x, y, yaw, 0, 0, 0.76, 4.8, 0.06, 1.45)
-    lbox(B["wood_light"], x, y, yaw, -0.1, -0.3, 0.56, 2.2, 0.58, 0.12)
+        lbox(B["metal"], x, y, yaw, dx, -0.8, 1.70, 0.12, 0.12, 3.18)
+    lbox(B["glass"], x, y, yaw, 0, -0.8, 1.72, 5.3, 0.07, 2.75)
+    lbox(B["glass"], x, y, yaw, -2.7, -0.2, 1.72, 0.07, 1.2, 2.75)
+    lbox(B["metal"], x, y, yaw, 0, 0, 3.30, 5.8, 2.1, 0.18)
+    lbox(B["wood_light"], x, y, yaw, 0, -0.45, 0.58, 2.3, 0.5, 0.12)
+    for dx in (-0.9, 0.9):
+        lbox(B["metal"], x, y, yaw, dx, -0.45, 0.315, 0.08, 0.4, 0.41)
+
+
+BUS_POSITION = (48, -71.9)
+BUS_STOP_BOUNDS = (37, 61, -78.5, -74.125)
+
+
+def build_bus(B, cx, cy, yaw=0):
+    """Autobus con vetratura esterna, porte sul lato destro e ruote in asse."""
+    def box(key, x, y, z, sx, sy, sz):
+        lbox(B[key], cx, cy, yaw, x, y, z, sx, sy, sz)
+
+    box("sage", 0, 0, 0.73, 10.2, 2.45, 0.86)
+    box("cream", 0, 0, 2.95, 10.3, 2.5, 0.16)
+    box("metal", 0, 0, 0.36, 9.9, 2.3, 0.16)
+    for side in (-1, 1):
+        box("white", 0, side * 1.235, 1.14, 10.1, 0.05, 0.12)
+        for i in range(7):
+            box("glass", -4.3 + i * 1.4, side * 1.23, 2.05, 1.23, 0.055, 1.6)
+        for i in range(8):
+            box("metal", -5 + i * 1.4, side * 1.23, 2.02, 0.10, 0.09, 1.72)
+        for wx in (-3.2, 3.2):
+            for key, radius, depth, wy in (("metal", .50, .24, side * 1.18),
+                                           ("white", .22, .03, side * 1.315)):
+                ends = [lbox_point(cx, cy, yaw, wx, wy + d * depth / 2, 0.53)
+                        for d in (-1, 1)]
+                add_tube(B[key], ends, radius, 20)
+    # Muso, coda e parabrezza, non inglobati in un parallelepipedo opaco.
+    box("glass", 5.105, 0, 2.0, 0.06, 2.24, 1.45)
+    box("cream", -5.08, 0, 1.98, 0.12, 2.42, 1.85)
+    box("glass", -5.155, 0, 2.12, 0.04, 1.9, 0.95)
+    box("metal", 5.15, 0, 2.77, 0.07, 2.16, 0.24)
+    for side in (-1, 1):
+        box("lamp", 5.135, side * .84, .82, .09, .30, .24)
+        box("red", -5.17, side * .84, .82, .09, .22, .30)
+        box("metal", 4.8, side * 1.36, 2.35, .28, .20, .16)
+    for dx in (0, 4.2):
+        box("metal", dx, -1.275, 1.62, 1.25, .055, 2.38)
+        for side in (-1, 1):
+            box("glass", dx + side * .29, -1.315, 1.68, .51, .025, 2.10)
+    box("white", -1.2, 0, 3.10, 2.0, 1.3, .16)
+
+
+def build_bus_stop(B, mats, col):
+    # L'autobus prima era dentro l'albergo e lontano dalla sua pensilina.
+    # Ora corre verso est sulla corsia sud di via -70, accanto all'attesa.
+    build_bus(B, *BUS_POSITION)
+    a, b, c, d = BUS_STOP_BOUNDS
+    B["sidewalk"].box(((a + b) / 2, (c + d) / 2, -0.025), (b - a, d - c, .27))
+    build_bus_shelter(B, 48, -77)
+    add_text("FERMATA · LINEA 1", "Insegna fermata autobus",
+             (48, -75.93, 3.30), .24, mats["white"], col, yaw=PI)
+    add_text("1 CENTRO", "Destinazione autobus", (53.20, -71.9, 2.77),
+             .17, mats["white"], col, yaw=PI / 2)
+    for i in range(7):
+        B["road_yellow"].box((41.5 + i * 2, -73.55, .045), (1.2, .12, .025))
+    # Arredi arretrati: rimane libero il passaggio lungo il bordo stradale.
+    for x in (39.5, 40.8, 42.1):
+        add_tube(B["metal"], ((x - .32, -77.3, .11), (x - .32, -77.3, .95),
+                               (x + .32, -77.3, .95), (x + .32, -77.3, .11)), .04)
+    make_bench(B, 56.5, -77.5, PI)
+    B["metal"].cylinder((59, -77.3, .56), .22, .90, 12)
+    B["metal"].cylinder((59, -77.3, 1.04), .24, .06, 12)
+    B["metal"].cylinder((53.6, -77.7, 1.18), .06, 2.14, 10)
+    B["white"].box((53.6, -77.7, 2.12), (.95, .12, 1.10))
+    B["glass"].box((53.6, -77.62, 2.12), (.85, .035, 1.0))
+    add_text("LINEA 1", "Bacheca fermata — linea", (53.6, -77.59, 2.42),
+             .14, mats["metal"], col, yaw=PI)
+    for i in range(4):
+        B["metal"].box((53.6, -77.59, 2.20 - i * .13), (.60, .015, .025))
 
 
 def build_street_lighting(B):
@@ -3110,57 +3404,15 @@ def build_transport(B, mats, traffic_col):
     build_car(B, -45, -30.6, 0, "red", "Auto rossa")
     build_car(B, -58, -30.6, 0, "white", "Auto avorio")
     build_car(B, 49, 30.6, PI, "blue", "Auto blu")
-    build_car(B, 55, -66.5, PI / 2, "white", "Auto bianca")
+    build_car(B, 59, -68.1, PI, "white", "Auto bianca")
     # Sosta lungo i viali e traffico leggero sul viale centrale.
     build_car(B, -12, -34.5, 0, "blue", "Auto blu in sosta")
     build_car(B, -6.5, -34.5, 0, "white", "Auto bianca in sosta")
     build_car(B, 34, 34.5, PI, "red", "Auto rossa in sosta")
     build_car(B, 58, 34.5, PI, "white", "Auto avorio in sosta")
     build_car(B, 2.6, -22, PI / 2, "blue", "Auto sul viale")
-    build_car(B, -2.6, 44, -PI / 2, "red", "Auto sul viale nord")
-    # Autobus urbano sul viale a sud.
-    yaw = PI / 2
-    def busbox(key, x, y, z, sx, sy, sz):
-        lbox(B[key], 1.6, -51.5, yaw, x, y, z, sx, sy, sz)
-    busbox("sage", 0, 0, 1.45, 10.2, 2.45, 2.7)
-    busbox("glass", 0, -0.01, 2.1, 8.6, 2.25, 1.35)
-    busbox("cream", -1.9, -1.27, 1.45, 3.9, 0.08, 1.38)
-    busbox("cream", 1.8, -1.27, 1.45, 3.4, 0.08, 1.38)
-    busbox("white", 5.00, -1.22, 1.28, 0.25, 0.08, 0.32)
-    busbox("red", -5.00, -1.22, 1.25, 0.20, 0.08, 0.30)
-    for x in (-3.2, 3.2):
-        for side in (-1, 1):
-            lx = 1.6 + x * math.cos(yaw) - side * 1.2 * math.sin(yaw)
-            ly = -51.5 + x * math.sin(yaw) + side * 1.2 * math.cos(yaw)
-            B["metal"].cylinder((lx, ly, 0.68), 0.58, 0.22, 18, axis="Y")
-            B["metal"].cylinder((lx, ly + 0.13, 0.68), 0.26, 0.235, 18, axis="Y")
-    build_bus_shelter(B, -3.0, -62, 0)
-    add_text("FERMATA  •  LINEA 1", "Insegna fermata autobus",
-             (-3.0, -63.22, 3.70), 0.24, bpy.data.materials["Bianco avorio"],
-             traffic_col)
-    # Area attrezzata alla fermata: portabiciclette, panchina, cestino e
-    # bacheca orari creano un piccolo hub di sosta oltre la pensilina.
-    # Portabiciclette ad arco: tre posti bici con struttura metallica.
-    for i in range(3):
-        bx = -7.5 + i * 1.2
-        B["metal"].cylinder((bx, -64.5, 0.42), 0.38, 0.06, 14, axis="Y")
-        B["metal"].box((bx, -64.5, 0.82), (0.06, 0.06, 0.72))
-        B["metal"].box((bx, -64.5, 1.18), (0.40, 0.06, 0.06))
-    # Panchina in legno e metallo per i pendolari in attesa.
-    make_bench(B, 3.5, -65, 0.0)
-    # Cestino portarifiuti con coperchio e supporto.
-    B["metal"].cylinder((7.5, -64.2, 0.52), 0.22, 0.85, 12)
-    B["metal"].cylinder((7.5, -64.2, 0.98), 0.24, 0.08, 12)
-    B["metal"].box((7.5, -64.2, 0.10), (0.06, 0.06, 0.12))
-    # Bacheca orari: palo, bacheca vetrata e testo dell'orario.
-    B["metal"].cylinder((9.8, -63.5, 1.10), 0.06, 2.2, 10)
-    B["white"].box((9.8, -63.5, 2.0), (0.90, 0.12, 1.20))
-    B["glass"].box((9.8, -63.5 - 0.08, 2.0), (0.82, 0.04, 1.10))
-    # Cornice metallica attorno alla bacheca.
-    for sy in (-1, 1):
-        B["metal"].box((9.8 + sy * 0.46, -63.5, 2.0), (0.05, 0.14, 1.22))
-    for sz in (-1, 1):
-        B["metal"].box((9.8, -63.5, 2.0 + sz * 0.61), (0.92, 0.14, 0.05))
+    build_car(B, -2.6, 62, -PI / 2, "red", "Auto sul viale nord")
+    build_bus_stop(B, mats, traffic_col)
 
 
 def build_parking_lots(mats, col, traffic_batches):
@@ -3375,49 +3627,21 @@ def main():
     # Alberi generici a chioma ampia + istanze del modello di ciliegio già esistente.
     urban_tree = make_local_tree_template(mats)
     add_city_trees(urban_tree, cherry_template, mats, green_col, green_col)
-    # Case: orientamento frontale calibrato sui modelli sorgente.
-    front_angle = {"casale": -PI / 2, "villa": PI / 2, "chalet": -PI / 2}
-    directions = {"N": PI / 2, "S": -PI / 2, "E": 0.0, "W": PI}
-    def place_house(model, x, y, direction, scale, label):
-        yaw = directions[direction] - front_angle[model]
-        create_instance(label, house_templates[model], house_col, (x, y, 0.03), yaw, scale)
-    top_row = [(-49, "casale", 0.86), (-19, "chalet", 0.74),
-               (19, "villa", 0.66), (49, "casale", 0.82)]
-    south_row = [(-49, "chalet", 0.78), (-19, "casale", 0.86),
-                 (19, "villa", 0.62), (49, "chalet", 0.77)]
-    for x, model, scale in top_row:
-        place_house(model, x, 80, "S", scale, "Casa nord — " + model)
-    for x, model, scale in south_row:
-        place_house(model, x, -80, "N", scale, "Casa sud — " + model)
-    for i, y in enumerate((-48, -17, 17, 48)):
-        model = ("casale", "villa", "chalet", "casale")[i]
-        scale = (0.84, 0.62, 0.76, 0.82)[i]
-        place_house(model, -80, y, "E", scale, "Casa ovest — " + model)
-        model2 = ("chalet", "casale", "villa", "chalet")[i]
-        scale2 = (0.76, 0.84, 0.63, 0.78)[i]
-        place_house(model2, 80, y, "W", scale2, "Casa est — " + model2)
-    # Secondo tessuto residenziale: isolati interni e casali di campagna.
-    # Le due coppie di case ai lati dei fondali sono arretrate: con i
-    # piazzali di testata del viale, a ±12 m entravano di due metri dentro
-    # Residenza Aurora e nell'Albergo del Borgo.
-    inner_lots = [(-18.5, 44, "chalet", 0.70, "S"), (18.5, 44, "villa", 0.58, "S"),
-                  (-18.5, -44, "casale", 0.70, "N"), (18.5, -44, "chalet", 0.66, "N"),
-                  (-59, 15, "casale", 0.66, "E"), (-34, 4, "chalet", 0.60, "E"),
-                  (57, 16, "casale", 0.70, "W"), (33.5, -16, "chalet", 0.66, "W"),
-                  (59, -16, "casale", 0.70, "W")]
-    rural_lots = [(-96, 40, "casale", 0.90, "E"), (96, 40, "chalet", 0.88, "W"),
-                  (-96, -40, "villa", 0.72, "E"), (96, -40, "casale", 0.88, "W"),
-                  (40, 96, "chalet", 0.84, "S"), (-40, 96, "casale", 0.86, "S"),
-                  (40, -96, "villa", 0.68, "N"), (-40, -96, "chalet", 0.84, "N")]
-    for x, y, model, scale, direction in inner_lots + rural_lots:
-        tag = "Campagna" if abs(x) > 90 or abs(y) > 90 else "Isolato"
-        place_house(model, x, y, direction, scale,
-                    "%s %d,%d — %s" % (tag, x, y, model))
+    # Il punto d'origine non coincide sempre col centro del modello (villa).
+    # Si adatta l'intero ingombro ruotato al lotto, tetti e aggetti inclusi.
+    house_layout = plan_house_layout(house_templates)
+    for house in house_layout:
+        obj = create_instance(house.lot.name, house_templates[house.lot.model],
+                              house_col, (house.x, house.y, 0.03),
+                              house.yaw, house.scale)
+        obj["lotto_xy"] = house.lot.bounds
+        obj["ingombro_xy"] = house.bounds
     # Palazzi d'affaccio e un fronte commerciale più moderno lungo il viale.
     detail_batches = make_batch_set(mats, architecture_col,
         ("glass", "glass_warm", "metal", "metal_gold", "wood", "wood_light",
          "trim", "concrete", "terracotta", "roof_dark", "cream", "red", "blue",
-         "sage", "white", "lamp", "brick", "flower", "leaf", "leaf_light"))
+         "sage", "white", "lamp", "brick", "flower", "leaf", "leaf_light",
+         "flag_green", "flag_white", "flag_red"))
     build_town_hall(detail_batches, mats, architecture_col)
     build_apartment(detail_batches, mats, architecture_col, -46, 0, PI / 2,
                     18, 14, 5, "ochre", ("LIBRI", "CAFFÈ", "BOTTEGA"),
@@ -3454,7 +3678,7 @@ def main():
     traffic_batches = make_batch_set(mats, traffic_col,
         ("metal", "metal_gold", "glass", "white", "red", "blue", "sage", "cream",
          "wood", "wood_light", "road_white", "lamp", "signal_red", "signal_amber",
-         "signal_green", "walk_green"))
+         "signal_green", "walk_green", "sidewalk", "road_yellow"))
     build_crosswalk_signals(traffic_batches, mats, sign_col)
     build_transport(traffic_batches, mats, traffic_col)
     # Illuminazione stradale e parcheggi di quartiere accanto ai palazzi.
@@ -3465,9 +3689,9 @@ def main():
     life_batches = make_batch_set(mats, furnishing_col, LIFE_KEYS)
     build_church(life_batches, mats, architecture_col)
     build_market_square(life_batches, mats, furnishing_col)
-    for rx, ry in ((23, 32), (-23, -32)):
+    for rx, ry in ROUNDABOUTS:
         build_roundabout(life_batches, rx, ry)
-    build_pond(life_batches, -60, 44)
+    build_pond(life_batches, *POND_CENTER)
     build_playground(life_batches, 52, -50)
     build_street_life(life_batches, mats, furnishing_col)
     build_gardens(life_batches)
@@ -3484,6 +3708,14 @@ def main():
             batch.flush()
     # Alcune aree verdi sono state popolate con le stesse mesh in due momenti:
     # l'operazione di flush sopra include tutto il contenuto accumulato.
+    bpy.context.view_layer.update()
+    solid_buildings = [(obj.name, bounds_xy(obj.matrix_world @ Vector(v)
+                                          for v in obj.bound_box))
+                       for obj in architecture_col.objects if obj.type == "MESH"
+                       and (obj.name.endswith("— corpo") or
+                            obj.name in ("Municipio — volume principale", "Pieve — navata"))]
+    validate_house_layout(house_layout, solid_buildings)
+    print("Verifica urbanistica: 33 case fuori da strade, marciapiedi e volumi principali")
     setup_world_and_camera(root, mats)
     # Raccoglie in un'unica vista di apertura della scena il borgo intero.
     bpy.context.view_layer.objects.active = bpy.data.objects.get("Camera — veduta del borgo")
