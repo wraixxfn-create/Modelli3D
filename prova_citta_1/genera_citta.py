@@ -49,6 +49,14 @@ L'undicesima versione migliora soltanto la fermata autobus, il ponticello del
 laghetto e il tricolore del municipio. Separatamente corregge le case che
 invadevano la viabilità: i loro ingombri reali ruotati vengono adattati a lotti
 liberi, con giardini riposizionati e validazione prima del salvataggio.
+La dodicesima versione rifinisce le panchine (schienali verticali collegati ai
+montanti), le automobili (vetrazze esterne, fanali e ruote in asse) e le
+biciclette (ruote a raggi e telaio a diamante). La tredicesima versione dà
+alle persone sedute una posa credibile — cosce orizzontali sulla seduta e
+stinchi verticali fino a terra o ai pedali, con i ciclisti finalmente
+orientati come la bici — ricostruisce gli scooter con pneumatici ad anello e
+ciclistica completa nel riferimento locale, e arreda il caffè del borgo con
+tavolini quotati sulla platea, sedie da bistro e due avventori seduti.
 
 Richiede Blender 5.0+ e i modelli originali presenti nelle cartelle sorelle.
 
@@ -1755,8 +1763,19 @@ def build_town_square(B, mats, furnishing_col):
         for y in (-12.8, -10.0):
             B["wood"].box((x, y, 2.05), (0.16, 0.16, 3.2))
     B["terracotta"].box((0, -11.4, 3.72), (5.8, 4.3, 0.25))
-    for x in (-1.2, 1.2):
-        make_cafe_table(B, x, -11.5, 0.78)
+    # Il caffè aveva i tavolini ma nemmeno una sedia, e le gambe dei tavoli
+    # spuntavano sotto la platea del chiosco. Ora tavoli e sedie da bistro
+    # sono quotati sul calpestio e due avventori siedono con la nuova posa.
+    for tx, ty in CAFFE_TABLES:
+        make_cafe_table(B, tx, ty, CAFFE_FLOOR_Z)
+    for cx, cy, chair_yaw in CAFFE_CHAIRS:
+        make_cafe_chair(B, cx, cy, chair_yaw, CAFFE_FLOOR_Z)
+    ax, ay, a_yaw = CAFFE_CHAIRS[0]
+    add_person(B, ax, ay, a_yaw, "cloth_red", "hair_dark", 0.97,
+               seated=True, seat_z=CAFFE_FLOOR_Z + 0.46, foot_z=CAFFE_FLOOR_Z)
+    bx, by, b_yaw = CAFFE_CHAIRS[3]
+    add_person(B, bx, by, b_yaw, "cloth_white", "cloth_blue", 1.0,
+               seated=True, seat_z=CAFFE_FLOOR_Z + 0.46, foot_z=CAFFE_FLOOR_Z)
     add_text("CAFFÈ DEL BORGO", "Insegna caffè", (0, -13.37, 2.42),
              0.32, mats["cream"], furnishing_col)
     # Paletti e catena bassa a protezione del bordo della piazza.
@@ -1784,13 +1803,51 @@ def make_bench(B, x, y, yaw=0.0):
              0.10, 0.10, 0.92)
 
 
-def make_cafe_table(B, x, y, z):
-    B["metal"].cylinder((x, y, z - 0.23), 0.055, 0.55, 10)
-    B["wood_light"].cylinder((x, y, z + 0.08), 0.53, 0.12, 24)
+# Chiosco del caffè: quota del calpestio, tavolini, sedie da bistro e
+# montanti del gazebo. Le sedie guardano il proprio tavolo e lasciano
+# libero il passaggio fra i montanti (oltre 85 cm).
+CAFFE_FLOOR_Z = 0.55
+CAFFE_TABLES = ((-1.2, -11.5), (1.2, -11.5))
+CAFFE_CHAIRS = ((-1.2, -10.62, PI), (-1.2, -12.38, 0.0),
+                (1.2, -10.62, PI), (1.2, -12.38, 0.0))
+GAZEBO_POSTS = ((-2.2, -12.8), (-2.2, -10.0), (2.2, -12.8), (2.2, -10.0))
+
+
+def make_cafe_table(B, x, y, floor_z):
+    """Tavolino da caffè quotato sul pavimento dello chiosco.
+
+    Prima gambe e piedino scendevano sotto la platea del gazebo e il piano
+    restava troppo basso rispetto alle sedie: ora tutto parte dalla quota
+    di calpestio, con il piano a 76 cm come un tavolo da bar.
+    """
+    top_z = floor_z + 0.76
+    B["metal"].cylinder((x, y, (floor_z + top_z - 0.12) / 2), 0.055,
+                        top_z - 0.12 - floor_z, 10)
+    B["wood_light"].cylinder((x, y, top_z - 0.06), 0.53, 0.12, 24)
     for a in range(4):
         angle = a * PI / 2 + PI / 4
         B["metal"].box((x + 0.24 * math.cos(angle), y + 0.24 * math.sin(angle),
-                        z - 0.43), (0.06, 0.06, 0.42))
+                        floor_z + 0.20), (0.06, 0.06, 0.42))
+
+
+def make_cafe_chair(B, x, y, yaw, floor_z):
+    """Sedia da bistro: quattro gambe, seduta a 46 cm e schienale a listelli.
+
+    È scritta in coordinate locali e ruota con lo yaw, come il resto
+    dell'arredo, così può affiancare il tavolo da qualsiasi lato.
+    """
+    seat_z = floor_z + 0.46
+    leg_lo, leg_hi = floor_z - 0.01, seat_z - 0.05
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            lbox(B["metal"], x, y, yaw, sx * 0.16, sy * 0.15,
+                 (leg_lo + leg_hi) / 2, 0.05, 0.05, leg_hi - leg_lo)
+    lbox(B["wood_light"], x, y, yaw, 0, 0, seat_z - 0.025, 0.42, 0.40, 0.05)
+    for sx in (-1, 1):
+        lbox(B["wood_light"], x, y, yaw, sx * 0.17, 0.19,
+             seat_z + 0.19, 0.045, 0.045, 0.42)
+    for z in (seat_z + 0.12, seat_z + 0.30):
+        lbox(B["wood_light"], x, y, yaw, 0, 0.20, z, 0.38, 0.05, 0.07)
 
 
 def build_crosswalk_signals(B, mats, sign_col):
@@ -2332,23 +2389,47 @@ def build_playground(B, cx, cy):
 # ---------------------------------------------------------------------------
 # Vita di strada: persone, bici, scooter, furgone, piccioni e panni stesi
 # ---------------------------------------------------------------------------
-def add_person(B, x, y, yaw, shirt, pants, scale=1.0, seated=False):
+def add_person(B, x, y, yaw, shirt, pants, scale=1.0, seated=False,
+               seat_z=0.65, foot_z=0.0):
+    """Figura compatta, in piedi oppure seduta con le gambe piegate.
+
+    La vecchia posa seduta sollevava di 42 cm la figura intera: le gambe
+    restavano dritte e conficcate nella seduta, con il busto sospeso sopra
+    la panca o dentro il telaio della bicicletta. Ora `seat_z` è la quota
+    del piano su cui poggiano le cosce e `foot_z` quella dei piedi: cosce
+    orizzontali, stinchi verticali fino a terra o ai pedali e busto sopra
+    l'anca, così panchine, biciclette e sedie del caffè condividono la
+    stessa costruzione.
+    """
     s = scale
-    z0 = 0.0
     if seated:
-        z0 = 0.42
-    lbox(B[pants], x, y, yaw, -0.09, 0, z0 + 0.40 * s, 0.15 * s, 0.17 * s,
-         0.80 * s)
-    lbox(B[pants], x, y, yaw, 0.09, 0, z0 + 0.40 * s, 0.15 * s, 0.17 * s,
-         0.80 * s)
-    lbox(B[shirt], x, y, yaw, 0, 0, z0 + 1.06 * s, 0.40 * s, 0.24 * s, 0.60 * s)
-    for side in (-1, 1):
-        lbox(B[shirt], x, y, yaw, side * 0.25 * s, 0.02, z0 + 1.04 * s,
-             0.10 * s, 0.12 * s, 0.56 * s)
-    B["skin"].sphere(lbox_point(x, y, yaw, 0, 0, z0 + 1.52 * s), 0.115 * s,
+        knee_z = seat_z + 0.09 * s
+        for side in (-1, 1):
+            # Coscia orizzontale appoggiata sul piano della seduta.
+            lbox(B[pants], x, y, yaw, side * 0.09 * s, 0.17 * s,
+                 seat_z + 0.085 * s, 0.16 * s, 0.44 * s, 0.17 * s)
+            # Stinco verticale dal ginocchio al piano d'appoggio dei piedi.
+            lbox(B[pants], x, y, yaw, side * 0.09 * s, 0.34 * s,
+                 (knee_z + foot_z) / 2, 0.14 * s, 0.16 * s, knee_z - foot_z)
+        lbox(B[shirt], x, y, yaw, 0, 0.02 * s, seat_z + 0.42 * s,
+             0.40 * s, 0.27 * s, 0.60 * s)
+        for side in (-1, 1):
+            lbox(B[shirt], x, y, yaw, side * 0.25 * s, 0.07 * s,
+                 seat_z + 0.40 * s, 0.10 * s, 0.13 * s, 0.48 * s)
+        head_z = seat_z + 0.88 * s
+    else:
+        for side in (-1, 1):
+            lbox(B[pants], x, y, yaw, side * 0.09, 0, 0.40 * s,
+                 0.15 * s, 0.17 * s, 0.80 * s)
+        lbox(B[shirt], x, y, yaw, 0, 0, 1.06 * s, 0.40 * s, 0.24 * s, 0.60 * s)
+        for side in (-1, 1):
+            lbox(B[shirt], x, y, yaw, side * 0.25 * s, 0.02, 1.04 * s,
+                 0.10 * s, 0.12 * s, 0.56 * s)
+        head_z = 1.52 * s
+    B["skin"].sphere(lbox_point(x, y, yaw, 0, 0, head_z), 0.115 * s,
                      (0.92, 1.0, 1.12), 10, 7)
     hair = "hair_dark" if (int(x * 7 + y * 3) % 2) else "hair_light"
-    B[hair].sphere(lbox_point(x, y, yaw, 0, 0.015 * s, z0 + 1.58 * s),
+    B[hair].sphere(lbox_point(x, y, yaw, 0, 0.015 * s, head_z + 0.06 * s),
                    0.115 * s, (0.95, 1.0, 0.72), 10, 6)
 
 
@@ -2381,13 +2462,47 @@ def add_bicycle(B, x, y, yaw, frame_key):
 
 
 def add_scooter(B, x, y, yaw, body_key):
-    for wx in (-0.62, 0.62):
-        p = lbox_point(x, y, yaw, wx, 0, 0.26)
-        B["metal"].cylinder(p, 0.26, 0.08, 14, axis="Y")
-    lbox(B[body_key], x, y, yaw, -0.15, 0, 0.62, 1.05, 0.34, 0.36)
-    lbox(B[body_key], x, y, yaw, 0.55, 0, 0.95, 0.30, 0.30, 0.75)
-    lbox(B["metal"], x, y, yaw, 0.62, 0, 1.32, 0.42, 0.06, 0.06)
-    lbox(B["metal"], x, y, yaw, -0.35, 0, 0.86, 0.55, 0.30, 0.10)
+    """Scooter con ruote e ciclistica complete nel riferimento locale.
+
+    Le ruote erano dischi piatti sull'asse Y globale: nelle soste ruotate
+    restavano perpendicolari alla direzione di marcia. Ora pneumatici ad
+    anello, mozzi, forcella e manubrio seguono lo yaw del mezzo, con
+    parafango, piano d'appoggio, codone con sella, scudo con faro, fanale
+    posteriore e specchietti.
+    """
+    def tube(key, points, radius):
+        add_tube(B[key], [lbox_point(x, y, yaw, *p) for p in points], radius, 8)
+
+    for hub_x, hub_z, radius in ((-0.66, 0.29, 0.24), (0.66, 0.26, 0.21)):
+        # Pneumatico ad anello nel piano locale XZ: ruota con lo scooter.
+        ring = [(hub_x + radius * math.cos(i * TAU / 20), 0,
+                 hub_z + radius * math.sin(i * TAU / 20)) for i in range(21)]
+        tube("metal", ring, .05)
+        # Mozzo traverso lungo Y locale.
+        tube("metal", [(hub_x, -.055, hub_z), (hub_x, .055, hub_z)], .06)
+    # Parafango anteriore: arco sopra la ruota, dello stesso colore dello scudo.
+    tube(body_key, [(0.66 + 0.27 * math.cos(PI * (0.15 + 0.70 * i / 6)), 0,
+                     0.26 + 0.27 * math.sin(PI * (0.15 + 0.70 * i / 6)))
+                    for i in range(7)], .04)
+    # Forcella dal mozzo anteriore alla faccia dello scudo.
+    for side in (-1, 1):
+        tube("metal", [(0.66, side * .05, 0.26), (0.58, side * .05, 0.86)], .035)
+    # Piano d'appoggio, codone con sella, scudo verticale, faro e fanale.
+    lbox(B[body_key], x, y, yaw, -0.08, 0, 0.36, 0.92, 0.32, 0.09)
+    lbox(B[body_key], x, y, yaw, -0.58, 0, 0.56, 0.62, 0.38, 0.42)
+    lbox(B["roof_dark"], x, y, yaw, -0.40, 0, 0.82, 0.54, 0.34, 0.09)
+    lbox(B[body_key], x, y, yaw, 0.50, 0, 0.80, 0.16, 0.46, 0.76)
+    lbox(B["lamp"], x, y, yaw, 0.56, 0, 1.10, 0.09, 0.17, 0.17)
+    lbox(B["red"], x, y, yaw, -0.90, 0, 0.66, 0.06, 0.15, 0.10)
+    # Cannotto, manubrio trasversale, manopole e specchietti.
+    tube("metal", [(0.52, 0, 1.02), (0.46, 0, 1.18)], .04)
+    tube("metal", [(0.46, -0.28, 1.18), (0.46, 0.28, 1.18)], .028)
+    for side in (-1, 1):
+        lbox(B["roof_dark"], x, y, yaw, 0.46, side * 0.22, 1.18,
+             0.07, 0.15, 0.07)
+        tube("metal", [(0.46, side * 0.20, 1.20),
+                       (0.40, side * 0.29, 1.40)], .012)
+        lbox(B["metal"], x, y, yaw, 0.39, side * 0.30, 1.42, 0.11, 0.075, 0.06)
 
 
 def add_van(B, x, y, yaw, body_key):
@@ -2418,15 +2533,25 @@ def build_street_life(B, mats, col):
         add_person(B, x, y, yaw, shirts[i % 6], pants[i % 4],
                    scale=random.uniform(0.94, 1.04))
     # Coppia seduta su una panchina della piazza e bimbo al parco giochi.
-    add_person(B, -8.6, 0.4, PI, "cloth_violet", "cloth_blue", 0.98, seated=True)
-    add_person(B, -7.4, 0.4, PI, "cloth_green", "hair_dark", 0.96, seated=True)
+    # Prima erano figure in piedi alzate di 42 cm, con le gambe dentro la
+    # panca: ora le cosce poggiano sulle assi (quota 0,65) e i piedi sulle
+    # lastre della piazza, con la schiena contro lo schienale.
+    add_person(B, -8.6, 0.2, PI, "cloth_violet", "cloth_blue", 0.98,
+               seated=True, seat_z=0.65, foot_z=0.21)
+    add_person(B, -7.4, 0.2, PI, "cloth_green", "hair_dark", 0.96,
+               seated=True, seat_z=0.65, foot_z=0.21)
     add_person(B, 50.6, -53.4, 2.4, "cloth_yellow", "cloth_blue", 0.62)
     add_person(B, -54.5, 50.0, 1.2, "cloth_white", "cloth_green", 0.95)
     # Ciclisti in movimento e bici parcheggiate.
     for x, y, yaw in ((-14.0, -24.0, 0.4), (12.5, 26.0, 3.5), (24.5, -12.0, 1.7)):
         add_bicycle(B, x, y, yaw, "cloth_red" if yaw < 2 else "cloth_blue")
-        add_person(B, x, y, yaw, "cloth_blue" if yaw < 2 else "cloth_yellow",
-                   "hair_dark", 0.98, seated=True)
+        # Il ciclista era una figura dritta centrata sul telaio, con le
+        # spalle perpendicolari alla direzione di marcia. Ora è in sella:
+        # anca sulla sella (quota 0,98), cosce in avanti e piedi alla
+        # quota dei pedali, orientato come la bicicletta.
+        add_person(B, x - 0.28 * math.cos(yaw), y - 0.28 * math.sin(yaw),
+                   yaw - PI / 2, "cloth_blue" if yaw < 2 else "cloth_yellow",
+                   "hair_dark", 0.98, seated=True, seat_z=0.98, foot_z=0.38)
     for x, y, yaw in ((-16.6, -14.6, PI / 2), (-16.6, -13.4, PI / 2),
                       (16.8, 12.6, -PI / 2), (26.2, 9.4, 0.0),
                       (-38.6, -20.0, PI / 2), (44.2, 22.6, PI)):
@@ -3687,11 +3812,13 @@ def main():
         build_apartment(detail_batches, mats, architecture_col, bx, by, yaw,
                         16, 11, 3, facade, ("CAFFÈ", "MERCATO", "ARTIGIANI"),
                         title, modern=False)
-    # Piazzetta, fontana, panchine, pensilina e lampioni.
+    # Piazzetta, fontana, panchine, pensilina e lampioni. Le chiavi dei
+    # vestiti servono ai due avventori seduti al caffè del chiosco.
     civic_batches = make_batch_set(mats, furnishing_col,
         ("water", "concrete", "trim", "metal", "metal_gold", "lamp", "wood",
          "wood_light", "terracotta", "glass", "glass_warm", "grass", "leaf",
-         "leaf_light", "flower", "blue", "white", "curb"))
+         "leaf_light", "flower", "blue", "white", "curb", "skin", "hair_dark",
+         "hair_light", "cloth_red", "cloth_blue", "cloth_white"))
     build_town_square(civic_batches, mats, furnishing_col)
     # Arredi del parco e aiuole creati sopra, più segnaletica e veicoli.
     traffic_batches = make_batch_set(mats, traffic_col,
