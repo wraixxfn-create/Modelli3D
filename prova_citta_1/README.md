@@ -50,6 +50,46 @@ in un unico contesto.
   città — e oltre le colline tre **dorsali lontane in foschia** che chiudono
   l'orizzonte, con **cumuli** nel cielo.
 
+## Miglioramenti della quindicesima versione
+
+**Esattamente tre migliorie nel generatore**, senza cambiare viabilità,
+edifici, posizione degli arredi, camera o illuminazione della scena:
+
+1. **Lampioni con lanterna intelaiata** — il diffusore luminoso riceve una
+   basetta e quattro montanti metallici. Braccio, sostegno, diffusore, telaio
+   e centro del cappello seguono ora tutti lo stesso orientamento: prima
+   soltanto il box del braccio ruotava, lasciando la lanterna a est del palo.
+2. **Secchiello della sabbiera** — il cubetto rosso diventa un secchiello
+   rastremato, con pareti interne ed esterne, fondo chiuso appoggiato sulla
+   sabbia, bordo anulare e apertura libera. Un manico semicircolare si
+   collega ai due lati del bordo. Sabbia e bordi in legno restano invariati.
+3. **Cavallino a molla** — la sfera azzurra su un palo diventa una sagoma
+   di cavallino con seduta, due impugnature e poggiapiedi. Una vera spirale
+   di quattro giri collega la piastra sul tappeto al supporto della seduta;
+   tutte le parti sono costruite nel riferimento locale del gioco.
+
+Verifica mirata, eseguibile anche senza Blender:
+
+```bash
+python3 -m unittest discover -s prova_citta_1 -p 'test_lampioni_secchiello_molla.py' -v
+```
+
+I nove test verificano telaio e orientamento dei lampioni, apertura e appoggio
+del secchiello, collegamenti della molla, impugnature, roto-traslazione e
+validità delle mesh. Senza `mathutils` vengono intercettate le polilinee dei
+tubi; quando è disponibile, i test eseguono anche la tessellazione reale.
+
+**Stato degli artefatti:** queste tre migliorie sono nello script;
+`citta.blend` e `anteprima.png` rimangono alla versione 14. La rigenerazione
+in questo ambiente è bloccata dalle librerie native mancanti di Blender
+(`libXrender.so.1` e altre dipendenze grafiche). In un ambiente con Blender
+5.0+ funzionante, aggiornare entrambi con:
+
+```bash
+cd prova_citta_1
+python3 genera_citta.py --quick
+```
+
 ## Miglioramenti della quattordicesima versione
 
 **Esattamente tre migliorie nel generatore**, senza cambiare viabilità,
