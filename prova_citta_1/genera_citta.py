@@ -38,7 +38,11 @@ stradali eliminando i marciapiedi che attraversavano le carreggiate come
 passerelle; rende gli attraversamenti accessibili con rampe d'angolo,
 pavimentazione tattilo-plantare e zebre correttamente proporzionate; trasforma
 infine il fondale a fasce e la cresta monolitica in una successione atmosferica
-continua di pianura, colline e dorsali appenniniche.
+continua di pianura, colline e dorsali appenniniche. La nona versione aggiunge
+semafori veicolari con dispositivi di chiamata pedonale ai sei incroci ordinari,
+trasforma la salita al borgo sul colle in una strada di breccia sinuosa e quotata
+sul pendio, e ricentra la camera sulla piazza per dare più spazio al cuore del
+paese senza perdere il borgo lontano.
 
 Richiede Blender 5.0+ e i modelli originali presenti nelle cartelle sorelle.
 
@@ -47,6 +51,7 @@ Richiede Blender 5.0+ e i modelli originali presenti nelle cartelle sorelle.
     python3 genera_citta.py --render         # render finale Cycles
 """
 
+import heapq
 import math
 import os
 import random
@@ -79,7 +84,7 @@ LIFE_KEYS = ("asphalt", "curb", "sidewalk", "grass", "grass_light", "leaf", "lea
              "produce_green", "produce_orange", "produce_yellow", "roof_dark")
 COUNTRY_KEYS = ("ground", "ground_far", "wheat", "grass", "grass_light", "olive", "bark",
                 "cypress", "cream", "ochre", "terracotta", "brick", "trim",
-                "white", "roof_dark", "metal_gold", "flower", "leaf", "wood")
+                "white", "roof_dark", "metal_gold", "flower", "leaf", "wood", "gravel")
 
 
 # ---------------------------------------------------------------------------
@@ -433,6 +438,13 @@ def create_materials():
         "wheat": ("Grano maturo", (196, 168, 96), 0.9, 0.0, 30, 0.08),
         "flower": ("Fiori lilla", (190, 116, 163), 0.65, 0.0, 0, 0),
         "red": ("Rosso corallo", (162, 53, 45), 0.4, 0.25, 0, 0),
+        "signal_red": ("Luce semaforica rossa", (226, 43, 35), 0.24, 0.0, 0, 0,
+                       ((255, 38, 24), 1.0)),
+        "signal_amber": ("Lente semaforica ambra", (255, 170, 35), 0.28, 0.0, 0, 0),
+        "signal_green": ("Lente semaforica verde", (42, 168, 70), 0.28, 0.0, 0, 0),
+        "walk_green": ("Luce pedonale verde", (42, 188, 70), 0.24, 0.0, 0, 0,
+                       ((42, 205, 78), 0.9)),
+        "gravel": ("Breccia della strada bianca", (177, 158, 126), 0.94, 0.0, 34, 0.12),
         "blue": ("Blu petrolio", (42, 93, 120), 0.4, 0.25, 0, 0),
         "white": ("Bianco avorio", (237, 231, 213), 0.45, 0.0, 0, 0),
         "skin": ("Incarnato", (206, 160, 128), 0.62, 0.0, 0, 0),
@@ -1540,13 +1552,35 @@ def make_cafe_table(B, x, y, z):
 
 
 def build_crosswalk_signals(B, mats, sign_col):
-    for x, y in ((-70, -70), (70, -70), (-70, 70), (70, 70),
-                 (-23, 32), (23, 32), (-23, -32), (23, -32)):
-        # Segnale verticale con pannello e simbolo semplice.
-        B["metal"].cylinder((x + 4.7, y + 4.7, 2.2), 0.06, 4.3, 10)
-        B["metal"].box((x + 4.7, y + 4.7, 4.5), (0.80, 0.24, 1.10))
-        B["road_white"].sphere((x + 4.7, y + 4.54, 4.55), 0.24,
-                               (0.72, 0.12, 0.12), 12, 6)
+    """Semafori veicolari e richiami pedonali sui sei incroci ordinari principali."""
+    # Le due rotatorie non ricevono semafori: restano libere e mantengono la
+    # precedenza circolare, invece di mettere pali dentro l'anello carrabile.
+    junctions = ((-70, -70), (70, -70), (-70, 70), (70, 70),
+                 (-23, 32), (23, -32))
+    for x, y in junctions:
+        px, py = x + 4.7, y + 4.7
+        # Palo antracite con basetta e testa a tre lanterne rivolta verso
+        # l'approccio sud; il rosso fisso è distinguibile anche di giorno.
+        B["metal"].cylinder((px, py, 2.35), 0.065, 4.7, 12)
+        B["metal_gold"].cylinder((px, py, 0.22), 0.18, 0.20, 12)
+        B["metal"].box((px, py - 0.16, 4.22), (0.62, 0.34, 1.70))
+        for z, key in ((4.76, "signal_red"), (4.24, "signal_amber"),
+                       (3.72, "signal_green")):
+            B[key].cylinder((px, py - 0.35, z), 0.145, 0.055, 16, axis="Y")
+        # Mini-segnale pedonale con omino stilizzato e pulsante di chiamata.
+        B["metal"].box((px + 0.50, py - 0.17, 2.78), (0.36, 0.30, 0.68))
+        B["white"].box((px + 0.50, py - 0.34, 2.78), (0.25, 0.035, 0.52))
+        B["signal_red"].cylinder((px + 0.50, py - 0.37, 2.91),
+                                 0.060, 0.025, 12, axis="Y")
+        B["walk_green"].cylinder((px + 0.50, py - 0.37, 2.65),
+                                  0.060, 0.025, 12, axis="Y")
+        B["road_white"].cylinder((px + 0.50, py - 0.39, 2.95),
+                                  0.021, 0.018, 8, axis="Y")
+        B["road_white"].box((px + 0.50, py - 0.39, 2.84), (0.022, 0.018, 0.12))
+        B["road_white"].box((px + 0.50, py - 0.39, 2.79), (0.12, 0.018, 0.022))
+        B["metal"].box((px + 0.32, py - 0.17, 1.58), (0.28, 0.20, 0.34))
+        B["signal_amber"].sphere((px + 0.32, py - 0.29, 1.58),
+                                 0.055, segments=10, rings=6)
     # Cartelli direzionali all'ingresso della piazza.
     for x, yaw in ((-23, 0), (23, PI)):
         B["metal"].cylinder((x, -19.8, 2.0), 0.065, 3.9, 10)
@@ -2535,7 +2569,8 @@ def build_hill_village(B, hx, hy):
     leggeva come un mucchio di scatole bianche. Qui ogni edificio ha la falda a
     capanna, lo zoccolo aggrappato al pendio — la quota è campionata punto per
     punto, non una sola per tutto il borgo — comignolo, finestre scure e orto;
-    in più il sagrato, sei cipressi e una strada bianca che scende alla città.
+    in più il sagrato, sei cipressi e una strada di breccia a tornanti che
+    collega il sagrato alla città attraverso un varco nel muro di cinta.
     """
     def terrace(px, py, tw, td, lift=0.34):
         """Platea di fondazione: restituisce il piano di calpestio quotato."""
@@ -2601,15 +2636,18 @@ def build_hill_village(B, hx, hy):
     B["roof_dark"].box((tx - 1.86, ty, tz + 6.6), (0.12, 1.1, 1.1))
     add_pyramid(B["terracotta"], tx, ty, 4.2, 4.2, tz + 12.8, tz + 16.2)
     B["metal_gold"].box((tx, ty, tz + 16.7), (0.16, 0.16, 1.1))
-    # Le case del borgo, lungo l'isoipsa attorno alla chiesa.
+    # Le case del borgo seguono l'isoipsa attorno alla chiesa. Quella a valle
+    # è spostata a levante per lasciare libera la curva e il varco di accesso.
     for i, (ox, oy, w, d, floors) in enumerate((
             (-7.5, -6.5, 5.4, 4.4, 2), (6.0, -8.5, 4.8, 4.2, 1),
             (-8.0, 4.5, 4.6, 4.0, 1), (7.5, 5.0, 5.2, 4.2, 2),
-            (-1.0, -12.5, 6.0, 4.0, 1), (2.5, 11.5, 4.4, 3.8, 1))):
+            (14.0, -8.0, 6.0, 4.0, 1), (2.5, 11.5, 4.4, 3.8, 1))):
         house(hx + ox, hy + oy, w, d, floors, i)
     # Muro di cinta a valle, cipressi del viale e uliveto a monte.
     for i in range(11):
         px = hx - 13.0 + i * 2.55
+        if i in (6, 7):
+            continue  # varco largo 5 m per la strada di accesso
         z = hill_height(px, hy - 14.5)
         B["trim"].box((px, hy - 14.5, z + 0.75), (2.7, 0.7, 2.4))
     for i in range(6):
@@ -2624,37 +2662,117 @@ def build_hill_village(B, hx, hy):
         z = hill_height(ox, oy)
         B["bark"].cylinder((ox, oy, z + 0.5), 0.14, 1.0, 6)
         B["olive"].sphere((ox, oy, z + 1.5), 1.05, (1.0, 1.0, 0.8), 8, 5)
-    # Strada bianca: un nastro di breccia dal sagrato fino all'anello stradale.
-    # Prima scende dal colle, poi punta al varco nord-ovest della citta: le
-    # due anse finali sono sulla piana, fuori dal tessuto urbano.
-    path = ((hx + 11.0, hy - 16.0), (hx + 19.0, hy - 30.0), (hx + 30.0, hy - 44.0),
-            (hx + 44.0, hy - 57.0), (hx + 58.0, hy - 67.0), (hx + 70.0, hy - 73.0),
-            (hx + 78.0, hy - 75.2))  # all'attacco del viale di circonvallazione
-    span = len(path) * 14
+    # Strada di breccia dal varco del borgo all'anello nord-ovest. Una ricerca
+    # sul reticolo metrico segue solo quote in discesa e scarta i passi oltre
+    # il 20% di pendenza: il tracciato risultante allunga la salita in tornanti
+    # invece di tagliare il pendio con una diagonale ripida.
+    start = (float(round(hx + 5.0)), float(round(hy - 15.0)))
+    end = (hx + 78.0, hy - 76.8)  # innesto sul viale di circonvallazione
+    step, grade_limit = 1.0, 0.20
+    min_x = math.floor(min(start[0], end[0]) - 12.0)
+    max_x = math.ceil(max(start[0], end[0]) + 12.0)
+    min_y = math.floor(min(start[1], end[1]) - 12.0)
+    max_y = math.ceil(max(start[1], end[1]) + 12.0)
+    nx = int(round((max_x - min_x) / step)) + 1
+    ny = int(round((max_y - min_y) / step)) + 1
+
+    def node_index(x, y):
+        ix = int(round((x - min_x) / step))
+        iy = int(round((y - min_y) / step))
+        return iy * nx + ix
+
+    terrain = [hill_height(min_x + ix * step, min_y + iy * step)
+               for iy in range(ny) for ix in range(nx)]
+    start_index = node_index(*start)
+    end_index = node_index(*end)
+    costs = [float("inf")] * len(terrain)
+    parents = [-1] * len(terrain)
+    costs[start_index] = 0.0
+    frontier = [(0.0, start_index)]
+    directions = ((-1, -1), (-1, 0), (-1, 1), (0, -1),
+                  (0, 1), (1, -1), (1, 0), (1, 1))
+    while frontier:
+        cost, current = heapq.heappop(frontier)
+        if cost != costs[current]:
+            continue
+        if current == end_index:
+            break
+        ix, iy = current % nx, current // nx
+        x, y = min_x + ix * step, min_y + iy * step
+        for dx, dy in directions:
+            jx, jy = ix + dx, iy + dy
+            if not (0 <= jx < nx and 0 <= jy < ny):
+                continue
+            neighbor = jy * nx + jx
+            distance = step * math.hypot(dx, dy)
+            rise = terrain[neighbor] - terrain[current]
+            grade = abs(rise) / distance
+            if rise > 1e-6 or grade > grade_limit:
+                continue
+            candidate = cost + distance * (1.0 + 0.10 * (grade / grade_limit) ** 2)
+            if candidate < costs[neighbor]:
+                costs[neighbor] = candidate
+                parents[neighbor] = current
+                heapq.heappush(frontier, (candidate, neighbor))
+
+    route = []
+    if parents[end_index] >= 0:
+        node = end_index
+        while node >= 0:
+            ix, iy = node % nx, node // nx
+            route.append((min_x + ix * step, min_y + iy * step))
+            if node == start_index:
+                break
+            node = parents[node]
+        route.reverse()
+        route[-1] = end
+    else:
+        # Fallback conservativo se la funzione del rilievo cambia e il vincolo
+        # di pendenza non è più soddisfacibile nel riquadro di ricerca.
+        route = [start, end]
+
+    route_3d = [(x, y, hill_height(x, y)) for x, y in route]
+
+    def catmull_rom(p0, p1, p2, p3, t):
+        t2, t3 = t * t, t * t * t
+        return tuple(0.5 * (2.0 * p1[axis]
+                            + (-p0[axis] + p2[axis]) * t
+                            + (2.0 * p0[axis] - 5.0 * p1[axis]
+                               + 4.0 * p2[axis] - p3[axis]) * t2
+                            + (-p0[axis] + 3.0 * p1[axis]
+                               - 3.0 * p2[axis] + p3[axis]) * t3)
+                     for axis in range(3))
+
     spine = []
-    for k in range(span):
-        t = k / float(span - 1)
-        f = t * (len(path) - 1)
-        i = min(len(path) - 2, int(f))
-        u = f - i
-        u = u * u * (3 - 2 * u)
-        px = path[i][0] + (path[i + 1][0] - path[i][0]) * u
-        py = path[i][1] + (path[i + 1][1] - path[i][1]) * u
-        spine.append((px, py, hill_height(px, py) + 0.12))
-    # Bordi calcolati sulla direzione media della dorsale: il nastro resta
-    # continuo nelle curve invece di scaglionarsi ad ogni segmento.
+    samples_per_curve = 4
+    for segment in range(len(route_3d) - 1):
+        p0 = route_3d[max(0, segment - 1)]
+        p1, p2 = route_3d[segment], route_3d[segment + 1]
+        p3 = route_3d[min(len(route_3d) - 1, segment + 2)]
+        for sample in range(samples_per_curve):
+            t = sample / float(samples_per_curve)
+            spine.append(catmull_rom(p0, p1, p2, p3, t))
+    spine.append(route_3d[-1])
+
+    # Bordi a 2 m dall'asse: seguono sia la quota regolare della spline sia
+    # il dislivello locale del terreno, senza flottare in sezione.
     left, right = [], []
     last = len(spine) - 1
     for i, (px, py, pz) in enumerate(spine):
         qx, qy = spine[max(0, i - 1)][:2]
-        rx, ry = spine[min(last, i + 1)][:2]
-        dx, dy = rx - qx, ry - qy
+        next_x, next_y = spine[min(last, i + 1)][:2]
+        dx, dy = next_x - qx, next_y - qy
         ln = math.hypot(dx, dy) or 1.0
-        nx, ny = -dy / ln * 1.9, dx / ln * 1.9
-        left.append((px + nx, py + ny, pz))
-        right.append((px - nx, py - ny, pz))
+        nx, ny = -dy / ln * 2.0, dx / ln * 2.0
+        center_ground = hill_height(px, py)
+        left_x, left_y = px + nx, py + ny
+        right_x, right_y = px - nx, py - ny
+        left_z = pz + hill_height(left_x, left_y) - center_ground + 0.14
+        right_z = pz + hill_height(right_x, right_y) - center_ground + 0.14
+        left.append((left_x, left_y, left_z))
+        right.append((right_x, right_y, right_z))
     for i in range(last):
-        B["trim"].quad(left[i], right[i], right[i + 1], left[i + 1])
+        B["gravel"].quad(left[i], right[i], right[i + 1], left[i + 1])
 
 
 def build_hill_woods(B):
@@ -3095,7 +3213,10 @@ def setup_world_and_camera(root, mats):
     cam_data.dof.use_dof = False
     cam = bpy.data.objects.new("Camera — veduta del borgo", cam_data)
     cam.location = (118, -138, 46)
-    target = Vector((-4, 6, 6.0))
+    # Il vecchio bersaglio alto spostava il piano della piazza nel terzo
+    # inferiore; il centro ottico ora cade sullo spazio civico senza perdere
+    # pieve, mercato o borgo collinare sullo sfondo.
+    target = Vector((0, 0, 2.0))
     cam.rotation_euler = (target - cam.location).to_track_quat("-Z", "Y").to_euler()
     root.objects.link(cam)
     scene.camera = cam
@@ -3252,7 +3373,8 @@ def main():
     # Arredi del parco e aiuole creati sopra, più segnaletica e veicoli.
     traffic_batches = make_batch_set(mats, traffic_col,
         ("metal", "metal_gold", "glass", "white", "red", "blue", "sage", "cream",
-         "wood", "wood_light", "road_white", "lamp"))
+         "wood", "wood_light", "road_white", "lamp", "signal_red", "signal_amber",
+         "signal_green", "walk_green"))
     build_crosswalk_signals(traffic_batches, mats, sign_col)
     build_transport(traffic_batches, mats, traffic_col)
     # Illuminazione stradale e parcheggi di quartiere accanto ai palazzi.

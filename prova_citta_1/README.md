@@ -25,8 +25,9 @@ in un unico contesto.
 - **trentatré case** istanziate dai modelli esistenti (casale, villa
   contemporanea, chalet alpino) con giardini privati, siepi, orti e frutteti;
 - viali, incroci rialzati, marciapiedi correttamente interrotti ai nodi,
-  attraversamenti pedonali con **rampe e piastre tattili**, segnaletica,
-  lampioni stradali, due **piazzali di testata** di Viale Roma, due parcheggi
+  attraversamenti pedonali con **rampe e piastre tattili**, semafori con
+  richiamo pedonale agli incroci principali, lampioni stradali, due
+  **piazzali di testata** di Viale Roma, due parcheggi
   di quartiere con auto in sosta, automobili, autobus, furgone del mercato,
   scooter, biciclette e pensilina;
 - **prati curati**: undici isolati con manto erboso tagliato a bande alternate,
@@ -42,10 +43,33 @@ in un unico contesto.
   gradini, boschi di macchia mediterranea sui pendii, campi di grano, vigne e
   uliveti a filari, cipressi isolati e il borgo sul
   colle a nord-ovest — pieve con abside e rosone, campanile a vela, sei case a
-  capanna su zoccoli quotati, muro di cinta, uliveto e una **strada bianca**
-  che scende fino all'anello stradale della città — e oltre le colline tre
-  **dorsali lontane in foschia** che chiudono l'orizzonte, con **cumuli** nel
-  cielo.
+  capanna su zoccoli quotati, muro di cinta, uliveto e una
+  **strada bianca a tornanti** che scende fino all'anello stradale della
+  città — e oltre le colline tre **dorsali lontane in foschia** che chiudono
+  l'orizzonte, con **cumuli** nel cielo.
+
+## Miglioramenti della nona versione
+
+Tre interventi, non di più, su sicurezza stradale, paesaggio e inquadratura:
+
+1. **Semafori e chiamata pedonale** — i segnali agli incroci erano pannelli
+   generici senza indicazioni leggibili per chi guida o attraversa. Sei nodi
+   ordinari ricevono ora pali con tre lenti rosso-ambra-verdi, mini-segnale
+   pedonale con pittogramma rosso/verde e pulsante di chiamata; le due
+   rotatorie restano senza semafori, così l'anello e le sue precedenze non
+   vengono occupati da pali.
+2. **Strada di breccia a tornanti** — la salita al borgo sul colle era un
+   nastro quasi rettilineo, sospeso alla quota media del percorso. Ora un
+   calcolo su griglia metrica sceglie una discesa continua: nessun passo risale
+   il pendio e la pendenza fra nodi resta sotto il 20%. Una spline morbida
+   raccorda i tornanti; il varco di cinque metri nel muro di cinta libera
+   l'accesso, una casa viene spostata a levante per liberare la curva e i
+   bordi del fondo ghiaioso seguono il rilievo fino al viale di circonvallazione.
+3. **Piazza al centro della veduta** — il bersaglio alto della camera
+   spostava il piano stradale della piazza verso il terzo inferiore, lasciando
+   troppo peso al primo piano. La camera resta sullo stesso asse a tre quarti,
+   ma ora punta al centro civico: fontana, mercato e municipio diventano il
+   fulcro senza perdere la pieve e il borgo sul colle sullo sfondo.
 
 ## Miglioramenti dell'ottava versione
 
@@ -270,8 +294,8 @@ aperto da solo una volta generato.
 
 Il cielo è un modello fisico a **scattering multiplo** (Nishita nelle versioni
 4.x) con sole basso da sud-ovest: ombre lunghe e luce dorata sulle facciate.
-La camera inquadra la piazza a tre quarti da sud-est, con pieve, mercato e
-colline sullo sfondo; il render finale è in Cycles a 2000 × 1500 con
+La camera inquadra il centro della piazza a tre quarti da sud-est, con pieve,
+mercato e colline sullo sfondo; il render finale è in Cycles a 2000 × 1500 con
 denoising OpenImageDenoise e view transform AgX.
 
 ## File
