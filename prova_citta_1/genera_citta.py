@@ -1775,8 +1775,8 @@ def make_bench(B, x, y, yaw=0.0):
         lbox(B["wood_light"], x, y, yaw, 0, -0.06 + i * 0.14, 0.60,
              2.25, 0.12, 0.10)
     for i in range(3):
-        lbox(B["wood"], x, y, yaw, 0, 0.38 + i * 0.13, 1.05,
-             2.25, 0.12, 0.10)
+        lbox(B["wood"], x, y, yaw, 0, 0.42, 0.82 + i * 0.17,
+             2.25, 0.10, 0.13)
     for side in (-1, 1):
         lbox(B["metal"], x, y, yaw, side * 0.83, 0.0, 0.37,
              0.12, 0.62, 0.62)
@@ -2353,14 +2353,31 @@ def add_person(B, x, y, yaw, shirt, pants, scale=1.0, seated=False):
 
 
 def add_bicycle(B, x, y, yaw, frame_key):
-    for wx in (-0.55, 0.55):
-        p = lbox_point(x, y, yaw, wx, 0, 0.34)
-        B["metal"].cylinder(p, 0.34, 0.045, 16, axis="Y")
-    lbox(B[frame_key], x, y, yaw, 0, 0, 0.62, 0.95, 0.06, 0.06)
-    lbox(B[frame_key], x, y, yaw, -0.28, 0, 0.80, 0.5, 0.05, 0.05)
-    lbox(B[frame_key], x, y, yaw, 0.34, 0, 0.80, 0.06, 0.05, 0.42)
-    lbox(B["metal"], x, y, yaw, 0.42, 0, 1.02, 0.34, 0.05, 0.05)
-    lbox(B["metal"], x, y, yaw, -0.42, 0, 0.98, 0.22, 0.06, 0.05)
+    """Ruote a raggi e telaio a diamante, tutti nello stesso riferimento locale."""
+    def tube(key, points, radius):
+        add_tube(B[key], [lbox_point(x, y, yaw, *p) for p in points], radius, 8)
+
+    rear, front = (-0.55, 0, 0.36), (0.55, 0, 0.36)
+    for hub in (rear, front):
+        points = [(hub[0] + .33 * math.cos(i * TAU / 24), 0,
+                   hub[2] + .33 * math.sin(i * TAU / 24)) for i in range(25)]
+        tube("metal", points, .03)
+        for i in range(8):
+            tube("metal", [hub, points[i * 3]], .008)
+        tube("metal", [(hub[0], -.06, hub[2]), (hub[0], .06, hub[2])], .035)
+    crank, saddle, head = (-.12, 0, .36), (-.28, 0, .80), (.36, 0, .80)
+    for start, end in ((rear, crank), (rear, saddle), (crank, saddle),
+                       (saddle, head), (crank, head), (head, front)):
+        tube(frame_key, [start, end], .025)
+    tube("metal", [saddle, (-.28, 0, .94)], .022)
+    lbox(B["metal"], x, y, yaw, -.30, 0, .96, .25, .16, .06)
+    tube("metal", [head, (.39, 0, 1.02), (.39, -.23, 1.02)], .022)
+    tube("metal", [(.39, 0, 1.02), (.39, .23, 1.02)], .022)
+    for side in (-1, 1):
+        tube("metal", [crank, (-.12, side * .14, .36),
+                       (-.12 + side * .13, side * .14, .36)], .018)
+        lbox(B["metal"], x, y, yaw, -.12 + side * .13, side * .18, .36,
+             .12, .12, .04)
 
 
 def add_scooter(B, x, y, yaw, body_key):
@@ -3265,21 +3282,23 @@ def build_car(B, cx, cy, yaw, body_key="blue", name="Auto"):
     def box(key, x, y, z, sx, sy, sz):
         lbox(B[key], cx, cy, yaw, x, y, z, sx, sy, sz)
     box(body_key, 0, 0, 0.78, 4.25, 1.82, 1.05)
-    box(body_key, -0.15, 0.0, 1.35, 2.35, 1.52, 0.82)
-    box("glass", -0.14, 0.0, 1.43, 2.10, 1.39, 0.63)
-    # Montanti centrali e parabrezza.
-    for x in (-1.20, -0.10, 0.83):
-        box("metal", x, 0, 1.43, 0.065, 1.47, 0.72)
-    box("white", 2.06, -0.52, 0.84, 0.13, 0.22, 0.30)
-    box("red", -2.06, -0.52, 0.84, 0.12, 0.20, 0.30)
-    for x in (-1.35, 1.35):
-        for side in (-1, 1):
-            B["metal"].cylinder((cx + x * math.cos(yaw) - side * 0.90 * math.sin(yaw),
-                                 cy + x * math.sin(yaw) + side * 0.90 * math.cos(yaw), 0.46),
-                                0.43, 0.20, 16, axis="Y")
-            B["metal"].cylinder((cx + x * math.cos(yaw) - side * 1.01 * math.sin(yaw),
-                                 cy + x * math.sin(yaw) + side * 1.01 * math.cos(yaw), 0.46),
-                                0.20, 0.205, 16, axis="Y")
+    # Il volume opaco della cabina nascondeva interamente i vetri.
+    box(body_key, -.15, 0, 1.76, 2.45, 1.60, .12)
+    for side in (-1, 1):
+        for wx, length in ((-.70, .94), (.39, .95)):
+            box("glass", wx, side * .765, 1.47, length, .035, .46)
+        for wx in (-1.32, -.15, 1.02):
+            box(body_key, wx, side * .765, 1.47, .10, .09, .48)
+        box("white", 2.10, side * .60, .84, .07, .30, .24)
+        box("red", -2.10, side * .60, .84, .07, .26, .24)
+        for wx in (-1.35, 1.35):
+            for radius, depth, wy in ((.43, .20, side * .90),
+                                       (.20, .025, side * 1.015)):
+                ends = [lbox_point(cx, cy, yaw, wx, wy + d * depth / 2, .46)
+                        for d in (-1, 1)]
+                add_tube(B["metal"], ends, radius, 16)
+    for wx in (-1.325, 1.025):
+        box("glass", wx, 0, 1.47, .035, 1.42, .46)
     return name
 
 
