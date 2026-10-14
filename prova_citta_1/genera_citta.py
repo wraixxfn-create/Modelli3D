@@ -64,6 +64,10 @@ in cassonetti carrellati con coperchio, pedaliera e raccolta differenziata; e
 rende l'edicola un chiosco aperto e vetrato, con banco, tenda a righe e giornali
 esposti.
 
+La quindicesima versione interviene soltanto sulla rotazione completa dei
+lampioni con lanterne intelaiate, sul secchiello cavo con manico della sabbiera e sul cavallino con
+molla elicoidale, seduta, impugnature e poggiapiedi del parco giochi.
+
 Richiede Blender 5.0+ e i modelli originali presenti nelle cartelle sorelle.
 
     python3 genera_citta.py                 # salva citta.blend
@@ -1613,16 +1617,28 @@ def build_town_hall(B, mats, col):
 
 
 def build_street_lamp(B, x, y, height=5.4, yaw=0.0, ornate=False):
+    """Palo, braccio e lanterna condividono il riferimento locale ruotato."""
     B["metal"].cylinder((x, y, height / 2), 0.11, height, 12)
     B["metal_gold"].cylinder((x, y, 0.32), 0.22, 0.18, 12)
     arm_len = 0.72 if ornate else 0.50
-    B["metal"].box((x + arm_len * 0.30, y, height - 0.28),
-                   (arm_len, 0.075, 0.09), yaw)
-    B["metal"].box((x + arm_len * 0.65, y, height - 0.02),
-                   (0.10, 0.10, 0.35))
-    B["lamp"].box((x + arm_len * 0.65, y, height - 0.25),
-                  (0.48 if ornate else 0.35, 0.42 if ornate else 0.34, 0.36))
-    B["metal"].cone((x + arm_len * 0.65, y, height - 0.01), 0.35, 0.12, 0.16, 12)
+    lbox(B["metal"], x, y, yaw, arm_len * 0.30, 0, height - 0.28,
+         arm_len, 0.075, 0.09)
+    lbox(B["metal"], x, y, yaw, arm_len * 0.65, 0, height - 0.02,
+         0.10, 0.10, 0.35)
+    lbox(B["lamp"], x, y, yaw, arm_len * 0.65, 0, height - 0.25,
+         0.48 if ornate else 0.35, 0.42 if ornate else 0.34, 0.36)
+    # Lanterna intelaiata: basetta e quattro montanti attorno al diffusore.
+    lamp_w, lamp_d = (0.48, 0.42) if ornate else (0.35, 0.34)
+    lbox(B["metal"], x, y, yaw, arm_len * 0.65, 0, height - 0.44,
+         lamp_w + .04, lamp_d + .04, .04)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            lbox(B["metal"], x, y, yaw, arm_len * 0.65 + sx * lamp_w / 2,
+                 sy * lamp_d / 2, height - .25, .025, .025, .36)
+    # Anche il cappello circolare deve ruotare il proprio centro: solo lo
+    # yaw del box lasciava prima la lanterna sempre a est del palo.
+    B["metal"].cone(lbox_point(x, y, yaw, arm_len * 0.65, 0, height - 0.01),
+                    0.35, 0.12, 0.16, 12)
 
 
 def add_lamp(B, x, y, height=5.0, ornate=False):
@@ -2379,17 +2395,73 @@ def build_playground(B, cx, cy):
         t = i / 6
         lbox(B["metal"], sx0, sy0, yaw, 0, 2.90 - 1.20 * t,
              ground_z + (top_z - ground_z) * t, 0.80, 0.20, 0.055)
-    # Sabbiera con bordo in legno e secchiello.
-    bx, by = cx + 2.2, cy - 2.6
-    for side in (-1, 1):
-        lbox(B["wood_light"], bx, by, 0.0, 0, side * 1.5, 0.28, 3.2, 0.22, 0.18)
-        lbox(B["wood_light"], bx, by, 0.0, side * 1.5, 0, 0.28, 0.22, 3.2, 0.18)
-    lbox(B["sand"], bx, by, 0.0, 0, 0, 0.22, 2.9, 2.9, 0.12)
-    lbox(B["canvas_red"], bx + 0.7, by - 0.6, 0.0, 0, 0, 0.36, 0.24, 0.24, 0.22)
-    # Gioco a molla e panchina dei genitori.
-    B["plastic"].sphere((cx - 2.6, cy - 2.8, 0.62), 0.30, (1.2, 0.8, 0.9), 10, 6)
-    B["metal"].cylinder((cx - 2.6, cy - 2.8, 0.32), 0.07, 0.4, 8)
+    build_sandbox(B, cx + 2.2, cy - 2.6)
+    build_spring_ride(B, cx - 2.6, cy - 2.8)
     make_bench(B, cx - 0.2, cy - 4.0, 0.0)
+
+
+def build_sandbox(B, x, y, yaw=0.0):
+    """Sabbiera esistente con secchiello cavo, bordo e manico ad arco."""
+    for side in (-1, 1):
+        lbox(B["wood_light"], x, y, yaw, 0, side * 1.5, 0.28, 3.2, 0.22, 0.18)
+        lbox(B["wood_light"], x, y, yaw, side * 1.5, 0, 0.28, 0.22, 3.2, 0.18)
+    lbox(B["sand"], x, y, yaw, 0, 0, 0.22, 2.9, 2.9, 0.12)
+    # Pareti esterne e interne separate: niente tappo opaco sull'apertura.
+    segments = 20
+    def point(radius, angle, z):
+        return lbox_point(x, y, yaw, .7 + radius * math.cos(angle),
+                          -.6 + radius * math.sin(angle), z)
+    for i in range(segments):
+        a, b = i * TAU / segments, (i + 1) * TAU / segments
+        for r0, r1, inward in ((.10, .14, False), (.08, .12, True)):
+            quad = [point(r0, a, .29), point(r0, b, .29),
+                    point(r1, b, .55), point(r1, a, .55)]
+            B["canvas_red"].poly(quad[::-1] if inward else quad, smooth=True)
+        B["canvas_red"].quad(point(.14, a, .55), point(.14, b, .55),
+                             point(.12, b, .55), point(.12, a, .55))
+    B["canvas_red"].cylinder(lbox_point(x, y, yaw, .7, -.6, .29),
+                             .10, .02, segments)
+    handle = [lbox_point(x, y, yaw, .7 + .145 * math.cos(i * PI / 16),
+                         -.6, .55 + .145 * math.sin(i * PI / 16))
+              for i in range(17)]
+    add_tube(B["canvas_red"], handle, .012, 8)
+
+
+def build_spring_ride(B, x, y, yaw=0.0):
+    """Cavallino su molla elicoidale, fissato al tappeto del parco giochi."""
+    def box(key, lx, ly, z, sx, sy, sz):
+        lbox(B[key], x, y, yaw, lx, ly, z, sx, sy, sz)
+
+    def tube(points, radius):
+        add_tube(B["metal"], [lbox_point(x, y, yaw, *p) for p in points], radius, 10)
+
+    box("metal", 0, 0, .21, .36, .32, .04)
+    tube(((.10, 0, .23), (.10, 0, .26)), .025)
+    spring = [(.10 * math.cos(i * TAU / 24), .10 * math.sin(i * TAU / 24),
+               .26 + .32 * i / 96) for i in range(97)]
+    tube(spring, .022)
+    tube(((.10, 0, .58), (.10, 0, .62)), .025)
+    box("metal", 0, 0, .64, .32, .28, .04)
+    # Sagoma estrusa: corpo, collo e testa leggibili anche nella miniatura.
+    outline = ((-.38, .66), (.28, .66), (.47, .82), (.59, .86),
+               (.58, .98), (.38, 1.07), (.25, 1.01), (.15, .82), (-.38, .82))
+    faces = [[lbox_point(x, y, yaw, px, side * .10, z) for px, z in outline]
+             for side in (-1, 1)]
+    B["plastic"].poly(faces[0][::-1])
+    B["plastic"].poly(faces[1])
+    for i in range(len(outline)):
+        j = (i + 1) % len(outline)
+        B["plastic"].quad(faces[0][i], faces[1][i], faces[1][j], faces[0][j])
+    box("wood_light", -.10, 0, .85, .40, .36, .06)
+    tube(((.38, -.27, .94), (.38, .27, .94)), .027)
+    tube(((.12, -.28, .53), (.12, .28, .53)), .025)
+    tube(((.12, 0, .53), (.12, 0, .66)), .025)
+    for side in (-1, 1):
+        box("wood_light", .38, side * .22, .94, .07, .14, .07)
+        box("metal", .12, side * .24, .53, .16, .10, .04)
+        B["metal"].sphere(lbox_point(x, y, yaw, .43, side * .105, .985),
+                          .024, segments=8, rings=6)
+
 
 
 # ---------------------------------------------------------------------------
