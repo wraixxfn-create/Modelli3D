@@ -75,6 +75,7 @@ Richiede Blender 5.0+ e i modelli originali presenti nelle cartelle sorelle.
     python3 genera_citta.py --render         # render finale Cycles
 """
 
+import collections.abc
 import heapq
 import math
 import os
@@ -115,13 +116,23 @@ COUNTRY_KEYS = ("ground", "ground_far", "wheat", "grass", "grass_light", "olive"
 # ---------------------------------------------------------------------------
 # Materiali e geometria riutilizzabile
 # ---------------------------------------------------------------------------
-def srgb(rgb):
+def srgb(rgb: tuple[int, int, int]) -> tuple[float, float, float]:
     return tuple((v / 255.0) ** 2.2 for v in rgb)
 
 
-def make_material(name, color, roughness=0.75, metallic=0.0, *,
-                  noise_scale=0.0, bump_strength=0.0, emission=None,
-                  transmission=0.0, wave_bump=0.0, brick=0.0):
+def make_material(
+    name: str,
+    color: tuple[int, int, int],
+    roughness: float = 0.75,
+    metallic: float = 0.0,
+    *,
+    noise_scale: float = 0.0,
+    bump_strength: float = 0.0,
+    emission: tuple[tuple[int, int, int], float] | None = None,
+    transmission: float = 0.0,
+    wave_bump: float = 0.0,
+    brick: float = 0.0,
+) -> bpy.types.Material:
     mat = bpy.data.materials.new(name)
     mat.diffuse_color = (*srgb(color), 1.0)
     mat.use_nodes = True
@@ -196,7 +207,7 @@ def make_material(name, color, roughness=0.75, metallic=0.0, *,
     return mat
 
 
-def make_horizon_material():
+def make_horizon_material() -> bpy.types.Material:
     """Materiale continuo per la campagna lontana, graduato con la distanza.
 
     Le tre tinte assegnate in precedenza a corone concentriche producevano
@@ -246,24 +257,26 @@ def make_horizon_material():
 
 class Batch:
     """Accumula scatole e superfici in una mesh per materiale."""
-    FACES = ((0, 2, 6, 4), (1, 5, 7, 3), (0, 4, 5, 1),
-             (2, 3, 7, 6), (0, 1, 3, 2), (4, 6, 7, 5))
+    FACES: tuple[tuple[int, int, int, int], ...] = (
+        (0, 2, 6, 4), (1, 5, 7, 3), (0, 4, 5, 1),
+        (2, 3, 7, 6), (0, 1, 3, 2), (4, 6, 7, 5),
+    )
 
-    def __init__(self, name, material, collection):
+    def __init__(self, name: str, material: bpy.types.Material, collection: bpy.types.Collection) -> None:
         self.name = name
         self.material = material
         self.collection = collection
-        self.verts = []
-        self.faces = []
-        self.smooth = []
+        self.verts: list[tuple[float, float, float]] = []
+        self.faces: list[tuple[int, ...]] = []
+        self.smooth: list[bool] = []
 
-    def poly(self, points, smooth=False):
+    def poly(self, points: collections.abc.Iterable[tuple[float, float, float]], smooth: bool = False) -> None:
         start = len(self.verts)
         self.verts.extend(tuple(p) for p in points)
         self.faces.append(tuple(range(start, start + len(points))))
         self.smooth.append(bool(smooth))
 
-    def box(self, center, size, yaw=0.0):
+    def box(self, center: tuple[float, float, float], size: tuple[float, float, float], yaw: float = 0.0) -> None:
         cx, cy, cz = center
         sx, sy, sz = size
         co, si = math.cos(yaw), math.sin(yaw)
@@ -281,13 +294,16 @@ class Batch:
             self.faces.append(tuple(start + i for i in f))
             self.smooth.append(False)
 
-    def quad(self, p0, p1, p2, p3):
+    def quad(self, p0: tuple[float, float, float], p1: tuple[float, float, float],
+             p2: tuple[float, float, float], p3: tuple[float, float, float]) -> None:
         self.poly((p0, p1, p2, p3))
 
-    def tri(self, p0, p1, p2):
+    def tri(self, p0: tuple[float, float, float], p1: tuple[float, float, float],
+            p2: tuple[float, float, float]) -> None:
         self.poly((p0, p1, p2))
 
-    def cylinder(self, center, radius, depth, segments=16, axis="Z", radius2=None):
+    def cylinder(self, center: tuple[float, float, float], radius: float, depth: float,
+                 segments: int = 16, axis: str = "Z", radius2: float | None = None) -> None:
         cx, cy, cz = center
         r2 = radius if radius2 is None else radius2
         rings = []
@@ -311,11 +327,13 @@ class Batch:
         self.poly(low[::-1])
         self.poly(high)
 
-    def cone(self, center, radius_bottom, radius_top, depth, segments=16, axis="Z"):
+    def cone(self, center: tuple[float, float, float], radius_bottom: float, radius_top: float,
+             depth: float, segments: int = 16, axis: str = "Z") -> None:
         self.cylinder(center, radius_bottom, depth, segments, axis, radius_top)
 
-    def sphere(self, center, radius, scale=(1.0, 1.0, 1.0),
-               segments=12, rings=8):
+    def sphere(self, center: tuple[float, float, float], radius: float,
+               scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
+               segments: int = 12, rings: int = 8) -> None:
         cx, cy, cz = center
         rx, ry, rz = (radius * scale[0], radius * scale[1], radius * scale[2])
         rows = []
@@ -333,7 +351,8 @@ class Batch:
                 k = (i + 1) % segments
                 self.poly((rows[j][i], rows[j][k], rows[j + 1][k], rows[j + 1][i]), True)
 
-    def ring(self, center, radius, tube, segments=40, tube_segments=8):
+    def ring(self, center: tuple[float, float, float], radius: float, tube: float,
+             segments: int = 40, tube_segments: int = 8) -> None:
         cx, cy, cz = center
         rows = []
         for i in range(segments):
@@ -351,7 +370,7 @@ class Batch:
                 nj = (j + 1) % tube_segments
                 self.poly((rows[i][j], rows[ni][j], rows[ni][nj], rows[i][nj]), True)
 
-    def flush(self):
+    def flush(self) -> bpy.types.Object | None:
         if not self.faces:
             return None
         mesh = bpy.data.meshes.new(self.name + " mesh")
@@ -365,7 +384,15 @@ class Batch:
         return obj
 
 
-def make_cube(name, location, dimensions, material, collection, yaw=0.0, bevel=0.0):
+def make_cube(
+    name: str,
+    location: tuple[float, float, float],
+    dimensions: tuple[float, float, float],
+    material: bpy.types.Material,
+    collection: bpy.types.Collection,
+    yaw: float = 0.0,
+    bevel: float = 0.0,
+) -> bpy.types.Object:
     verts = [(-0.5, -0.5, -0.5), (-0.5, -0.5, 0.5),
              (-0.5, 0.5, -0.5), (-0.5, 0.5, 0.5),
              (0.5, -0.5, -0.5), (0.5, -0.5, 0.5),
@@ -389,8 +416,17 @@ def make_cube(name, location, dimensions, material, collection, yaw=0.0, bevel=0
     return obj
 
 
-def add_text(body, name, location, size, material, collection, yaw=0.0,
-             align="CENTER", extrude=0.005):
+def add_text(
+    body: str,
+    name: str,
+    location: tuple[float, float, float],
+    size: float,
+    material: bpy.types.Material,
+    collection: bpy.types.Collection,
+    yaw: float = 0.0,
+    align: str = "CENTER",
+    extrude: float = 0.005,
+) -> bpy.types.Object:
     curve = bpy.data.curves.new(name + " lettering", "FONT")
     curve.body = body
     curve.align_x = align
@@ -407,13 +443,13 @@ def add_text(body, name, location, size, material, collection, yaw=0.0,
     return obj
 
 
-def child_collection(parent, name):
+def child_collection(parent: bpy.types.Collection, name: str) -> bpy.types.Collection:
     col = bpy.data.collections.new(name)
     parent.children.link(col)
     return col
 
 
-def create_materials():
+def create_materials() -> dict[str, bpy.types.Material]:
     mats = {}
     defs = {
         "ground": ("Terreno verde", (92, 116, 66), 0.95, 0.0, 6, 0.12),
@@ -514,7 +550,12 @@ def create_materials():
 # ---------------------------------------------------------------------------
 # Import dei modelli esistenti come librerie Blender
 # ---------------------------------------------------------------------------
-def load_collection_assets(path, collection_names, template_name, excluded=()):
+def load_collection_assets(
+    path: str,
+    collection_names: tuple[str, ...],
+    template_name: str,
+    excluded: tuple[str, ...] = (),
+) -> tuple[bpy.types.Collection, list[bpy.types.Object]]:
     """Appende alcune collezioni esistenti e prepara un prototipo istanziabile."""
     with bpy.data.libraries.load(path, link=False) as (src, dst):
         selected = [name for name in collection_names if name in src.collections]
@@ -582,7 +623,14 @@ def import_city_assets():
     return houses, cherry
 
 
-def create_instance(name, template, collection, location, yaw=0.0, scale=1.0):
+def create_instance(
+    name: str,
+    template: bpy.types.Collection,
+    collection: bpy.types.Collection,
+    location: tuple[float, float, float],
+    yaw: float = 0.0,
+    scale: float = 1.0,
+) -> bpy.types.Object:
     obj = bpy.data.objects.new(name, None)
     obj.empty_display_type = "CUBE"
     obj.empty_display_size = 1.0
@@ -601,24 +649,50 @@ ROAD_Y = (-70, -32, 32, 70)
 VIALE_SPANS = ((-100, -59), (-43, -16), (29, 43), (59, 100))
 ROUNDABOUTS = ((23, 32), (-23, -32))
 SIDEWALK_REACH = 2.375
+
+# Dimensioni della viabilità — estratti da magic numbers dispersi.
+ROAD_WIDTH = 8.0          # larghezza carreggiata arretrate e trasversali
+VIALE_WIDTH = 10.0        # larghezza carreggiata Viale Roma
+ROAD_HEIGHT = 0.045       # spessore della carreggiata (Z)
+ROAD_Y_OFFSET = 0.005     # quota base della carreggiata
+SIDEWALK_WIDTH = 2.25     # larghezza del marciapiede
+SIDEWALK_HEIGHT = 0.11    # spessore del marciapiede
+CURB_WIDTH = 0.24         # larghezza del cordolo
+CURB_HEIGHT = 0.14        # spessore del cordolo
+CURB_Z = 0.07             # quota del cordolo
+SIDEWALK_Z = 0.055        # quota del marciapiede
+CURB_SIGNOFF = 0.12       # sporgimento del cordolo dal bordo carreggiata
+SIDEWALK_SIGNOFF = 1.25   # sporgimento del marciapiede dal cordolo
+ZEBRA_WIDTH = 2.8         # larghezza dell'attraversamento pedonale
+ZEBRA_HEIGHT = 0.025      # spessore della striscia zebra
+ZEBRA_Y = 0.041           # quota della striscia zebra
+ZEBRA_MARGIN = 0.80       # margine per il calcolo delle strisce zebrate
+ZEBRA_STEP = 0.78         # passo tra le bande zebrate
+ZEBRA_BAND_MAX = 0.46     # larghezza massima di una banda zebra
 HOUSE_FRONT = {"casale": -PI / 2, "villa": PI / 2, "chalet": -PI / 2}
 DIRECTIONS = {"N": PI / 2, "S": -PI / 2, "E": 0.0, "W": PI}
 
 
-def bounds_xy(points):
+def bounds_xy(points: collections.abc.Iterable[tuple[float, float, float]]) -> tuple[float, float, float, float]:
     points = list(points)
     return (min(p[0] for p in points), max(p[0] for p in points),
             min(p[1] for p in points), max(p[1] for p in points))
 
 
-def collection_bounds_xy(template):
+def collection_bounds_xy(template: bpy.types.Collection) -> tuple[float, float, float, float]:
     """Include tetti, balconi e aggetti, non solo il centro dell'istanza."""
     return bounds_xy(obj.matrix_world @ Vector(v) - template.instance_offset
                      for obj in template.all_objects if obj.type == "MESH"
                      for v in obj.bound_box)
 
 
-def transformed_bounds_xy(bounds, x, y, yaw, scale=1.0):
+def transformed_bounds_xy(
+    bounds: tuple[float, float, float, float],
+    x: float,
+    y: float,
+    yaw: float,
+    scale: float = 1.0,
+) -> tuple[float, float, float, float]:
     x0, x1, y0, y1 = bounds
     co, si = math.cos(yaw), math.sin(yaw)
     return bounds_xy((x + scale * (u * co - v * si),
@@ -626,19 +700,19 @@ def transformed_bounds_xy(bounds, x, y, yaw, scale=1.0):
                      for u in (x0, x1) for v in (y0, y1))
 
 
-def rectangles_overlap(a, b):
+def rectangles_overlap(a: tuple[float, float, float, float], b: tuple[float, float, float, float]) -> bool:
     return (min(a[1], b[1]) - max(a[0], b[0]) > 1e-6 and
             min(a[3], b[3]) - max(a[2], b[2]) > 1e-6)
 
 
-def street_rectangles(sidewalk=True):
+def street_rectangles(sidewalk: bool = True) -> list[tuple[float, float, float, float]]:
     reach = SIDEWALK_REACH if sidewalk else 0.0
     return ([(-100, 100, y - 4 - reach, y + 4 + reach) for y in ROAD_Y] +
             [(x - 4 - reach, x + 4 + reach, -100, 100) for x in ROAD_X] +
             [(-5 - reach, 5 + reach, a, b) for a, b in VIALE_SPANS])
 
 
-def footprint_on_street(bounds, sidewalk=True):
+def footprint_on_street(bounds: tuple[float, float, float, float], sidewalk: bool = True) -> bool:
     if any(rectangles_overlap(bounds, r) for r in street_rectangles(sidewalk)):
         return True
     radius = 9.9 if sidewalk else 7.6
@@ -668,7 +742,7 @@ class HousePlacement:
     bounds: tuple
 
 
-def residential_lots():
+def residential_lots() -> list[HouseLot]:
     """Trentatré lotti, tutti esterni alle carreggiate e ai marciapiedi.
 
     I quattro lotti accanto ai fondali di Viale Roma non erano abbastanza
@@ -731,7 +805,10 @@ def residential_lots():
     return lots
 
 
-def plan_house_layout(templates, margin=0.40):
+def plan_house_layout(
+    templates: dict[str, bpy.types.Collection],
+    margin: float = 0.40,
+) -> list[HousePlacement]:
     local_bounds = {model: collection_bounds_xy(col) for model, col in templates.items()}
     layout = []
     for lot in residential_lots():
@@ -752,7 +829,10 @@ def plan_house_layout(templates, margin=0.40):
     return layout
 
 
-def validate_house_layout(layout, architecture=()):
+def validate_house_layout(
+    layout: list[HousePlacement],
+    architecture: tuple[tuple[str, tuple[float, float, float, float]], ...] = (),
+) -> None:
     """Fallisce prima del salvataggio se una casa torna in strada o su un'altra."""
     for i, house in enumerate(layout):
         if footprint_on_street(house.bounds):
@@ -769,11 +849,17 @@ def validate_house_layout(layout, architecture=()):
 # ---------------------------------------------------------------------------
 # Strade, marciapiedi e piazza
 # ---------------------------------------------------------------------------
-def make_batch_set(mats, col, keys):
+def make_batch_set(
+    mats: dict[str, bpy.types.Material],
+    col: bpy.types.Collection,
+    keys: tuple[str, ...],
+) -> dict[str, Batch]:
     return {key: Batch("Geometria — " + key, mats[key], col) for key in keys}
 
 
-def spans_outside(a, b, gaps):
+def spans_outside(
+    a: float, b: float, gaps: tuple[tuple[float, float], ...]
+) -> list[tuple[float, float]]:
     """Tratti di [a, b] che restano fuori dagli intervalli `gaps`.
 
     Serve a interrompere cordoli e marciapiedi dove la strada incontra una
@@ -791,53 +877,71 @@ def spans_outside(a, b, gaps):
             if cuts[i + 1] - cuts[i] > 0.05]
 
 
-def add_road_h(B, y, x0=-100, x1=100, width=8.0, sidewalk=True, gaps=()):
-    B["asphalt"].box(((x0 + x1) / 2, y, 0.005), (x1 - x0, width, 0.045))
+def add_road_h(
+    B: dict[str, Batch],
+    y: float,
+    x0: float = -100,
+    x1: float = 100,
+    width: float = ROAD_WIDTH,
+    sidewalk: bool = True,
+    gaps: tuple[tuple[float, float], ...] = (),
+) -> None:
+    B["asphalt"].box(((x0 + x1) / 2, y, ROAD_Y_OFFSET), (x1 - x0, width, ROAD_HEIGHT))
     # Cordoli e marciapiedi su entrambi i lati.
     for sa, sb in spans_outside(x0, x1, gaps):
         mid = (sa + sb) / 2
         for sign in (-1, 1):
             edge_y = y + sign * width / 2
-            B["curb"].box((mid, edge_y + sign * 0.12, 0.07),
-                          (sb - sa, 0.24, 0.14))
+            B["curb"].box((mid, edge_y + sign * CURB_SIGNOFF, CURB_Z),
+                          (sb - sa, CURB_WIDTH, CURB_HEIGHT))
             if sidewalk:
-                B["sidewalk"].box((mid, edge_y + sign * 1.25, 0.055),
-                                  (sb - sa, 2.25, 0.11))
+                B["sidewalk"].box((mid, edge_y + sign * SIDEWALK_SIGNOFF, SIDEWALK_Z),
+                                  (sb - sa, SIDEWALK_WIDTH, SIDEWALK_HEIGHT))
 
 
-def add_road_v(B, x, y0=-100, y1=100, width=8.0, sidewalk=True, gaps=()):
-    B["asphalt"].box((x, (y0 + y1) / 2, 0.005), (width, y1 - y0, 0.045))
+def add_road_v(
+    B: dict[str, Batch],
+    x: float,
+    y0: float = -100,
+    y1: float = 100,
+    width: float = ROAD_WIDTH,
+    sidewalk: bool = True,
+    gaps: tuple[tuple[float, float], ...] = (),
+) -> None:
+    B["asphalt"].box((x, (y0 + y1) / 2, ROAD_Y_OFFSET), (width, y1 - y0, ROAD_HEIGHT))
     for sa, sb in spans_outside(y0, y1, gaps):
         mid = (sa + sb) / 2
         for sign in (-1, 1):
             edge_x = x + sign * width / 2
-            B["curb"].box((edge_x + sign * 0.12, mid, 0.07),
-                          (0.24, sb - sa, 0.14))
+            B["curb"].box((edge_x + sign * CURB_SIGNOFF, mid, CURB_Z),
+                          (CURB_WIDTH, sb - sa, CURB_HEIGHT))
             if sidewalk:
-                B["sidewalk"].box((edge_x + sign * 1.25, mid, 0.055),
-                                  (2.25, sb - sa, 0.11))
+                B["sidewalk"].box((edge_x + sign * SIDEWALK_SIGNOFF, mid, SIDEWALK_Z),
+                                  (SIDEWALK_WIDTH, sb - sa, SIDEWALK_HEIGHT))
 
 
-def add_zebra_h(B, x, y, road_width=8.0, crossing_width=2.8):
+def add_zebra_h(B: dict[str, Batch], x: float, y: float,
+                road_width: float = ROAD_WIDTH, crossing_width: float = ZEBRA_WIDTH) -> None:
     """Zebra che attraversa una strada nord-sud, proporzionata alla corsia."""
-    usable = road_width - 0.80
-    count = max(7, int(round(usable / 0.78)))
+    usable = road_width - ZEBRA_MARGIN
+    count = max(7, int(round(usable / ZEBRA_STEP)))
     pitch = usable / count
     for i in range(count):
         xx = x - usable / 2 + pitch * (i + 0.5)
-        B["road_white"].box((xx, y, 0.041),
-                            (min(0.46, pitch * 0.62), crossing_width, 0.025))
+        B["road_white"].box((xx, y, ZEBRA_Y),
+                            (min(ZEBRA_BAND_MAX, pitch * 0.62), crossing_width, ZEBRA_HEIGHT))
 
 
-def add_zebra_v(B, x, y, road_width=8.0, crossing_width=2.8):
+def add_zebra_v(B: dict[str, Batch], x: float, y: float,
+                road_width: float = ROAD_WIDTH, crossing_width: float = ZEBRA_WIDTH) -> None:
     """Zebra che attraversa una strada est-ovest, proporzionata alla corsia."""
-    usable = road_width - 0.80
-    count = max(7, int(round(usable / 0.78)))
+    usable = road_width - ZEBRA_MARGIN
+    count = max(7, int(round(usable / ZEBRA_STEP)))
     pitch = usable / count
     for i in range(count):
         yy = y - usable / 2 + pitch * (i + 0.5)
-        B["road_white"].box((x, yy, 0.041),
-                            (crossing_width, min(0.46, pitch * 0.62), 0.025))
+        B["road_white"].box((x, yy, ZEBRA_Y),
+                            (crossing_width, min(ZEBRA_BAND_MAX, pitch * 0.62), ZEBRA_HEIGHT))
 
 
 def build_accessible_corner(B, ix, iy, sx, sy, vertical_width, horizontal_width,
@@ -1261,23 +1365,21 @@ def add_shop_awning(B, cx, cy, yaw, lx, face_y, width, height, color_key):
          front_z - 0.02, width + 0.08, 0.08, 0.12)
 
 
-def build_apartment(B, mats, decor_col, cx, cy, yaw, width, depth,
-                    floors, facade_key, shop_names, title, modern=False):
-    base_z = 0.30
-    ground_h = 3.45
-    upper_h = 2.85
-    height = ground_h + (floors - 1) * upper_h
-    bodymat = mats[facade_key]
-    mass = make_cube(title + " — corpo", (cx, cy, base_z + height / 2),
-                     (width, depth, height), bodymat, decor_col, yaw=yaw, bevel=0.10)
+def _apartment_base_and_trim(
+    B: dict[str, Batch],
+    cx: float, cy: float, yaw: float,
+    width: float, depth: float,
+    base_z: float, height: float,
+    face_y: float,
+) -> None:
+    """Corpo principale, basamento, zoccolo, marcapiani e pilastri d'angolo."""
     # Basamento in pietra. Il volume partiva da quota 0,30 mentre il rilievo
     # della città sta a -0,06: sotto ogni palazzo restava una fascia vuota di
     # 36 cm, che col sole basso si leggeva come un'ombra staccata da terra.
     # Lo zoccolo scende ora fino a -0,60 e la muratura vi poggia sopra.
     lbox(B["concrete"], cx, cy, yaw, 0, 0, -0.05, width + 0.25, depth + 0.25, 1.10)
-    face_y = -depth / 2
     # Zoccolo, marcapiani e cornicione continuo.
-    for z, h, out in ((0.63, 0.28, 0.25), (ground_h, 0.18, 0.24),
+    for z, h, out in ((0.63, 0.28, 0.25), (3.45, 0.18, 0.24),
                       (height - 0.3, 0.30, 0.38), (height + 0.48, 0.16, 0.40)):
         lbox(B["concrete" if z < 1 else "trim"], cx, cy, yaw, 0, 0, z,
              width + out, depth + out, h)
@@ -1285,7 +1387,17 @@ def build_apartment(B, mats, decor_col, cx, cy, yaw, width, depth,
     for x in (-width / 2 + 0.22, width / 2 - 0.22):
         lbox(B["trim"], cx, cy, yaw, x, face_y - 0.075,
              base_z + height / 2, 0.20, 0.13, height - 0.05)
-    # Vetrine del piano terra.
+
+
+def _apartment_ground_floor(
+    B: dict[str, Batch],
+    mats: dict[str, bpy.types.Material],
+    cx: float, cy: float, yaw: float,
+    width: float, depth: float, face_y: float,
+    shop_names: tuple[str, ...], title: str,
+    decor_col: bpy.types.Collection,
+) -> None:
+    """Vetrine del piano terra, insegne e tende d'ombra."""
     bay_count = 3
     bay_w = (width - 2.2) / bay_count
     shop_xs = [-width / 2 + 1.1 + bay_w * (i + 0.5) for i in range(bay_count)]
@@ -1320,11 +1432,23 @@ def build_apartment(B, mats, decor_col, cx, cy, yaw, width, depth,
                      (wx, wy, sign_z), 0.27, mats["cream"], decor_col, yaw=yaw)
         add_shop_awning(B, cx, cy, yaw, x, face_y, min(3.6, bay_w - 0.25), 3.57,
                         "red" if i == 0 else ("sage" if i == 1 else "blue"))
-    # Finestre residenziali e balconi dei piani superiori.
+
+
+def _apartment_upper_floors(
+    B: dict[str, Batch],
+    cx: float, cy: float, yaw: float,
+    width: float, depth: float,
+    floors: int, modern: bool,
+) -> None:
+    """Finestre residenziali e balconi dei piani superiori (fronte e retro)."""
+    ground_h = 3.45
+    upper_h = 2.85
+    face_y = -depth / 2
     upper_floors = floors - 1
     cols = 5 if width > 17 else 4
     usable = width - 3.2
     x_positions = [-usable / 2 + usable * (i + 0.5) / cols for i in range(cols)]
+    # Fronte principale (-Y): finestre con balconi sfalsati.
     for level in range(upper_floors):
         zc = ground_h + 0.26 + level * upper_h + 1.10
         for col, x in enumerate(x_positions):
@@ -1350,8 +1474,18 @@ def build_apartment(B, mats, decor_col, cx, cy, yaw, width, depth,
     lbox(B["trim"], cx, cy, yaw, 0, back_y + 0.10, 2.78, 1.25, 0.16, 0.14)
     lbox(B["concrete"], cx, cy, yaw, 0, back_y + 0.55, 0.16, 1.7, 1.1, 0.18)
     lbox(B["lamp"], cx, cy, yaw, 0.85, back_y + 0.16, 2.95, 0.19, 0.08, 0.30)
-    # Finestre sui fianchi visibili: vetro, cornice e davanzale.
+
+
+def _apartment_side_windows(
+    B: dict[str, Batch],
+    cx: float, cy: float, yaw: float,
+    width: float, depth: float, floors: int,
+) -> None:
+    """Finestre sui fianchi visibili: vetro, cornice e davanzale."""
+    ground_h = 3.45
+    upper_h = 2.85
     side_x = width / 2
+    upper_floors = floors - 1
     for sign in (-1, 1):
         for level in range(upper_floors):
             zc = ground_h + 0.25 + level * upper_h + 1.1
@@ -1365,22 +1499,38 @@ def build_apartment(B, mats, decor_col, cx, cy, yaw, width, depth,
                          0.16, 0.12, 1.78)
                 lbox(B["trim"], cx, cy, yaw, sign * (side_x + 0.14), y,
                      zc - 0.90, 0.16, 1.46, 0.12)
-    # Corpo scala vetrato sul fianco: rompe le pareti cieche.
+
+
+def _apartment_elevator_shaft(
+    B: dict[str, Batch],
+    cx: float, cy: float, yaw: float,
+    width: float, depth: float,
+    base_z: float, height: float, upper_h: float, floors: int,
+) -> None:
+    """Corpo scala vetrato sul fianco: rompe le pareti cieche."""
     for sign in (-1, 1):
         lbox(B["glass"], cx, cy, yaw, sign * (width / 2 + 0.07), -depth * 0.02,
              base_z + height / 2, 0.10, 2.6, height - 0.6)
         for level in range(floors):
             lbox(B["trim"], cx, cy, yaw, sign * (width / 2 + 0.13), -depth * 0.02,
                  0.5 + level * upper_h + 0.2, 0.16, 2.9, 0.16)
-    # Copertura: impalcato, parapetto con copertina, fotovoltaico e terrazza
-    # abitata. Finora la soletta non esisteva del tutto — cornicione e parapetto
-    # erano due anelli separati da mezzo metro di vuoto, e i pannelli flottavano
-    # a metà. Ora la quota di calpestio c'è e ogni manufatto le è appoggiato; le
-    # posizioni sono frazionarie, così la disposizione regge anche sulle palazzine
-    # più strette (16 × 11 m) senza bucare il parapetto.
+
+
+def _apartment_roof_and_terrace(
+    B: dict[str, Batch],
+    mats: dict[str, bpy.types.Material],
+    cx: float, cy: float, yaw: float,
+    width: float, depth: float,
+    base_z: float, height: float, face_y: float,
+) -> None:
+    """Copertura, parapetto, fotovoltaico, ciminiere, scala e terrazza abitata."""
+    ground_h = 3.45
+    upper_h = 2.85
     roof_z = base_z + height + 0.10
+    # Soletta di calpestio.
     lbox(B["concrete"], cx, cy, yaw, 0, 0, roof_z - 0.10,
          width - 0.10, depth - 0.10, 0.26)
+    # Cornicione e parapetto.
     for x in (-width / 2, width / 2):
         lbox(B["trim"], cx, cy, yaw, x, 0, roof_z + 0.42, 0.22, depth + 0.22, 0.84)
     for y in (-depth / 2, depth / 2):
@@ -1487,6 +1637,26 @@ def build_apartment(B, mats, decor_col, cx, cy, yaw, width, depth,
              face_y - 0.08, base_z + (height + 0.86) / 2, 0.12, 0.12, height + 0.86)
         lbox(B["lamp"], cx, cy, yaw, -width * 0.42, face_y - 0.28, 3.65,
              0.19, 0.08, 0.30)
+
+
+def build_apartment(B, mats, decor_col, cx, cy, yaw, width, depth,
+                    floors, facade_key, shop_names, title, modern=False):
+    base_z = 0.30
+    ground_h = 3.45
+    upper_h = 2.85
+    height = ground_h + (floors - 1) * upper_h
+    bodymat = mats[facade_key]
+    mass = make_cube(title + " — corpo", (cx, cy, base_z + height / 2),
+                     (width, depth, height), bodymat, decor_col, yaw=yaw, bevel=0.10)
+    face_y = -depth / 2
+    _apartment_base_and_trim(B, cx, cy, yaw, width, depth, base_z, height, face_y)
+    _apartment_ground_floor(B, mats, cx, cy, yaw, width, depth, face_y,
+                            shop_names, title, decor_col)
+    _apartment_upper_floors(B, cx, cy, yaw, width, depth, floors, modern)
+    _apartment_side_windows(B, cx, cy, yaw, width, depth, floors)
+    _apartment_elevator_shaft(B, cx, cy, yaw, width, depth, base_z, height, upper_h, floors)
+    _apartment_roof_and_terrace(B, mats, cx, cy, yaw, width, depth,
+                                base_z, height, face_y)
     return mass
 
 
