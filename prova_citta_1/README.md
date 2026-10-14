@@ -24,7 +24,8 @@ in un unico contesto.
   due lucernari, corpo scala con ringhiera e fotovoltaico inclinato;
 - **trentatré case** istanziate dai modelli esistenti (casale, villa
   contemporanea, chalet alpino) con giardini privati, siepi, orti e frutteti;
-- viali, incroci rialzati, marciapiedi, attraversamenti pedonali, segnaletica,
+- viali, incroci rialzati, marciapiedi correttamente interrotti ai nodi,
+  attraversamenti pedonali con **rampe e piastre tattili**, segnaletica,
   lampioni stradali, due **piazzali di testata** di Viale Roma, due parcheggi
   di quartiere con auto in sosta, automobili, autobus, furgone del mercato,
   scooter, biciclette e pensilina;
@@ -42,9 +43,41 @@ in un unico contesto.
   uliveti a filari, cipressi isolati e il borgo sul
   colle a nord-ovest — pieve con abside e rosone, campanile a vela, sei case a
   capanna su zoccoli quotati, muro di cinta, uliveto e una **strada bianca**
-  che scende fino all'anello stradale della città — e oltre le colline una
-  **catena lontana in foschia** che chiude l'orizzonte, con **cumuli** nel
+  che scende fino all'anello stradale della città — e oltre le colline tre
+  **dorsali lontane in foschia** che chiudono l'orizzonte, con **cumuli** nel
   cielo.
+
+## Miglioramenti dell'ottava versione
+
+Tre interventi, non di più, su viabilità pedonale e profondità della veduta:
+
+1. **Incroci senza passerelle di marciapiede** — i quattro assi orizzontali e
+   i cinque verticali disegnavano cordolo e marciapiede da un capo all'altro
+   della città; a ogni nodo le due fasce chiare proseguivano quindi dentro la
+   carreggiata perpendicolare, rialzate come barriere. Ora ciascun tratto viene
+   sottratto in corrispondenza di tutti gli incroci, usando la larghezza reale
+   della strada — 10 m per Viale Roma, 8 m per le vie di quartiere — e un
+   taglio più ampio dove subentra l'anello delle due rotatorie. I diciotto nodi
+   ordinari ricevono una platea d'asfalto pulita e quattro angoli raccordati;
+   nei due piazzali di testata gli angoli assorbiti dalla pavimentazione non
+   vengono ricreati.
+2. **Attraversamenti davvero accessibili** — i vecchi cubi ai quattro angoli
+   sono sostituiti da maglie inclinate: dalla quota di 12 cm del marciapiede
+   scendono realmente ai 4 cm della carreggiata, mentre i cordoli si arrestano
+   ai lati del varco. Su ogni invito compare una piastra gialla
+   tattilo-plantare con bottoni rilevati. Le zebre non sono più barre lunghe
+   quasi quanto la strada e centrate nel mezzo dell'incrocio: hanno una fascia
+   costante di 2,8 m, un numero di elementi calcolato sulla larghezza della
+   carreggiata e stanno sulle quattro testate collegate alle rampe.
+3. **Orizzonte atmosferico a più piani** — la montagna introdotta nella
+   versione precedente era un plateau largo oltre sei chilometri e le tre
+   corone di materiale producevano bande orizzontali nette: nel render il
+   fondale sembrava una parete grigio-verde. La quota è ora composta da tre
+   dorsali gaussiane separate — colline vicine, rilievo intermedio e catena
+   appenninica — con armoniche e picchi locali diversi; fra le creste il suolo
+   ridiscende e rende leggibile la profondità. Ventiquattro anelli più fitti
+   sulle creste e un unico shader radiale a sei passaggi sfumano senza cuciture
+   dal verde della piana all'azzurro-grigio della foschia.
 
 ## Miglioramenti della settima versione
 

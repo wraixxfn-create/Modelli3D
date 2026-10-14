@@ -33,7 +33,12 @@ l'orizzonte; i campi del mezzogiorno, prima lastre piatte con palline di olivo,
 ricevono solcature, balle di fieno, uliveti veri e vigne a filari e riempiono il
 triangolo ovest dell'inquadratura; il cielo, gradiente vuoto per un quarto del
 fotogramma, accoglie sei cumuli leggeri sull'orizzonte, senza ombre sulla
-campagna.
+campagna. L'ottava versione interviene in tre soli punti: ricostruisce i nodi
+stradali eliminando i marciapiedi che attraversavano le carreggiate come
+passerelle; rende gli attraversamenti accessibili con rampe d'angolo,
+pavimentazione tattilo-plantare e zebre correttamente proporzionate; trasforma
+infine il fondale a fasce e la cresta monolitica in una successione atmosferica
+continua di pianura, colline e dorsali appenniniche.
 
 Richiede Blender 5.0+ e i modelli originali presenti nelle cartelle sorelle.
 
@@ -158,6 +163,54 @@ def make_material(name, color, roughness=0.75, metallic=0.0, *,
             ramp.color_ramp.elements[1].color = c1
             links.new(tex.outputs["Fac"], ramp.inputs["Fac"])
             links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
+    return mat
+
+
+def make_horizon_material():
+    """Materiale continuo per la campagna lontana, graduato con la distanza.
+
+    Le tre tinte assegnate in precedenza a corone concentriche producevano
+    altrettante righe orizzontali nette nel render. La distanza dal centro è
+    ora letta nello shader e attraversa una rampa morbida: verde vicino alla
+    città, salvia sulle colline, azzurro-grigio sulle dorsali in foschia.
+    """
+    mat = bpy.data.materials.new("Campagna atmosferica")
+    mat.diffuse_color = (*srgb((111, 135, 88)), 1.0)
+    mat.use_nodes = True
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+    bsdf = nodes.get("Principled BSDF")
+    bsdf.inputs["Roughness"].default_value = 0.96
+
+    geometry = nodes.new("ShaderNodeNewGeometry")
+    radius = nodes.new("ShaderNodeVectorMath")
+    radius.operation = "LENGTH"
+    remap = nodes.new("ShaderNodeMapRange")
+    remap.inputs["From Min"].default_value = 215.0
+    remap.inputs["From Max"].default_value = 13000.0
+    remap.inputs["To Min"].default_value = 0.0
+    remap.inputs["To Max"].default_value = 1.0
+    remap.clamp = True
+    ramp = nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.interpolation = "EASE"
+    stops = (
+        (0.00, (103, 128, 79)),
+        (0.08, (116, 138, 94)),
+        (0.24, (128, 145, 108)),
+        (0.52, (139, 151, 130)),
+        (0.78, (145, 155, 147)),
+        (1.00, (151, 160, 164)),
+    )
+    first, last = ramp.color_ramp.elements[0], ramp.color_ramp.elements[1]
+    first.position, first.color = stops[0][0], (*srgb(stops[0][1]), 1.0)
+    last.position, last.color = stops[-1][0], (*srgb(stops[-1][1]), 1.0)
+    for pos, color in stops[1:-1]:
+        element = ramp.color_ramp.elements.new(pos)
+        element.color = (*srgb(color), 1.0)
+    links.new(geometry.outputs["Position"], radius.inputs[0])
+    links.new(radius.outputs["Value"], remap.inputs["Value"])
+    links.new(remap.outputs["Result"], ramp.inputs["Fac"])
+    links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
     return mat
 
 
@@ -414,6 +467,7 @@ def create_materials():
                                   transmission=args[7] if len(args) > 7 else 0.0,
                                   wave_bump=args[8] if len(args) > 8 else 0.0,
                                   brick=args[9] if len(args) > 9 else 0.0)
+    mats["ground_horizon"] = make_horizon_material()
     return mats
 
 
@@ -553,18 +607,94 @@ def add_road_v(B, x, y0=-100, y1=100, width=8.0, sidewalk=True, gaps=()):
                                   (2.25, sb - sa, 0.11))
 
 
-def add_zebra_h(B, x, y, road_width=8.0):
-    # Attraversamento che taglia una strada nord-sud.
-    for i in range(9):
-        xx = x - 3.4 + i * 0.85
-        B["road_white"].box((xx, y, 0.041), (0.48, road_width - 1.1, 0.025))
+def add_zebra_h(B, x, y, road_width=8.0, crossing_width=2.8):
+    """Zebra che attraversa una strada nord-sud, proporzionata alla corsia."""
+    usable = road_width - 0.80
+    count = max(7, int(round(usable / 0.78)))
+    pitch = usable / count
+    for i in range(count):
+        xx = x - usable / 2 + pitch * (i + 0.5)
+        B["road_white"].box((xx, y, 0.041),
+                            (min(0.46, pitch * 0.62), crossing_width, 0.025))
 
 
-def add_zebra_v(B, x, y, road_width=8.0):
-    # Attraversamento che taglia una strada est-ovest.
-    for i in range(9):
-        yy = y - 3.4 + i * 0.85
-        B["road_white"].box((x, yy, 0.041), (road_width - 1.1, 0.48, 0.025))
+def add_zebra_v(B, x, y, road_width=8.0, crossing_width=2.8):
+    """Zebra che attraversa una strada est-ovest, proporzionata alla corsia."""
+    usable = road_width - 0.80
+    count = max(7, int(round(usable / 0.78)))
+    pitch = usable / count
+    for i in range(count):
+        yy = y - usable / 2 + pitch * (i + 0.5)
+        B["road_white"].box((x, yy, 0.041),
+                            (crossing_width, min(0.46, pitch * 0.62), 0.025))
+
+
+def build_accessible_corner(B, ix, iy, sx, sy, vertical_width, horizontal_width,
+                            tactile=True):
+    """Angolo di marciapiede con invito ribassato e piastra tattile.
+
+    `sx` e `sy` identificano il quadrante. Il vecchio nodo era un cubo piano;
+    questa maglia 2 × 2 scende davvero dalla quota del marciapiede a quella
+    della carreggiata nell'angolo interno. I cordoli si arrestano ai due lati
+    dell'invito invece di chiuderlo con un gradino.
+    """
+    extent, ramp = 2.25, 1.05
+    x_edge = vertical_width / 2
+    y_edge = horizontal_width / 2
+
+    def point(u, v, z):
+        return (ix + sx * (x_edge + 0.125 + u),
+                iy + sy * (y_edge + 0.125 + v), z)
+
+    # Fondo chiuso, poi superficie superiore: 4 cm sul vertice interno e
+    # 12 cm sul piano del marciapiede. Le diagonali hanno sempre normale +Z.
+    B["sidewalk"].box((ix + sx * (x_edge + 1.25),
+                       iy + sy * (y_edge + 1.25), 0.020),
+                      (extent, extent, 0.040))
+    coords = (0.0, ramp, extent)
+    heights = ((0.042, 0.112, 0.120),
+               (0.112, 0.120, 0.120),
+               (0.120, 0.120, 0.120))
+
+    def face(points):
+        if sx * sy < 0:
+            points = tuple(reversed(points))
+        B["sidewalk"].poly(points)
+
+    for u in range(2):
+        for v in range(2):
+            p00 = point(coords[u], coords[v], heights[u][v])
+            p10 = point(coords[u + 1], coords[v], heights[u + 1][v])
+            p11 = point(coords[u + 1], coords[v + 1], heights[u + 1][v + 1])
+            p01 = point(coords[u], coords[v + 1], heights[u][v + 1])
+            face((p00, p10, p11))
+            face((p00, p11, p01))
+
+    # Due cordoli corti, aperti per 1,05 m presso il vertice ribassato.
+    curb_length = extent - ramp
+    curb_mid = ramp + curb_length / 2
+    B["curb"].box((ix + sx * (x_edge + 0.12),
+                   iy + sy * (y_edge + 0.125 + curb_mid), 0.078),
+                  (0.24, curb_length, 0.156))
+    B["curb"].box((ix + sx * (x_edge + 0.125 + curb_mid),
+                   iy + sy * (y_edge + 0.12), 0.078),
+                  (curb_length, 0.24, 0.156))
+
+    if not tactile:
+        return
+    # Piastra gialla sul tratto inclinato e quattro bottoni rilevati.
+    u0, u1 = 0.48, 0.94
+    z0, z1 = 0.083, 0.115
+    plate = (point(u0, u0, z0), point(u1, u0, z1),
+             point(u1, u1, z1), point(u0, u1, z1))
+    if sx * sy < 0:
+        plate = tuple(reversed(plate))
+    B["road_yellow"].poly(plate)
+    for du in (0.60, 0.82):
+        for dv in (0.60, 0.82):
+            px, py, _ = point(du, dv, 0)
+            z = 0.087 + 0.030 * max(du, dv) / ramp
+            B["road_yellow"].cylinder((px, py, z + 0.012), 0.045, 0.024, 8)
 
 
 def build_viale_head(B, sign):
@@ -627,19 +757,42 @@ def build_roads(mats, road_col, plaza_col):
             "metal", "metal_gold", "lamp", "wood", "wood_light")
     B = make_batch_set(mats, road_col, keys)
     # Rete leggibile: due anelli, quattro assi di quartiere e viale centrale.
-    # Nelle due rotatorie il cordolo e il marciapiede si interrompono sul
-    # cerchio: l'anello ha un marciapiede proprio che ne fa il giro.
-    for y, gx in ((-70, None), (70, None), (-32, -23), (32, 23)):
-        add_road_h(B, y, -100, 100, 8.0,
-                   gaps=() if gx is None else ((gx - 6.5, gx + 6.5),))
-    for x, gy in ((-70, None), (70, None), (-23, -32), (23, 32)):
-        add_road_v(B, x, -100, 100, 8.0,
-                   gaps=() if gy is None else ((gy - 6.5, gy + 6.5),))
+    # I vecchi cordoli e marciapiedi erano estrusi da -100 a +100 senza alcuna
+    # interruzione: a ogni nodo attraversavano la strada perpendicolare come
+    # due passerelle rialzate. Ora ogni asse si arresta sul bordo esatto della
+    # strada che incontra; nelle rotatorie il taglio si allarga fino all'anello.
+    crossings_x = (-70, -23, 0, 23, 70)
+    crossings_y = (-70, -32, 32, 70)
+    roundabouts = ((23, 32), (-23, -32))
+
+    def horizontal_gaps(y):
+        gaps = []
+        for x in crossings_x:
+            if (x, y) in roundabouts:
+                half = 9.10
+            else:
+                half = (10.0 if x == 0 else 8.0) / 2 + 0.13
+            gaps.append((x - half, x + half))
+        return tuple(gaps)
+
+    def vertical_gaps(x, limits=(-100, 100)):
+        gaps = []
+        for y in crossings_y:
+            if not (limits[0] < y < limits[1]):
+                continue
+            half = 9.10 if (x, y) in roundabouts else 8.0 / 2 + 0.13
+            gaps.append((y - half, y + half))
+        return tuple(gaps)
+
+    for y in (-70, 70, -32, 32):
+        add_road_h(B, y, -100, 100, 8.0, gaps=horizontal_gaps(y))
+    for x in (-70, 70, -23, 23):
+        add_road_v(B, x, -100, 100, 8.0, gaps=vertical_gaps(x))
     # Viale Roma: la piazza, il municipio e i due fondali ne spezzano l'asse.
     # La carreggiata non entra più dentro Residenza Aurora e Albergo del Borgo:
     # ogni troncone corre fra due incroci, o fra un incrocio e una testata.
     for y0, y1 in ((-100, -59), (-43, -16), (29, 43), (59, 100)):
-        add_road_v(B, 0, y0, y1, 10.0)
+        add_road_v(B, 0, y0, y1, 10.0, gaps=vertical_gaps(0, (y0, y1)))
     # Testate del viale: due piazzali d'arrivo davanti ai fondali.
     build_viale_head(B, 1)
     build_viale_head(B, -1)
@@ -667,33 +820,53 @@ def build_roads(mats, road_col, plaza_col):
             key = flower_keys[i % len(flower_keys)]
             B[key].sphere((0, fy, 0.68), 0.18, (1.0, 0.85, 0.6), 7, 5)
             B["leaf_light"].sphere((0.05, fy, 0.50), 0.20, (1.0, 1.0, 0.55), 6, 4)
-    # Raccordi leggermente rialzati: evitano la sovrapposizione coplanare delle
-    # superfici nei nodi della griglia, lasciando leggibili le strisce pedonali.
-    crossings_x = (-70, -23, 0, 23, 70)
-    crossings_y = (-70, -32, 32, 70)
-    roundabouts = ((23, 32), (-23, -32))
-    # Angoli degli incroci che cadono dentro i due piazzali di testata:
-    # i marciapiedi rialzati del nodo resterebbero un centimetro e mezzo
-    # sopra la platea, e si leggerebbero come due lastre staccate.
+    # Gli angoli non sono più cubi appoggiati sopra l'asfalto. Ogni quadrante
+    # è una superficie propria, raccordata ai quattro tronconi di marciapiede,
+    # con il vertice interno abbassato alla quota della carreggiata.
     heads = ((-11.0, 11.0, 36.5, 43.9), (-11.0, 11.0, -43.9, -36.5))
 
     def in_head(px, py):
         return any(gx0 <= px <= gx1 and gy0 <= py <= gy1
                    for gx0, gx1, gy0, gy1 in heads)
 
+    corner_exists = {}
     for ix in crossings_x:
         for iy in crossings_y:
             if (ix, iy) in roundabouts:
                 continue  # qui subentra la rotatoria fiorita
-            B["asphalt"].box((ix, iy, 0.034), (8.0, 8.0, 0.014))
+            vertical_width, horizontal_width = (10.0 if ix == 0 else 8.0), 8.0
+            B["asphalt"].box((ix, iy, 0.034),
+                             (vertical_width, horizontal_width, 0.014))
             for sx in (-1, 1):
                 for sy in (-1, 1):
-                    if in_head(ix + sx * 5.25, iy + sy * 5.25):
-                        continue
-                    B["sidewalk"].box((ix + sx * 5.25, iy + sy * 5.25, 0.122),
-                                      (2.18, 2.18, 0.024))
-                    B["curb"].box((ix + sx * 4.12, iy + sy * 4.12, 0.078),
-                                  (0.24, 0.24, 0.16))
+                    px = ix + sx * (vertical_width / 2 + 1.25)
+                    py = iy + sy * (horizontal_width / 2 + 1.25)
+                    exists = not in_head(px, py)
+                    corner_exists[(ix, iy, sx, sy)] = exists
+                    if exists:
+                        build_accessible_corner(B, ix, iy, sx, sy,
+                                                vertical_width, horizontal_width)
+
+    # Attraversamenti accessibili su ogni lato realmente collegato a due
+    # angoli. Le zebre precedenti erano centrate nel cuore del nodo e larghe
+    # quasi quanto la strada; ora sono fasce da 2,8 m sulle quattro testate e
+    # terminano sulle piastre tattili gialle delle rampe. Nei piazzali di
+    # testata i lati assorbiti dalla platea vengono omessi automaticamente.
+    for ix in crossings_x:
+        for iy in crossings_y:
+            if (ix, iy) in roundabouts:
+                continue
+            vertical_width, horizontal_width = (10.0 if ix == 0 else 8.0), 8.0
+            yoff = horizontal_width / 2 + 1.35
+            xoff = vertical_width / 2 + 1.35
+            if all(corner_exists.get((ix, iy, sx, 1), False) for sx in (-1, 1)):
+                add_zebra_h(B, ix, iy + yoff, vertical_width)
+            if all(corner_exists.get((ix, iy, sx, -1), False) for sx in (-1, 1)):
+                add_zebra_h(B, ix, iy - yoff, vertical_width)
+            if all(corner_exists.get((ix, iy, 1, sy), False) for sy in (-1, 1)):
+                add_zebra_v(B, ix + xoff, iy, horizontal_width)
+            if all(corner_exists.get((ix, iy, -1, sy), False) for sy in (-1, 1)):
+                add_zebra_v(B, ix - xoff, iy, horizontal_width)
     # Linee di mezzeria discontinue sugli assi principali.
     def in_roundabout(x, y):
         return (x - 23) ** 2 + (y - 32) ** 2 < 100 or \
@@ -716,17 +889,6 @@ def build_roads(mats, road_col, plaza_col):
                 if in_roundabout(x, y):
                     continue
                 B["road_white"].box((x, y, 0.039), (0.13, 4.5, 0.025))
-    # Strisce di arresto e attraversamenti negli incroci del viale.
-    for y in (-70, 70):
-        add_zebra_h(B, 0, y, 10)
-        add_zebra_h(B, -70, y, 8)
-        add_zebra_h(B, 70, y, 8)
-    for x, y in ((-70, 32), (70, 32), (-23, 32), (23, -32)):
-        add_zebra_v(B, x, y, 8)
-    # L'incrocio nord di Viale Roma era l'unico senza strisce: ora i due
-    # attraversamenti dell'asse principale sono simmetrici.
-    add_zebra_v(B, 0, -32, 10)
-    add_zebra_v(B, 0, 32, 10)
     # Strisce gialle ai margini della piazza e stalli di sosta.
     for x in (-23, 23):
         B["road_yellow"].box((x, 0, 0.04), (0.12, 16, 0.025))
@@ -2085,88 +2247,96 @@ def relief_height(x, y):
 
 
 def far_height(x, y):
-    """Quota della pianura lontana: onde morbide e catena d'orizzonte.
+    """Quota del fondale: pianura e tre dorsali separate in profondità.
 
-    Oltre il rilievo della città la scena finiva con un disco piatto a 6 km
-    che si leggeva come un mare grigio, tagliato da un bordo netto contro il
-    cielo. Qui la piana ondeggia appena, si rialza in dossi sparsi e infine
-    in una catena lontana — più alta verso nord-ovest, nella direzione della
-    veduta — che chiude l'orizzonte con un profilo morbido.
+    La catena precedente era un unico plateau largo oltre sei chilometri: in
+    camera diventava una parete grigia quasi rettilinea. Tre gaussiane radiali
+    producono invece un primo sistema di colline, una dorsale intermedia e una
+    catena appenninica lontana; tra una e l'altra la quota ridiscende, quindi i
+    profili si sovrappongono come piani distinti e non come fasce orizzontali.
     """
     r = math.hypot(x, y)
     h = -0.55
-    # Tutto ciò che sta vicino al rilievo della città si spegne: il raccordo
-    # fra il quadrato del rilievo e l'anello radiale resta una piana piatta,
-    # senza spuntoni dei rilievi lontani che si sovrappongono al bordo.
     near = smooth01((r - 320.0) / 180.0)
-    # Ondulazioni della piana fra la città e la catena.
-    w1 = smooth01((r - 360.0) / 260.0) * (1.0 - smooth01((r - 4800.0) / 2600.0))
-    h += near * w1 * (16.0 * math.sin(x * 0.0021 + 0.7) * math.cos(y * 0.0018 - 0.3)
-                      + 10.0 * math.sin(x * 0.0043 - 1.2) * math.cos(y * 0.0037 + 1.9))
-    # Dossi sparsi sulla piana media, a posizioni deterministiche.
-    fade = near * (1.0 - smooth01((r - 5200.0) / 2200.0))
+
+    # Piana appena ondulata: ampiezza contenuta perché il primo piano resti
+    # leggibile e il raccordo con il quadrato del rilievo sia perfettamente piatto.
+    plain = near * (1.0 - smooth01((r - 3100.0) / 1500.0))
+    h += plain * (5.5 * math.sin(x * 0.0024 + 0.7) * math.cos(y * 0.0020 - 0.3)
+                  + 3.0 * math.sin(x * 0.0051 - 1.2) * math.cos(y * 0.0040 + 1.9))
+
+    # Dossi bassi e deterministici fra la città e la prima dorsale.
+    fade = near * (1.0 - smooth01((r - 2500.0) / 1100.0))
     for k in range(9):
         ang = k * 2.39996 + 0.9
         rad = 620.0 + 380.0 * math.sin(k * 1.7 + 0.4)
         cx, cy = math.cos(ang) * rad, math.sin(ang) * rad
         d2 = (x - cx) ** 2 + (y - cy) ** 2
-        amp = 26.0 + 14.0 * math.sin(k * 2.1)
-        sig = 190.0 + 60.0 * math.cos(k * 1.3)
+        amp = 12.0 + 7.0 * math.sin(k * 2.1)
+        sig = 210.0 + 60.0 * math.cos(k * 1.3)
         h += amp * math.exp(-d2 / (sig * sig)) * fade
-    # Catena lontana: si alza verso nord-ovest, in direzione della veduta.
+
     theta = math.atan2(y, x)
     dth = (theta - 2.28 + PI) % TAU - PI
-    bump = math.exp(-(dth * dth) / (2.0 * 0.75 * 0.75))
-    wob = (0.72 + 0.30 * math.sin(3.0 * theta + 0.8)
-           + 0.18 * math.sin(7.0 * theta - 1.4)
-           + 0.12 * math.sin(13.0 * theta + 2.2))
-    crest = smooth01((r - 5000.0) / 2400.0) * (1.0 - smooth01((r - 11500.0) / 3200.0))
-    h += (70.0 + 300.0 * bump) * wob * crest
+    view = math.exp(-(dth * dth) / (2.0 * 0.88 * 0.88))
+
+    def ridge(radius, spread):
+        return math.exp(-((r - radius) / spread) ** 2)
+
+    # Armoniche diverse evitano creste parallele. Picchi locali, larghi fra
+    # quattro e sette gradi, danno alla dorsale lontana una silhouette naturale.
+    profile_a = max(0.34, 0.72 + 0.16 * math.sin(4.0 * theta + 0.4)
+                    + 0.09 * math.sin(9.0 * theta - 1.1))
+    profile_b = max(0.34, 0.70 + 0.18 * math.sin(5.0 * theta - 0.5)
+                    + 0.10 * math.sin(12.0 * theta + 1.7))
+    profile_c = max(0.32, 0.66 + 0.17 * math.sin(6.0 * theta + 1.0)
+                    + 0.11 * math.sin(13.0 * theta - 0.8)
+                    + 0.06 * math.sin(23.0 * theta + 0.3))
+    peaks = 0.0
+    for offset, strength, width in ((-0.42, 0.28, 0.11), (-0.10, 0.22, 0.08),
+                                    (0.22, 0.34, 0.10), (0.50, 0.20, 0.09)):
+        delta = (dth - offset + PI) % TAU - PI
+        peaks += strength * math.exp(-(delta * delta) / (2.0 * width * width))
+
+    h += near * (20.0 + 32.0 * view) * profile_a * ridge(2350.0, 760.0)
+    h += near * (38.0 + 76.0 * view) * profile_b * ridge(5050.0, 1180.0)
+    h += near * (62.0 + 128.0 * view) * (profile_c + peaks) * ridge(8750.0, 1550.0)
     return h
 
 
 def build_far_horizon(mats, col):
-    """Pianura e colline lontane: un unico anello radiale fino all'orizzonte.
+    """Pianura e dorsali lontane in una sola superficie atmosferica.
 
-    Sostituisce il disco piatto da 6 km: anelli concentrici quotati su
-    `far_height`, con tre fasce di materiale che smorzano il colore nella
-    foschia — campagna lontana vicino al rilievo, piana intermedia, colline
-    in foschia oltre i 3,2 km.
+    Gli anelli sono più fitti in corrispondenza delle tre creste. Un unico
+    materiale graduato nello shader sostituisce le tre corone cromatiche a
+    stacco netto: colore e quota cambiano entrambi senza cuciture visibili.
     """
-    rings = (215, 258, 320, 420, 560, 750, 1000, 1350, 1800, 2400, 3200,
-             4300, 5800, 7600, 10000, 13000)
-    seg = 192
+    rings = (215, 258, 320, 420, 560, 750, 1000, 1350, 1750, 2150, 2500,
+             2900, 3400, 4100, 4800, 5400, 6100, 7000, 7900, 8700, 9500,
+             10400, 11600, 13000)
+    seg = 256
     verts = []
     for r in rings:
         for i in range(seg):
             a = TAU * i / seg
             x, y = math.cos(a) * r, math.sin(a) * r
             z = far_height(x, y)
-            # L'anello interno resta sopra il rilievo della città (che sul
-            # bordo si chiude a -0,55) senza produrre superfici incrociate.
+            # L'anello interno resta appena sopra il bordo del rilievo locale.
             z += 0.02 * (1.0 - smooth01((r - 230.0) / 150.0))
             verts.append((x, y, z))
-    bands = (("ground_far", []), ("ground_mid", []), ("ground_haze", []))
+    faces = []
     for j in range(len(rings) - 1):
         for i in range(seg):
             k = (i + 1) % seg
             a = j * seg + i
-            face = (a, a + seg, (j + 1) * seg + k, j * seg + k)
-            cx = (verts[face[0]][0] + verts[face[2]][0]) / 2
-            cy = (verts[face[0]][1] + verts[face[2]][1]) / 2
-            rr = math.hypot(cx, cy)
-            band = 0 if rr < 700 else (1 if rr < 3200 else 2)
-            bands[band][1].append(face)
-    for key, key_faces in bands:
-        if not key_faces:
-            continue
-        mesh = bpy.data.meshes.new("Piana lontana — " + key)
-        mesh.from_pydata(verts, [], key_faces)
-        mesh.materials.append(mats[key])
-        mesh.update()
-        mesh.polygons.foreach_set("use_smooth", [True] * len(key_faces))
-        relief = bpy.data.objects.new("Piana lontana — " + key, mesh)
-        col.objects.link(relief)
+            faces.append((a, a + seg, (j + 1) * seg + k, j * seg + k))
+    mesh = bpy.data.meshes.new("Orizzonte atmosferico mesh")
+    mesh.from_pydata(verts, [], faces)
+    mesh.materials.append(mats["ground_horizon"])
+    mesh.update()
+    mesh.polygons.foreach_set("use_smooth", [True] * len(faces))
+    relief = bpy.data.objects.new("Pianura e dorsali atmosferiche", mesh)
+    col.objects.link(relief)
 
 
 def build_sky_clouds(mats, col):
