@@ -50,13 +50,19 @@ laghetto e il tricolore del municipio. Separatamente corregge le case che
 invadevano la viabilità: i loro ingombri reali ruotati vengono adattati a lotti
 liberi, con giardini riposizionati e validazione prima del salvataggio.
 La dodicesima versione rifinisce le panchine (schienali verticali collegati ai
-montanti), le automobili (vetrazze esterne, fanali e ruote in asse) e le
+montanti), le automobili (vetrature esterne, fanali e ruote in asse) e le
 biciclette (ruote a raggi e telaio a diamante). La tredicesima versione dà
 alle persone sedute una posa credibile — cosce orizzontali sulla seduta e
 stinchi verticali fino a terra o ai pedali, con i ciclisti finalmente
 orientati come la bici — ricostruisce gli scooter con pneumatici ad anello e
 ciclistica completa nel riferimento locale, e arreda il caffè del borgo con
-tavolini quotati sulla platea, sedie da bistro e due avventori seduti.
+tavolini quotati sulla platea, sedie da bistro e due avventori seduti. La
+quattordicesima versione interviene su tre soli elementi della vita di strada:
+ricostruisce il furgone del mercato con cabina, aperture, fanaleria e quattro
+ruote nel riferimento locale; trasforma i quattro parallelepipedi dei rifiuti
+in cassonetti carrellati con coperchio, pedaliera e raccolta differenziata; e
+rende l'edicola un chiosco aperto e vetrato, con banco, tenda a righe e giornali
+esposti.
 
 Richiede Blender 5.0+ e i modelli originali presenti nelle cartelle sorelle.
 
@@ -91,7 +97,7 @@ SUN_ROTATION = 140.0
 LIFE_KEYS = ("asphalt", "curb", "sidewalk", "grass", "grass_light", "leaf", "leaf_light",
              "bark", "flower", "road_white", "water", "wood", "wood_light",
              "metal", "metal_gold", "lamp", "trim", "concrete", "terracotta",
-             "cream", "brick", "white", "glass", "cypress", "sand", "rubber",
+             "cream", "brick", "white", "red", "glass", "cypress", "sand", "rubber",
              "plastic", "duck", "beak", "bird", "skin", "hair_dark",
              "hair_light", "cloth_red", "cloth_blue", "cloth_green",
              "cloth_yellow", "cloth_violet", "cloth_white", "canvas_green",
@@ -2506,14 +2512,149 @@ def add_scooter(B, x, y, yaw, body_key):
 
 
 def add_van(B, x, y, yaw, body_key):
-    lbox(B[body_key], x, y, yaw, -0.55, 0, 1.35, 3.4, 1.95, 2.0)
-    lbox(B[body_key], x, y, yaw, 1.75, 0, 0.95, 1.5, 1.9, 1.5)
-    lbox(B["glass"], x, y, yaw, 2.1, 0, 1.42, 0.7, 1.7, 0.7)
-    lbox(B["glass"], x, y, yaw, 1.35, 0, 1.5, 0.12, 1.7, 0.6)
-    for wx in (-1.5, 1.5):
+    """Furgone del mercato completo, costruito nel riferimento del veicolo.
+
+    Il vecchio mezzo era l'unione di due scatole con vetri inglobati nella
+    carrozzeria e quattro cilindri sempre paralleli all'asse Y globale. Qui il
+    muso guarda lungo +X locale: pneumatici ad anello, mozzi, cabina, aperture
+    e fanaleria seguono quindi tutti lo ``yaw`` anche nella sosta ruotata.
+    """
+    def box(key, lx, ly, lz, sx, sy, sz):
+        lbox(B[key], x, y, yaw, lx, ly, lz, sx, sy, sz)
+
+    def tube(key, points, radius, segments=8):
+        add_tube(B[key], [lbox_point(x, y, yaw, *p) for p in points],
+                 radius, segments)
+
+    # Telaio e volumi separati: vano merci, cabina, cofano e fascia bassa.
+    box("metal", 0.0, 0.0, 0.34, 4.35, 1.68, 0.16)
+    box(body_key, -0.72, 0.0, 1.47, 2.96, 1.82, 2.14)
+    box(body_key, 1.16, 0.0, 0.92, 1.64, 1.80, 1.04)
+    box(body_key, 1.05, 0.0, 1.72, 1.20, 1.72, 0.70)
+    box(body_key, 2.04, 0.0, 0.78, 0.68, 1.76, 0.70)
+
+    # Parabrezza e finestrini sono appena esterni al guscio opaco; montanti,
+    # guide della porta scorrevole e giunti dei portelloni restano leggibili.
+    box("glass", 1.67, 0.0, 1.73, 0.055, 1.48, 0.58)
+    for side in (-1, 1):
+        box("glass", 1.12, side * 0.875, 1.72, 0.86, 0.035, 0.55)
+        box("metal", 1.61, side * 0.90, 1.72, 0.08, 0.07, 0.72)
+        box("metal", 1.47, side * 1.02, 1.78, 0.30, 0.10, 0.10)
+        tube("metal", ((1.34, side * 0.88, 1.73),
+                       (1.48, side * 1.01, 1.79)), 0.025)
+    for z in (0.82, 2.10):
+        box("metal", -0.55, -0.925, z, 2.25, 0.045, 0.055)
+    box("metal", -0.35, -0.955, 1.45, 0.34, 0.055, 0.07)
+    box("metal", -2.22, 0.0, 1.48, 0.045, 0.08, 1.75)
+    for side in (-1, 1):
+        box("metal", -2.245, side * 0.46, 1.48, 0.035, 0.055, 1.80)
+        box("metal", -2.265, side * 0.18, 1.42, 0.045, 0.18, 0.055)
+
+    # Paraurti, calandra, fari anteriori e fanali posteriori.
+    box("metal", 2.39, 0.0, 0.48, 0.20, 1.84, 0.18)
+    box("metal", -2.27, 0.0, 0.46, 0.16, 1.84, 0.18)
+    for side in (-1, 1):
+        box("lamp", 2.405, side * 0.58, 0.82, 0.06, 0.34, 0.23)
+        box("red", -2.365, side * 0.66, 0.91, 0.055, 0.24, 0.34)
+    for side in (-1, -0.33, 0.33, 1):
+        box("roof_dark", 2.415, side * 0.42, 0.55, 0.045, 0.05, 0.24)
+
+    # Quattro pneumatici ad anello e quattro mozzi, non dischi globali. Il
+    # punto più basso resta quattro centimetri sopra la carreggiata.
+    wheel_z, wheel_r = 0.43, 0.335
+    for wx in (-1.38, 1.38):
         for side in (-1, 1):
-            p = lbox_point(x, y, yaw, wx, side * 0.95, 0.45)
-            B["metal"].cylinder(p, 0.45, 0.20, 16, axis="Y")
+            ring = [(wx + wheel_r * math.cos(i * TAU / 24), side * 0.91,
+                     wheel_z + wheel_r * math.sin(i * TAU / 24))
+                    for i in range(25)]
+            tube("roof_dark", ring, 0.055, 10)
+            tube("metal", ((wx, side * 0.83, wheel_z),
+                           (wx, side * 1.00, wheel_z)), 0.115, 12)
+
+
+def add_waste_container(B, x, y, yaw, body_key):
+    """Cassonetto carrellato con coperchio, pedaliera e ruote orientate."""
+    def box(key, lx, ly, lz, sx, sy, sz):
+        lbox(B[key], x, y, yaw, lx, ly, lz, sx, sy, sz)
+
+    def tube(key, points, radius, segments=8):
+        add_tube(B[key], [lbox_point(x, y, yaw, *p) for p in points],
+                 radius, segments)
+
+    # Corpo compatto, basamento e coperchio inclinato verso il fronte (-Y).
+    box("metal", 0, 0, 0.22, 0.68, 0.54, 0.12)
+    box(body_key, 0, 0, 0.69, 0.72, 0.62, 0.94)
+    lbox_tilt(B["roof_dark"], x, y, yaw, 0, -0.015, 1.20,
+              0.78, 0.70, 0.10, -math.radians(7))
+    tube("metal", ((-0.33, 0.29, 1.22), (0.33, 0.29, 1.22)), 0.028)
+    # Etichetta frontale e tre tacche colorate rendono leggibile la raccolta
+    # differenziata anche senza testo microscopico.
+    box("white", 0, -0.321, 0.76, 0.40, 0.025, 0.28)
+    for lx in (-0.11, 0, 0.11):
+        box(body_key, lx, -0.339, 0.76, 0.065, 0.018, 0.18)
+    tube("metal", ((-0.18, -0.35, 1.03), (-0.18, -0.40, 1.08),
+                   (0.18, -0.40, 1.08), (0.18, -0.35, 1.03)), 0.022)
+    box("metal", 0, -0.38, 0.08, 0.30, 0.16, 0.055)
+    # Quattro ruote piroettanti: piccoli assi lungo X locale, tutti sopra terra.
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            tube("roof_dark", ((sx * 0.38, sy * 0.20, 0.12),
+                                (sx * 0.29, sy * 0.20, 0.12)), 0.075, 10)
+
+
+def build_newsstand(B, mats, col, x=17.2, y=-19.2, yaw=0.0):
+    """Edicola aperta: telaio vetrato, banco, tenda e stampa esposta."""
+    def box(key, lx, ly, lz, sx, sy, sz):
+        lbox(B[key], x, y, yaw, lx, ly, lz, sx, sy, sz)
+
+    # Zoccolo e pareti basse lasciano libera la vera apertura di vendita.
+    box("concrete", 0, 0, 0.10, 2.85, 2.35, 0.20)
+    box("cloth_blue", 0, 0.94, 0.72, 2.55, 0.16, 1.24)
+    box("cloth_blue", 0, -0.94, 0.47, 2.55, 0.16, 0.74)
+    for side in (-1, 1):
+        box("cloth_blue", side * 1.20, 0, 0.65, 0.16, 1.95, 1.10)
+        for sy in (-1, 1):
+            box("metal", side * 1.20, sy * 0.88, 1.36, 0.10, 0.10, 2.42)
+        box("glass", side * 1.245, 0.02, 1.66, 0.045, 1.55, 0.86)
+    # Due vetrate frontali incorniciano il vano centrale; una lampada calda
+    # illumina dall'interno senza chiudere il banco.
+    for side in (-1, 1):
+        box("glass", side * 0.84, -1.025, 1.65, 0.58, 0.045, 0.88)
+        box("metal", side * 0.53, -1.04, 1.66, 0.07, 0.07, 0.96)
+    box("metal", 0, -1.04, 2.12, 2.55, 0.08, 0.10)
+    box("wood_light", 0, -1.18, 1.14, 2.32, 0.48, 0.12)
+    box("lamp", 0, 0.32, 2.30, 0.62, 0.28, 0.12)
+
+    # Copertura aggettante, fascia con insegna e tenda a sei righe contigue.
+    box("roof_dark", 0, 0, 2.63, 3.05, 2.55, 0.20)
+    box("canvas_red", 0, -1.25, 2.43, 2.82, 0.14, 0.42)
+    stripes = 6
+    for i in range(stripes):
+        xa = -1.45 + 2.90 * i / stripes
+        xb = -1.45 + 2.90 * (i + 1) / stripes
+        key = "canvas_red" if i % 2 == 0 else "white"
+        B[key].quad(*(lbox_point(x, y, yaw, *p) for p in
+                      ((xa, -1.13, 2.24), (xb, -1.13, 2.24),
+                       (xb, -1.72, 1.94), (xa, -1.72, 1.94))))
+    for side in (-1, 1):
+        add_tube(B["metal"],
+                 (lbox_point(x, y, yaw, side * 1.34, -1.08, 2.23),
+                  lbox_point(x, y, yaw, side * 1.34, -1.70, 1.93)), 0.025)
+
+    # Cinque copertine sul banco e tre quotidiani nel raccoglitore inferiore.
+    cover_keys = ("cloth_red", "cloth_yellow", "cloth_green",
+                  "cloth_violet", "cloth_blue")
+    for i, key in enumerate(cover_keys):
+        lx = -0.92 + i * 0.46
+        box("white", lx, -1.435, 1.48, 0.36, 0.035, 0.48)
+        box(key, lx, -1.458, 1.60, 0.28, 0.018, 0.10)
+    box("wood", 0.72, -1.32, 0.63, 0.78, 0.16, 0.94)
+    for i in range(3):
+        box("white", 0.72, -1.415 - i * 0.012, 0.82 - i * 0.23,
+            0.64, 0.025, 0.18)
+    sign = lbox_point(x, y, yaw, 0, -1.335, 2.43)
+    add_text("EDICOLA", "Edicola — insegna", sign, 0.28,
+             mats["white"], col, yaw=yaw)
 
 
 def build_street_life(B, mats, col):
@@ -2591,18 +2732,14 @@ def build_street_life(B, mats, col):
                 key = shirts[(i + level) % 6]
                 lbox(B[key], bx, by, yaw, t, face - 0.92, z - 0.34,
                      0.62, 0.03, 0.66)
-    # Cassonetti, edicola e tombini: micro-arredo diffuso.
-    for x, y, yaw, key in ((-20.4, -26.4, 0.0, "canvas_green"),
-                           (-19.6, -26.4, 0.0, "canvas_yellow"),
-                           (20.4, 26.4, PI, "canvas_green"),
-                           (21.2, 26.4, PI, "canvas_blue")):
-        lbox(B[key], x, y, yaw, 0, 0, 0.62, 0.75, 0.62, 1.15)
-        lbox(B["metal"], x, y, yaw, 0, 0, 1.24, 0.78, 0.65, 0.10)
-    lbox(B["cloth_blue"], 17.2, -19.2, 0.0, 0, 0, 1.35, 2.6, 2.2, 2.5)
-    lbox(B["canvas_red"], 17.2, -19.2, 0.0, 0, -1.25, 1.5, 2.8, 0.5, 0.5)
-    for i in range(6):
-        lbox(B["white"], 17.2, -19.2, 0.0, -0.9 + i * 0.36, -1.52, 1.2,
-             0.24, 0.04, 0.34)
+    # Cassonetti carrellati per la raccolta differenziata e nuova edicola
+    # vetrata: sostituiscono i sei parallelepipedi senza ruote/aperture.
+    for bx, by, bin_yaw, key in ((-20.4, -26.4, 0.0, "canvas_green"),
+                                 (-19.6, -26.4, 0.0, "canvas_yellow"),
+                                 (20.4, 26.4, PI, "canvas_green"),
+                                 (21.2, 26.4, PI, "canvas_blue")):
+        add_waste_container(B, bx, by, bin_yaw, key)
+    build_newsstand(B, mats, col)
     for x, y in ((-11, -24), (8, 24), (30, -12), (-30, 12), (0, -40)):
         B["metal"].cylinder((x, y, 0.045), 0.42, 0.03, 16)
     for x, y in ((-27.4, -10), (-27.4, 10), (27.4, -10), (27.4, 10)):

@@ -29,13 +29,14 @@ in un unico contesto.
   attraversamenti pedonali con **rampe e piastre tattili**, semafori con
   richiamo pedonale agli incroci principali, lampioni stradali, due
   **piazzali di testata** di Viale Roma, due parcheggi
-  di quartiere con auto in sosta, automobili, autobus, furgone del mercato,
-  scooter, biciclette e pensilina;
+  di quartiere con auto in sosta, automobili, autobus, scooter, biciclette,
+  **furgone del mercato rifinito** e pensilina;
 - **prati curati**: undici isolati con manto erboso tagliato a bande alternate,
   cordolo di chiusura e bordura di fiori, e piazzole di ghiaia con corona di
   fiori ai ventisei alberi da viale e da parco, legate da siepi basse;
 - **vita di strada**: pedoni, ciclisti, persone sedute, piccioni in piazza e
-  uccelli in volo, panni stesi sui balconi, cassonetti, edicola e tombini;
+  uccelli in volo, panni stesi sui balconi, cassonetti carrellati per la
+  raccolta differenziata, edicola vetrata e tombini;
 - **Parco delle Rose** con laghetto, anatre, ninfee, canne e pontile in legno,
   e **Giardino del Borgo** con parco giochi: altalene, scivolo, sabbiera;
 - ciliegi fioriti ripresi dal modello `albero_2`, alberature urbane
@@ -48,6 +49,43 @@ in un unico contesto.
   **strada bianca a tornanti** che scende fino all'anello stradale della
   città — e oltre le colline tre **dorsali lontane in foschia** che chiudono
   l'orizzonte, con **cumuli** nel cielo.
+
+## Miglioramenti della quattordicesima versione
+
+**Esattamente tre migliorie nel generatore**, senza cambiare viabilità,
+edifici, disposizione degli oggetti, camera o illuminazione:
+
+1. **Furgone del mercato** — i due volumi opachi inglobavano quasi tutti i
+   vetri e le quattro ruote erano cilindri sull'asse Y globale, quindi non
+   seguivano la sosta ruotata. Il mezzo ha ora telaio, vano merci, cabina e
+   cofano distinti; parabrezza e finestrini esterni; porta scorrevole,
+   portelloni posteriori, specchietti, paraurti, calandra e fanaleria. Quattro
+   pneumatici ad anello con mozzi sono costruiti nel riferimento locale e
+   ruotano insieme al veicolo.
+2. **Cassonetti per la raccolta differenziata** — i quattro contenitori erano
+   parallelepipedi senza aperture né ruote. Ora ciascuno poggia su quattro
+   ruote piroettanti e riceve basamento, coperchio inclinato con cerniera,
+   maniglia, pedaliera, etichetta frontale e tacche del colore della frazione;
+   tutti i componenti rispettano l'orientamento del cassonetto.
+3. **Edicola aperta e vetrata** — il vecchio chiosco era una scatola blu
+   piena, con sei rettangoli bianchi appesi davanti. La nuova edicola ha
+   zoccolo, pareti basse e telaio, quattro vetrate attorno a un vero vano di
+   vendita, banco, luce interna, copertura aggettante e insegna «EDICOLA».
+   Una tenda continua a sei righe ripara cinque riviste e tre quotidiani
+   esposti.
+
+Verifica mirata, eseguibile anche senza Blender:
+
+```bash
+python3 -m unittest discover -s prova_citta_1 -p 'test_furgone_cassonetti_edicola.py' -v
+```
+
+I nove test controllano pneumatici, mozzi, aperture e fanaleria del furgone;
+ruote, coperchio, pedaliera e codifica cromatica dei cassonetti; vetrate, vano
+di vendita, continuità della tenda, insegna e stampa dell'edicola. Per tutti e
+tre gli elementi verificano inoltre la roto-traslazione completa e la validità
+delle mesh. `citta.blend` e `anteprima.png` sono rigenerati con Blender 5.0.1 e
+comprendono anche le migliorie delle versioni dodicesima e tredicesima.
 
 ## Miglioramenti della tredicesima versione
 
@@ -463,6 +501,7 @@ denoising OpenImageDenoise e view transform AgX.
 | `test_urbanistica.py` | Diciannove controlli su case, giardini, fermata, ponte e tricolore |
 | `test_arredi_mobilita.py` | Quattro controlli su panchine, automobili e biciclette |
 | `test_persone_scooter_caffe.py` | Dieci controlli su persone sedute, scooter e caffè |
+| `test_furgone_cassonetti_edicola.py` | Nove controlli su furgone, cassonetti ed edicola |
 
 ## Rigenerazione
 
@@ -479,10 +518,10 @@ python3 genera_citta.py --render         # render Cycles a qualità alta
 Il file `.blend` è salvato con le impostazioni di render finali; `--quick`
 riduce temporaneamente campioni e risoluzione solo per il PNG di controllo.
 
-Per eseguire tutti i **39 test geometrici** (i sei della decima versione, i 19
-di urbanistica, i quattro della dodicesima e i dieci della tredicesima, inclusi
-i controlli sugli ingombri dei modelli sorgente reali), dalla radice del
-repository, nello stesso ambiente Python con `bpy`:
+Per eseguire tutti i **48 test geometrici** (i sei della decima versione, i 19
+di urbanistica, i quattro della dodicesima, i dieci della tredicesima e i nove
+della quattordicesima, inclusi i controlli sugli ingombri dei modelli sorgente
+reali), dalla radice del repository, nello stesso ambiente Python con `bpy`:
 
 ```bash
 python3 -m unittest discover -s prova_citta_1 -p 'test_*.py' -v
