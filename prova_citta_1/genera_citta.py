@@ -42,7 +42,9 @@ continua di pianura, colline e dorsali appenniniche. La nona versione aggiunge
 semafori veicolari con dispositivi di chiamata pedonale ai sei incroci ordinari,
 trasforma la salita al borgo sul colle in una strada di breccia sinuosa e quotata
 sul pendio, e ricentra la camera sulla piazza per dare più spazio al cuore del
-paese senza perdere il borgo lontano.
+paese senza perdere il borgo lontano. La decima versione modifica soltanto
+la fontana della piazza (getti parabolici e increspature), l'altalena (cavalletti
+inclinati e sospensioni collegate) e lo scivolo (discesa, pianerottolo e scala).
 
 Richiede Blender 5.0+ e i modelli originali presenti nelle cartelle sorelle.
 
@@ -1478,6 +1480,31 @@ def build_trees_and_park(B, mats, green_col, road_col):
             B["leaf"].box((0, y, 0.70), (25, 0.5, 1.0))
 
 
+def add_tube(batch, points, radius, segments=8):
+    """Tubo continuo lungo una polilinea, con estremità chiuse.
+
+    Usato per acqua, sostegni e corrimani: le sezioni condivise evitano le
+    fessure che si avrebbero accostando cilindri verticali o ruotati.
+    """
+    points = [Vector(p) for p in points]
+    rows = []
+    for i, point in enumerate(points):
+        tangent = (points[min(i + 1, len(points) - 1)] -
+                   points[max(0, i - 1)]).normalized()
+        reference = Vector((0, 0, 1)) if abs(tangent.z) < 0.9 else Vector((1, 0, 0))
+        u = tangent.cross(reference).normalized()
+        v = tangent.cross(u).normalized()
+        rows.append([point + radius * (math.cos(TAU * j / segments) * u +
+                                       math.sin(TAU * j / segments) * v)
+                     for j in range(segments)])
+    batch.poly(rows[0][::-1])
+    for low, high in zip(rows, rows[1:]):
+        for j in range(segments):
+            k = (j + 1) % segments
+            batch.poly((low[j], low[k], high[k], high[j]), smooth=True)
+    batch.poly(rows[-1])
+
+
 def build_town_square(B, mats, furnishing_col):
     # Fontana centrale a due vasche concentriche.
     fx, fy = 0.0, -0.4
@@ -1490,12 +1517,27 @@ def build_town_square(B, mats, furnishing_col):
     B["concrete"].cylinder((fx, fy, 1.64), 0.48, 0.70, 32)
     B["metal_gold"].cylinder((fx, fy, 2.22), 0.18, 0.48, 18)
     B["metal_gold"].sphere((fx, fy, 2.72), 0.48, (0.65, 0.65, 1.15), 16, 10)
-    # Zampilli e piccoli getti.
+    # Otto getti continui dalla vasca superiore a quella inferiore.
+    # La traiettoria supera il bordo senza attraversare il piedistallo;
+    # l'ultimo punto tocca esattamente la superficie dell'acqua (0.8175).
     for i in range(8):
         a = TAU * i / 8
-        x, y = fx + math.cos(a) * 2.05, fy + math.sin(a) * 2.05
-        B["water"].cylinder((x, y, 1.15), 0.035, 0.70, 8)
-        B["water"].sphere((x, y, 1.54), 0.11, (0.8, 0.8, 1.4), 8, 5)
+        co, si = math.cos(a), math.sin(a)
+        points = []
+        for j in range(25):
+            t = j / 24
+            r = 0.72 + 2.03 * t
+            z = 1.52 * (1 - t) + 0.8175 * t + 3.6 * t * (1 - t)
+            points.append((fx + co * r, fy + si * r, z))
+        B["metal_gold"].cylinder((fx + co * 0.72, fy + si * 0.72, 1.39),
+                                  0.065, 0.26, 12)
+        add_tube(B["metal_gold"], points[:2], 0.052)
+        add_tube(B["water"], points, 0.035)
+        # Due cerchi bassi per ciascun impatto, interni alla vasca.
+        impact = points[-1]
+        for radius in (0.16, 0.30):
+            B["water"].ring((impact[0], impact[1], impact[2]), radius,
+                             0.015, 24, 6)
     # Dodici lampioni su bordo piazza e viali.
     for x, y in ((-14, -11), (14, -11), (-14, 11), (14, 11),
                  (-19, -19), (19, -19), (-19, 19), (19, 19),
@@ -1995,29 +2037,67 @@ def build_pond(B, cx, cy):
 # ---------------------------------------------------------------------------
 def build_playground(B, cx, cy):
     B["rubber"].box((cx, cy, 0.14), (12.0, 9.0, 0.10))
-    # Altalena doppia: montanti a A, traversa, catene e sedute.
+    # Altalena doppia: veri cavalletti a A appoggiati sul tappeto.
     ax, ay = cx - 3.4, cy + 1.6
+    ground_z, beam_z = 0.19, 2.85
     for side in (-1, 1):
+        px = ax + side * 2.3
         for lean in (-1, 1):
-            lbox(B["metal"], ax, ay, 0.0, side * 2.6, lean * 0.55, 1.05,
-                 0.10, 0.10, 2.3)
-    lbox(B["metal"], ax, ay, 0.0, 0, 0, 2.16, 5.4, 0.12, 0.12)
+            add_tube(B["metal"], ((px, ay + lean * 0.90, ground_z),
+                                   (px, ay, beam_z)), 0.065, 12)
+        # Tirante fra le due gambe, alla stessa quota sui due lati.
+        brace_z = 1.10
+        spread = 0.90 * (beam_z - brace_z) / (beam_z - ground_z)
+        add_tube(B["metal"], ((px, ay - spread, brace_z),
+                               (px, ay + spread, brace_z)), 0.045)
+    add_tube(B["metal"], ((ax - 2.45, ay, beam_z),
+                           (ax + 2.45, ay, beam_z)), 0.085, 12)
     for sx in (-1.1, 1.1):
-        for chain in (-0.18, 0.18):
-            lbox(B["metal"], ax, ay, 0.0, sx, chain, 1.45, 0.03, 0.03, 1.4)
+        # Catene sui lati della seduta, non davanti/dietro nel vuoto.
+        for side in (-1, 1):
+            px = ax + sx + side * 0.23
+            add_tube(B["metal"], ((px, ay, 0.75), (px, ay, beam_z)), 0.015)
         lbox(B["plastic" if sx < 0 else "canvas_yellow"], ax, ay, 0.0, sx, 0,
              0.72, 0.55, 0.28, 0.06)
-    # Scivolo con scaletta e sponde.
-    sx0, sy0 = cx + 2.6, cy + 2.4
-    lbox(B["plastic"], sx0, sy0, -0.5, 0, 0, 0.62, 0.7, 2.6, 0.08)
+    # Scivolo: scocca inclinata fino all'uscita bassa, con sponde parallele.
+    sx0, sy0, yaw = cx + 2.6, cy + 1.5, -0.5
+    bottom_y, top_y = -1.30, 1.10
+    bottom_z, top_z = 0.30, 1.65
+    run, rise = top_y - bottom_y, top_z - bottom_z
+    pitch = math.atan2(rise, run)
+    length = math.hypot(run, rise)
+    mid_y, mid_z = (bottom_y + top_y) / 2, (bottom_z + top_z) / 2
+    # Le quote indicano la superficie superiore: il centro è sotto di metà
+    # spessore lungo la normale, così scivolo e pianerottolo combaciano.
+    lbox_tilt(B["plastic"], sx0, sy0, yaw, 0,
+              mid_y + math.sin(pitch) * 0.04,
+              mid_z - math.cos(pitch) * 0.04,
+              0.76, length, 0.08, pitch)
     for side in (-1, 1):
-        lbox(B["plastic"], sx0, sy0, -0.5, side * 0.38, 0, 0.78, 0.06, 2.6, 0.34)
-    lbox(B["metal"], sx0, sy0, -0.5, 0, 1.42, 1.05, 0.7, 0.5, 0.10)
-    for i in range(4):
-        lbox(B["metal"], sx0, sy0, -0.5, 0, 1.05 + i * 0.28, 0.62 + i * 0.22,
-             0.6, 0.05, 0.05)
+        lbox_tilt(B["plastic"], sx0, sy0, yaw, side * 0.41,
+                  mid_y - math.sin(pitch) * 0.10,
+                  mid_z + math.cos(pitch) * 0.10,
+                  0.06, length, 0.28, pitch)
+    lbox(B["plastic"], sx0, sy0, yaw, 0, -1.57, 0.26, 0.76, 0.54, 0.08)
+    lbox(B["metal"], sx0, sy0, yaw, 0, 1.40, 1.60, 0.90, 0.60, 0.10)
+    # Quattro piedi sotto la piattaforma; accesso aperto sul retro.
+    def rail(points, radius=0.035):
+        add_tube(B["metal"], [lbox_point(sx0, sy0, yaw, *p) for p in points], radius)
     for side in (-1, 1):
-        lbox(B["metal"], sx0, sy0, -0.5, side * 0.3, 1.42, 1.5, 0.08, 0.08, 1.0)
+        for py in (1.16, 1.64):
+            rail(((side * 0.40, py, ground_z),
+                  (side * 0.40, py, 2.30)), 0.045)
+        rail(((side * 0.40, 1.10, 2.30), (side * 0.40, 1.70, 2.30)))
+        # Cosciali dal suolo al bordo del pianerottolo e corrimani continui.
+        rail(((side * 0.40, 2.90, ground_z),
+              (side * 0.40, 1.70, top_z)), 0.045)
+        rail(((side * 0.40, 2.90, 0.84), (side * 0.40, 1.70, 2.30)))
+        rail(((side * 0.40, 2.90, ground_z), (side * 0.40, 2.90, 0.84)))
+    # Cinque pedate orizzontali, allineate ai cosciali inclinati.
+    for i in range(1, 6):
+        t = i / 6
+        lbox(B["metal"], sx0, sy0, yaw, 0, 2.90 - 1.20 * t,
+             ground_z + (top_z - ground_z) * t, 0.80, 0.20, 0.055)
     # Sabbiera con bordo in legno e secchiello.
     bx, by = cx + 2.2, cy - 2.6
     for side in (-1, 1):

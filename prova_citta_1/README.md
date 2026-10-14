@@ -48,6 +48,27 @@ in un unico contesto.
   città — e oltre le colline tre **dorsali lontane in foschia** che chiudono
   l'orizzonte, con **cumuli** nel cielo.
 
+## Miglioramenti della decima versione
+
+Esattamente tre interventi di dettaglio, senza modificare impianto urbano,
+illuminazione o inquadratura:
+
+1. **Fontana con getti ad arco** — gli otto zampilli verticali isolati sono
+   sostituiti da tubi d'acqua continui a traiettoria parabolica, alimentati da
+   ugelli in ottone nella vasca superiore. I getti superano il bordo e
+   terminano sulla superficie della vasca inferiore, con due increspature
+   concentriche per ogni punto d'impatto.
+2. **Altalena con sostegni coerenti** — i quattro montanti prima verticali
+   formano ora due cavalletti a A, con tiranti trasversali e traversa comune.
+   I piedi poggiano sul tappeto e le quattro sospensioni raggiungono i lati
+   delle due sedute, invece di restare esterne alla loro profondità.
+3. **Scivolo realmente inclinato** — la vecchia pedana orizzontale diventa
+   una discesa di circa 29°, con sponde parallele e uscita bassa. Un
+   pianerottolo su quattro sostegni collega la discesa a una scaletta con
+   cinque pedate, cosciali inclinati e corrimani; l'accesso posteriore resta
+   libero. Si tratta di geometria scenografica, non di un progetto esecutivo
+   o di una certificazione di sicurezza dei giochi.
+
 ## Miglioramenti della nona versione
 
 Tre interventi, non di più, su sicurezza stradale, paesaggio e inquadratura:
@@ -305,6 +326,7 @@ denoising OpenImageDenoise e view transform AgX.
 | `citta.blend` | Scena 3D completa, camera e impostazioni Cycles |
 | `anteprima.png` | Render panoramico del borgo |
 | `genera_citta.py` | Script procedurale e importazione dei modelli esistenti |
+| `test_dettagli.py` | Sei controlli geometrici su fontana, altalena e scivolo |
 
 ## Rigenerazione
 
@@ -320,3 +342,12 @@ python3 genera_citta.py --render         # render Cycles a qualità alta
 
 Il file `.blend` è salvato con le impostazioni di render finali; `--quick`
 riduce temporaneamente campioni e risoluzione solo per il PNG di controllo.
+
+Per verificare i tre dettagli della decima versione, dalla radice del
+repository, nello stesso ambiente Python con `bpy`:
+
+```bash
+python3 -m unittest discover -s prova_citta_1 -p 'test_*.py' -v
+```
+
+I test non modificano il modello e non avviano render.
