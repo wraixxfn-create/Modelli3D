@@ -15,7 +15,8 @@ in un unico contesto.
   bancarelle a righe, ombrelloni, carretto con cassette e lavagna;
 - **pieve romanica** con navata, abside, rosone, campanile in mattoni con
   orologio, basamento in pietra e sagrato in basolato con cipressi e panche;
-- fontana a due vasche, pavimentazione in lastre, caffè all'aperto, panchine,
+- fontana a due vasche, pavimentazione in lastre, caffè all'aperto con
+  tavolini, sedie da bistro e avventori seduti, panchine,
   lampioni, aiuole, festoni colorati e due **rotatorie fiorite** con fontana;
 - **otto palazzi** residenziali/commerciali su basamento in pietra, con
   vetrine, balconi, tende, insegne, marcapiani, corpo scala vetrato e
@@ -47,6 +48,53 @@ in un unico contesto.
   **strada bianca a tornanti** che scende fino all'anello stradale della
   città — e oltre le colline tre **dorsali lontane in foschia** che chiudono
   l'orizzonte, con **cumuli** nel cielo.
+
+## Miglioramenti della tredicesima versione
+
+**Esattamente tre migliorie nel generatore**, senza cambiare viabilità,
+edifici, disposizione degli oggetti, camera o illuminazione:
+
+1. **Persone sedute** — le figure sedute erano persone in piedi sollevate di
+   42 cm: gambe dritte conficcate nella seduta della panchina e nel telaio
+   della bicicletta, busto sospeso a mezz'aria. La nuova posa ha cosce
+   orizzontali appoggiate al piano, stinchi verticali che scendono fino ai
+   piedi e braccia lungo i fianchi. La coppia sulla panchina si sposta
+   contro lo schienale con i piedi sulle lastre della piazza; i tre
+   ciclisti — le cui spalle erano prima perpendicolari alla direzione di
+   marcia — vengono orientati come la bicicletta, con l'anca sulla sella e
+   i piedi alla quota dei pedali.
+2. **Scooter** — le ruote erano dischi piatti sull'asse Y globale: nelle
+   soste ruotate restavano perpendicolari alla direzione di marcia. Ora ogni
+   scooter ha pneumatici ad anello nel piano locale, mozzi, forcella,
+   parafango, piano d'appoggio, codone con sella, scudo anteriore con faro,
+   fanale posteriore e manubrio trasversale con manopole e specchietti.
+   Tutte le parti seguono la rotazione del mezzo.
+3. **Caffè del Borgo arredato** — i due tavolini erano soli sotto il chiosco,
+   senza nemmeno una sedia, e le loro gambe spuntavano sotto la platea del
+   pavimento. I tavoli sono ora quotati sul calpestio (piano a 76 cm, come
+   un tavolo da bar), quattro sedie da bistro — quattro gambe, seduta a
+   46 cm, schienale a listelli — li contornano lasciando libero il
+   passaggio fra i montanti del gazebo, e due avventori siedono con la
+   nuova posa.
+
+Verifica mirata senza Blender:
+
+```bash
+python3 -m unittest discover -s prova_citta_1 -p 'test_persone_scooter_caffe.py' -v
+```
+
+I dieci test verificano cosce/stinchi/piedi quotati su panchina, bici e
+sedie, l'invarianza della posa in piedi, le rotazioni, le ruote dello
+scooter nel piano locale con mozzi e manubrio, e sedie/tavoli del caffè;
+intercettano le polilinee dei tubi senza tessellarle. **Gli artefatti
+`citta.blend` e `anteprima.png` restano alla versione precedente**:
+la rigenerazione richiede Blender 5.0+ con le librerie grafiche native
+(non disponibili nell'ambiente di verifica). Per applicare queste tre
+migliorie al modello e all'anteprima, dalla cartella del modello:
+
+```bash
+python3 genera_citta.py --quick --render
+```
 
 ## Miglioramenti della dodicesima versione
 
@@ -413,6 +461,8 @@ denoising OpenImageDenoise e view transform AgX.
 | `genera_citta.py` | Script procedurale e importazione dei modelli esistenti |
 | `test_dettagli.py` | Sei controlli geometrici su fontana, altalena e scivolo |
 | `test_urbanistica.py` | Diciannove controlli su case, giardini, fermata, ponte e tricolore |
+| `test_arredi_mobilita.py` | Quattro controlli su panchine, automobili e biciclette |
+| `test_persone_scooter_caffe.py` | Dieci controlli su persone sedute, scooter e caffè |
 
 ## Rigenerazione
 
@@ -429,9 +479,10 @@ python3 genera_citta.py --render         # render Cycles a qualità alta
 Il file `.blend` è salvato con le impostazioni di render finali; `--quick`
 riduce temporaneamente campioni e risoluzione solo per il PNG di controllo.
 
-Per eseguire tutti i **25 test geometrici** (i sei della decima versione e i
-19 nuovi, inclusi i controlli sugli ingombri dei modelli sorgente reali), dalla
-radice del repository, nello stesso ambiente Python con `bpy`:
+Per eseguire tutti i **39 test geometrici** (i sei della decima versione, i 19
+di urbanistica, i quattro della dodicesima e i dieci della tredicesima, inclusi
+i controlli sugli ingombri dei modelli sorgente reali), dalla radice del
+repository, nello stesso ambiente Python con `bpy`:
 
 ```bash
 python3 -m unittest discover -s prova_citta_1 -p 'test_*.py' -v
