@@ -48,6 +48,39 @@ in un unico contesto.
   città — e oltre le colline tre **dorsali lontane in foschia** che chiudono
   l'orizzonte, con **cumuli** nel cielo.
 
+## Miglioramenti della dodicesima versione
+
+**Esattamente tre migliorie nel generatore**, senza cambiare viabilità,
+edifici, disposizione degli oggetti, camera o illuminazione:
+
+1. **Panchine** — le tre assi dello schienale sono ora sovrapposte in
+   verticale e collegate ai montanti, anziché disposte come un ripiano
+   orizzontale dietro la seduta.
+2. **Automobili** — cabina con tetto, montanti e sei superfici vetrate non
+   più nascoste nel volume opaco; coppie di fari anteriori e posteriori.
+   Pneumatici e mozzi seguono l'orientamento dell'auto anche nelle soste
+   ruotate, invece di mantenere sempre l'asse globale Y.
+3. **Biciclette** — pneumatici ad anello con otto raggi per ruota, telaio a
+   diamante con forcella collegata al mozzo, sella, manubrio trasversale e
+   pedali. Tutte le parti rispettano la rotazione del mezzo.
+
+Verifica mirata senza Blender:
+
+```bash
+python3 -m unittest discover -s prova_citta_1 -p 'test_arredi_mobilita.py' -v
+```
+
+I quattro test verificano schienali, vetrature/fanali, rotazioni e struttura
+delle biciclette; intercettano le polilinee dei tubi senza tessellarle.
+**Gli artefatti `citta.blend` e `anteprima.png` restano alla versione precedente**:
+la rigenerazione richiede Blender 5.0+ con le librerie grafiche native
+(non disponibili nell'ambiente di verifica). Per applicare queste tre
+migliorie al modello e all'anteprima, dalla cartella del modello:
+
+```bash
+python3 genera_citta.py --quick --render
+```
+
 ## Miglioramenti dell'undicesima versione
 
 **Esattamente tre migliorie**, oltre alla correzione degli edifici in strada
