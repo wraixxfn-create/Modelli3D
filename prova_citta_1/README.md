@@ -38,11 +38,51 @@ in un unico contesto.
 - ciliegi fioriti ripresi dal modello `albero_2`, alberature urbane
   procedurali e cipressi;
 - **campagna circostante**: colline dolci che si chiudono sull'orizzonte senza
-  gradini, boschi di macchia mediterranea sui pendii, campi di grano e uliveti
-  a filari, cipressi isolati e il borgo sul
+  gradini, boschi di macchia mediterranea sui pendii, campi di grano, vigne e
+  uliveti a filari, cipressi isolati e il borgo sul
   colle a nord-ovest — pieve con abside e rosone, campanile a vela, sei case a
   capanna su zoccoli quotati, muro di cinta, uliveto e una **strada bianca**
-  che scende fino all'anello stradale della città.
+  che scende fino all'anello stradale della città — e oltre le colline una
+  **catena lontana in foschia** che chiude l'orizzonte, con **cumuli** nel
+  cielo.
+
+## Miglioramenti della settima versione
+
+Tre interventi sui tre piani del fondo della veduta — lontano, colture, cielo:
+
+1. **La catena lontana chiude l'orizzonte** — oltre il rilievo la scena
+   finiva con un disco piatto da 6 km che si leggeva come un mare grigio, e
+   il bordo netto con cui la campagna si staccava dal cielo non era il margine
+   della piana ma il **piano di clip della camera, fermo a 1600 m**: tutta la
+   campagna lontana veniva tagliata lì, lasciando sotto il cielo una fascia
+   vuota. Ora il clip è portato a 40 km e il disco è sostituito da un **anello
+   radiale fino a 13 km** quotato su una nuova funzione di quota: onde leggere
+   sulla piana, dossi sparsi a posizioni deterministiche e una **catena
+   lontana** — più alta verso nord-ovest, nella direzione della veduta — che
+   chiude l'orizzonte con un profilo morbido. Il colore smorza in tre fasce
+   verso la foschia (campagna lontana, piana intermedia, colline in foschia),
+   e il raccordo col quadrato del rilievo resta una piana piatta: le quote
+   della piana lontana si spengono entro i primi 500 m, così nessuno spunzone
+   dei rilievi lontani si sovrappone al bordo della città.
+2. **I campi del mezzogiorno si leggono** — nel triangolo ovest della veduta,
+   fra circonvallazione, strada bianca e boschi, non c'era che erba uniforme,
+   e i campi esistenti erano lastre piatte con piccole palline d'olivo.
+   Ogni campo ha ora una **base conformata al rilievo** — una maglia di quad
+   condivisi quotati punto per punto, la stessa funzione del rilievo — e una
+   cultura riconoscibile: **grano con solcature** a passo regolare e due
+   **balle di fieno** appena raccolte, **uliveti veri** con tronco e due globi
+   di fogliame in filari sfalsati, **vigne a filari** paralleli al lato lungo
+   con pali di sostegno. Quattro campi nuovi riempiono il triangolo vuoto —
+   vigna, grano e uliveto lungo la strada bianca, e una vigna fra i boschi
+   del nord — e tutti gli otto campi storici cambiano cultura, restando al
+   loro posto.
+3. **Cumuli sull'orizzonte** — il cielo fisico non porta nubi e la fascia
+   alta del fotogramma, un quarto della veduta, restava un gradiente vuoto.
+   Sei **cumuli con base piatta e cima a cupola** — lobi appiattiti in basso,
+   rotondi in alto — sono allineati alla direzione della camera a quote e
+   distanze irregolari, fra i 6,8 e i 12,4 km, a quote che li fanno passare
+   dietro le creste della catena lontana. Non
+   proiettano ombre sulla campagna: sono puro fondale.
 
 ## Miglioramenti di questa versione
 
