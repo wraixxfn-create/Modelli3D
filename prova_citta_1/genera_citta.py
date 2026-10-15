@@ -108,6 +108,26 @@ prima appesi a un filo unico di 6,8 m sotto l'intradosso dei balconi e davanti
 alle campate prive di balcone, passano dentro i cinque balconi effettivi dei
 piani primo e secondo, tesi fra le spallette laterali alla quota del corrimano.
 
+La ventesima versione interviene su pieve, mercato e semafori: nella pieve
+romanica il rosone — prima centrato a quota 4,35 m dentro l'architrave del
+portale e costruito con `axis="Y"`, quindi girato di 90° di taglio rispetto
+alla facciata orientata a est — sale nel registro superiore della facciata
+(`z = 7,80 m`) nel riferimento locale con cornice, vetrata e raggiera a otto
+colonnette, le cinque monofore dell'abside seguono la tangente del cilindro
+absidale anziché sporgere di taglio, il campanile riceve orologio con doppia
+lancetta locale e guglia piramidale quadrata appoggiata sulla cornice (invece
+del cono a quattro lati ruotato di 45° a rombo e sospeso di 13 cm), e le due
+panche del sagrato tornano ai lati del portale con i propri sostegni; nel
+mercato di Piazza delle Querce i montanti delle dieci bancarelle poggiano sul
+lastricato e si arrestano sotto la falda inclinata con traverse e puntoni
+(invece di bucare il telo per 36 cm), mentre il carretto ha due ruote a raggi
+sui fianchi opposti nel piano locale, piedini, stanghe e tre cassette di
+ortaggi sul pianale, separato dalla lavagna dei prezzi che prima veniva
+tagliata dalle ruote; nei sei incroci semaforizzati i pali escono infine dalle
+rampe accessibili e dalle piastre tattili gialle (`x + 5,40, y + 5,40`), con
+pulsante di chiamata fissato sul fusto e mini-segnale pedonale collegato al
+palo da due staffe metalliche anziché sospeso nel vuoto.
+
 Richiede Blender 5.0+ e i modelli originali presenti nelle cartelle sorelle.
 
     python3 genera_citta.py                 # salva citta.blend
@@ -2121,36 +2141,63 @@ def make_cafe_chair(B, x, y, yaw, floor_z):
         lbox(B["wood_light"], x, y, yaw, 0, 0.20, z, 0.38, 0.05, 0.07)
 
 
+CROSSWALK_JUNCTIONS = ((-70, -70), (70, -70), (-70, 70), (70, 70),
+                       (-23, 32), (23, -32))
+SIGNAL_CORNER_OFFSET = 5.40
+
+
+def build_crosswalk_signal(B, px, py, yaw=0.0):
+    """Palo semaforico con lanterna veicolare, segnale pedonale su staffe e pulsante.
+
+    Il vecchio palo stava a `(x + 4,70, y + 4,70)` sopra la piastra tattile
+    gialla della rampa ribassata, mentre il mini-segnale pedonale (`px + 0,50`)
+    e il pulsante di chiamata (`px + 0,32`) fluttuavano nel vuoto a 25,5 e
+    11,5 cm a est del fusto (`r = 0,065 m`). Ora il palo poggia sul piano del
+    marciapiede fuori dalla rampa (`x + 5,40, y + 5,40`), il pulsante è fissato
+    direttamente sul fusto e due staffe metalliche reggono il segnale pedonale;
+    tutta la geometria è costruita nel riferimento locale `(px, py, yaw)`.
+    """
+    B["metal"].cylinder((px, py, 2.45), 0.065, 4.70, 12)
+    B["metal_gold"].cylinder((px, py, 0.22), 0.18, 0.20, 12)
+    # Testa veicolare a tre lanterne, innestata sul fronte (-Y) del palo.
+    lbox(B["metal"], px, py, yaw, 0.0, -0.16, 4.22, 0.52, 0.34, 1.70)
+    for z, key in ((4.76, "signal_red"), (4.24, "signal_amber"),
+                   (3.72, "signal_green")):
+        add_tube(B[key],
+                 (lbox_point(px, py, yaw, 0.0, -0.32, z),
+                  lbox_point(px, py, yaw, 0.0, -0.38, z)), 0.145, 16)
+    # Mini-segnale pedonale collegato al palo da due staffe orizzontali.
+    for bz in (2.56, 3.00):
+        add_tube(B["metal"],
+                 (lbox_point(px, py, yaw, 0.0, 0.0, bz),
+                  lbox_point(px, py, yaw, 0.0, -0.08, bz),
+                  lbox_point(px, py, yaw, 0.22, -0.08, bz)), 0.028, 8)
+    lbox(B["metal"], px, py, yaw, 0.34, -0.08, 2.78, 0.34, 0.26, 0.68)
+    lbox(B["white"], px, py, yaw, 0.34, -0.22, 2.78, 0.25, 0.035, 0.52)
+    add_tube(B["signal_red"],
+             (lbox_point(px, py, yaw, 0.34, -0.23, 2.91),
+              lbox_point(px, py, yaw, 0.34, -0.26, 2.91)), 0.060, 12)
+    add_tube(B["walk_green"],
+             (lbox_point(px, py, yaw, 0.34, -0.23, 2.65),
+              lbox_point(px, py, yaw, 0.34, -0.26, 2.65)), 0.060, 12)
+    add_tube(B["road_white"],
+             (lbox_point(px, py, yaw, 0.34, -0.255, 2.95),
+              lbox_point(px, py, yaw, 0.34, -0.275, 2.95)), 0.021, 8)
+    lbox(B["road_white"], px, py, yaw, 0.34, -0.265, 2.84, 0.022, 0.018, 0.12)
+    lbox(B["road_white"], px, py, yaw, 0.34, -0.265, 2.79, 0.12, 0.018, 0.022)
+    # Pulsante di chiamata fissato direttamente sul fronte del fusto.
+    lbox(B["metal"], px, py, yaw, 0.0, -0.11, 1.38, 0.20, 0.16, 0.32)
+    B["signal_amber"].sphere(lbox_point(px, py, yaw, 0.0, -0.20, 1.38),
+                             0.050, segments=10, rings=6)
+
+
 def build_crosswalk_signals(B, mats, sign_col):
     """Semafori veicolari e richiami pedonali sui sei incroci ordinari principali."""
     # Le due rotatorie non ricevono semafori: restano libere e mantengono la
     # precedenza circolare, invece di mettere pali dentro l'anello carrabile.
-    junctions = ((-70, -70), (70, -70), (-70, 70), (70, 70),
-                 (-23, 32), (23, -32))
-    for x, y in junctions:
-        px, py = x + 4.7, y + 4.7
-        # Palo antracite con basetta e testa a tre lanterne rivolta verso
-        # l'approccio sud; il rosso fisso è distinguibile anche di giorno.
-        B["metal"].cylinder((px, py, 2.35), 0.065, 4.7, 12)
-        B["metal_gold"].cylinder((px, py, 0.22), 0.18, 0.20, 12)
-        B["metal"].box((px, py - 0.16, 4.22), (0.62, 0.34, 1.70))
-        for z, key in ((4.76, "signal_red"), (4.24, "signal_amber"),
-                       (3.72, "signal_green")):
-            B[key].cylinder((px, py - 0.35, z), 0.145, 0.055, 16, axis="Y")
-        # Mini-segnale pedonale con omino stilizzato e pulsante di chiamata.
-        B["metal"].box((px + 0.50, py - 0.17, 2.78), (0.36, 0.30, 0.68))
-        B["white"].box((px + 0.50, py - 0.34, 2.78), (0.25, 0.035, 0.52))
-        B["signal_red"].cylinder((px + 0.50, py - 0.37, 2.91),
-                                 0.060, 0.025, 12, axis="Y")
-        B["walk_green"].cylinder((px + 0.50, py - 0.37, 2.65),
-                                  0.060, 0.025, 12, axis="Y")
-        B["road_white"].cylinder((px + 0.50, py - 0.39, 2.95),
-                                  0.021, 0.018, 8, axis="Y")
-        B["road_white"].box((px + 0.50, py - 0.39, 2.84), (0.022, 0.018, 0.12))
-        B["road_white"].box((px + 0.50, py - 0.39, 2.79), (0.12, 0.018, 0.022))
-        B["metal"].box((px + 0.32, py - 0.17, 1.58), (0.28, 0.20, 0.34))
-        B["signal_amber"].sphere((px + 0.32, py - 0.29, 1.58),
-                                 0.055, segments=10, rings=6)
+    for x, y in CROSSWALK_JUNCTIONS:
+        build_crosswalk_signal(B, x + SIGNAL_CORNER_OFFSET,
+                               y + SIGNAL_CORNER_OFFSET, 0.0)
     # Cartelli direzionali all'ingresso della piazza.
     for x, yaw in ((-23, 0), (23, PI)):
         B["metal"].cylinder((x, -19.8, 2.0), 0.065, 3.9, 10)
@@ -2164,7 +2211,7 @@ def build_crosswalk_signals(B, mats, sign_col):
 # ---------------------------------------------------------------------------
 # Pieve romanica con campanile e sagrato
 # ---------------------------------------------------------------------------
-def build_church(B, mats, col):
+def build_church(B, mats, col, cx=-48.0, cy=-17.5, yaw=PI / 2):
     """Pieve con navata, abside, rosone, campanile e sagrato in basolato."""
     # La navata era girata di un quarto di giro rispetto a tutto ciò che le
     # sta intorno: `make_cube` riceveva (d, w, h) mentre falde, abside,
@@ -2174,7 +2221,6 @@ def build_church(B, mats, col):
     # staccata tre metri dal muro di fondo e il portale galleggiava in mezzo
     # al sagrato. Rimessa in asse, con la profondità ridotta a venti metri
     # e il corpo arretrato a ovest, così l'abside non entra nella strada.
-    cx, cy, yaw = -48.0, -17.5, PI / 2  # fronte verso est, sul viale
     w, d, h = 13.0, 20.0, 9.6
     make_cube("Pieve — navata", (cx, cy, 0.35 + h / 2), (w, d, h),
               mats["cream"], col, yaw=yaw, bevel=0.10)
@@ -2206,22 +2252,35 @@ def build_church(B, mats, col):
             lbox(B["trim"], cx, cy, yaw, lx, ly, 0.35 + h / 2, 0.22, 1.1, h)
     lbox(B["concrete"], cx, cy, yaw, 0, 0, 0.42, w + 0.5, d + 0.5, 0.5)
     lbox(B["trim"], cx, cy, yaw, 0, 0, eave - 0.25, w + 0.5, d + 0.5, 0.34)
-    # Facciata: portale strombato, rosone e croce di colmo.
+    # Facciata: portale strombato, rosone nel registro superiore e croce di colmo.
+    # Il vecchio rosone era centrato a z = 4,35 m (dentro l'architrave del
+    # portale) e generato con `axis="Y"`, quindi girato di 90° di taglio
+    # rispetto alla facciata orientata a est (yaw = pi/2).
     face = -d / 2
     lbox(B["wood"], cx, cy, yaw, 0, face - 0.12, 2.1, 2.6, 0.24, 4.0)
     lbox(B["trim"], cx, cy, yaw, 0, face - 0.20, 4.35, 3.6, 0.4, 0.5)
     for side in (-1, 1):
         lbox(B["trim"], cx, cy, yaw, side * 1.55, face - 0.20, 2.1, 0.42, 0.42, 4.2)
         lbox(B["trim"], cx, cy, yaw, side * 2.1, face - 0.14, 2.1, 0.36, 0.30, 4.0)
-    B["trim"].cylinder(lbox_point(cx, cy, yaw, 0, face - 0.16, 4.35), 1.30, 0.34,
-                       24, axis="Y")
-    B["glass"].cylinder(lbox_point(cx, cy, yaw, 0, face - 0.30, 4.35), 1.02,
-                        0.10, 24, axis="Y")
+    rose_z = 7.80
+    add_tube(B["trim"],
+             (lbox_point(cx, cy, yaw, 0, face + 0.02, rose_z),
+              lbox_point(cx, cy, yaw, 0, face - 0.30, rose_z)), 1.30, 24)
+    add_tube(B["glass"],
+             (lbox_point(cx, cy, yaw, 0, face - 0.24, rose_z),
+              lbox_point(cx, cy, yaw, 0, face - 0.34, rose_z)), 1.02, 24)
+    add_tube(B["trim"],
+             (lbox_point(cx, cy, yaw, 0, face - 0.26, rose_z),
+              lbox_point(cx, cy, yaw, 0, face - 0.38, rose_z)), 0.22, 16)
     for i in range(8):
         a = TAU * i / 8
-        p = lbox_point(cx, cy, yaw, math.cos(a) * 0.9, face - 0.34,
-                       4.35 + math.sin(a) * 0.9)
-        B["trim"].box(p, (0.10, 0.10, 0.10))
+        add_tube(B["trim"],
+                 (lbox_point(cx, cy, yaw, math.cos(a) * 0.20, face - 0.35,
+                             rose_z + math.sin(a) * 0.20),
+                  lbox_point(cx, cy, yaw, math.cos(a) * 1.02, face - 0.35,
+                             rose_z + math.sin(a) * 1.02)), 0.038, 8)
+        lbox(B["trim"], cx, cy, yaw, math.cos(a) * 1.15, face - 0.33,
+             rose_z + math.sin(a) * 1.15, 0.14, 0.10, 0.14)
     lbox(B["trim"], cx, cy, yaw, 0, face + 0.6, ridge + 0.75, 0.16, 0.16, 1.5)
     lbox(B["trim"], cx, cy, yaw, 0, face + 0.6, ridge + 0.95, 0.9, 0.16, 0.16)
     # Finestre laterali ad arco (termali) lungo la navata.
@@ -2231,17 +2290,22 @@ def build_church(B, mats, col):
                  0.12, 1.5, 2.6)
             lbox(B["trim"], cx, cy, yaw, side * (w / 2 + 0.12), sy, 4.22,
                  0.18, 1.8, 0.22)
-    # Abside semicircolare con calotta sul retro.
+    # Abside semicircolare con calotta sul retro: le cinque monofore sono
+    # orientate secondo la tangente locale (yaw + a), anziché parallele ai
+    # muri della navata dove sporgevano di taglio fino a 55 cm fuori dal cilindro.
     B["cream"].cylinder(lbox_point(cx, cy, yaw, 0, d / 2 + 1.6, 0.35 + h * 0.42),
                         4.4, h * 0.84, 24)
     B["terracotta"].cone(lbox_point(cx, cy, yaw, 0, d / 2 + 1.6, eave - 0.24),
                          4.7, 0.4, 2.6, 24)
     for i in range(5):
         a = PI * (0.2 + 0.15 * i)
-        lbox(B["glass"], cx, cy, yaw, math.cos(a) * 4.42, d / 2 + 1.6 +
-             math.sin(a) * 4.42 - (d / 2 + 1.6) + (d / 2 + 1.6), 5.4,
-             0.10, 1.1, 2.2)
-    # Campanile in mattoni con cella campanaria, orologio e guglia.
+        wx, wy, _ = lbox_point(cx, cy, yaw, math.cos(a) * 4.42,
+                               d / 2 + 1.6 + math.sin(a) * 4.42, 5.4)
+        B["glass"].box((wx, wy, 5.4), (0.12, 1.10, 2.20), yaw + a)
+        sx_w, sy_w, _ = lbox_point(cx, cy, yaw, math.cos(a) * 4.46,
+                                   d / 2 + 1.6 + math.sin(a) * 4.46, 4.22)
+        B["trim"].box((sx_w, sy_w, 4.22), (0.18, 1.28, 0.20), yaw + a)
+    # Campanile in mattoni con cella campanaria, orologio e guglia piramidale.
     tx, ty = 7.9, -13.6
     lbox(B["brick"], cx, cy, yaw, tx, ty, 10.5, 3.4, 3.4, 20.6)
     for zz in (0.9, 7.4, 15.2, 20.4):
@@ -2252,29 +2316,48 @@ def build_church(B, mats, col):
     for side in (-1, 1):
         lbox(B["glass"], cx, cy, yaw, tx + side * 1.74, ty, 18.0, 0.12, 1.2, 2.2)
         lbox(B["glass"], cx, cy, yaw, tx, ty + side * 1.74, 18.0, 1.2, 0.12, 2.2)
+    lbox(B["trim"], cx, cy, yaw, tx, ty - 1.74, 14.2, 1.38, 0.08, 1.38)
     lbox(B["white"], cx, cy, yaw, tx, ty - 1.78, 14.2, 1.2, 0.10, 1.2)
-    B["metal_gold"].cylinder(lbox_point(cx, cy, yaw, tx, ty - 1.86, 14.2),
-                             0.07, 0.10, 12, axis="Y")
-    B["metal_gold"].box(lbox_point(cx, cy, yaw, tx, ty - 1.90, 14.5),
-                        (0.05, 0.05, 0.5))
-    B["terracotta"].cone(lbox_point(cx, cy, yaw, tx, ty, 22.2), 2.6, 0.1, 3.0, 4)
+    add_tube(B["metal_gold"],
+             (lbox_point(cx, cy, yaw, tx, ty - 1.78, 14.2),
+              lbox_point(cx, cy, yaw, tx, ty - 1.88, 14.2)), 0.07, 12)
+    lbox(B["metal_gold"], cx, cy, yaw, tx, ty - 1.85, 14.42, 0.05, 0.04, 0.48)
+    lbox(B["metal_gold"], cx, cy, yaw, tx + 0.16, ty - 1.85, 14.20, 0.36, 0.04, 0.05)
+    # Guglia piramidale a base quadrata allineata alla canna del campanile e
+    # appoggiata sulla cornice sommitale (20,57 m): il vecchio `cone(..., 4)`
+    # era ruotato di 45° a rombo e partiva da quota 20,70 m, lasciando scoperti
+    # i quattro angoli e una fessura di 13 cm sopra la cornice.
+    spire_corners = [
+        lbox_point(cx, cy, yaw, tx + dx, ty + dy, 20.55)
+        for dx, dy in ((-1.88, -1.88), (1.88, -1.88), (1.88, 1.88), (-1.88, 1.88))
+    ]
+    spire_apex = lbox_point(cx, cy, yaw, tx, ty, 23.70)
+    B["terracotta"].poly(spire_corners[::-1])
+    for i in range(4):
+        B["terracotta"].tri(spire_corners[i], spire_corners[(i + 1) % 4], spire_apex)
     lbox(B["metal_gold"], cx, cy, yaw, tx, ty, 24.1, 0.09, 0.09, 1.0)
     lbox(B["metal_gold"], cx, cy, yaw, tx, ty, 24.3, 0.56, 0.09, 0.09)
-    # Sagrato in basolato con sagrestia, cipressi e lampioni. Più spesso di
-    # prima: con soli 18 cm il bordo lasciava vedere il vuoto sul terreno.
-    make_cube("Sagrato della pieve", (-33.6, -17.5, 0.06), (11.6, 17.5, 0.30),
-              mats["basolato"], col, bevel=0.05)
-    for px, py in ((-29.0, -24.1), (-29.0, -10.9)):
+    # Sagrato in basolato con cipressi, lampioni, panche con sostegni ed edicola.
+    sagrato_c = lbox_point(cx, cy, yaw, 0.0, -14.4, 0.06)
+    make_cube("Sagrato della pieve", sagrato_c, (17.5, 11.6, 0.30),
+              mats["basolato"], col, yaw=yaw, bevel=0.05)
+    for lx in (-6.6, 6.6):
+        px, py, _ = lbox_point(cx, cy, yaw, lx, -19.0, 0.0)
         B["cypress"].cylinder((px, py, 3.4), 0.24, 6.4, 10)
         B["cypress"].cone((px, py, 5.6), 1.15, 0.0, 7.4, 12)
-    for px, py in ((-29.6, -21.0), (-29.6, -14.0)):
-        add_lamp(B, px, py, height=4.4, ornate=True)
-    # Panche del sagrato e piccola edicola votiva.
-    for py in (-20.5, -14.5):
-        lbox(B["wood_light"], -34.5, -17.5, PI / 2, 0, py + 17.5, 0.55,
-             2.0, 0.5, 0.10)
+    for lx in (-3.5, 3.5):
+        px, py, _ = lbox_point(cx, cy, yaw, lx, -18.4, 0.0)
+        build_street_lamp(B, px, py, height=4.4, yaw=yaw - PI / 2, ornate=True)
+    # Panche del sagrato ai lati del portale (`lx = ±3,0`, `ly = -13,5`) con
+    # gambe in pietra sul basolato: prima lo scambio degli assi locali le
+    # metteva entrambe in asse davanti alla porta (`y = -17,5`) e senza gambe.
+    for lx in (-3.0, 3.0):
+        lbox(B["wood_light"], cx, cy, yaw, lx, -13.5, 0.55, 2.0, 0.5, 0.10)
+        for side in (-1, 1):
+            lbox(B["concrete"], cx, cy, yaw, lx + side * 0.75, -13.5, 0.35,
+                 0.14, 0.44, 0.30)
     lbox(B["trim"], cx, cy, yaw, 6.9, -6.0, 1.5, 0.5, 0.9, 1.9)
-    lbox(B["metal_gold"], cx, cy, yaw, 6.62, -6.0, 1.6, 0.10, 0.5, 0.7)
+    lbox(B["metal_gold"], cx, cy, yaw, 7.12, -6.0, 1.6, 0.10, 0.5, 0.7)
 
 
 def add_gable_roof(batch, wall_batch, cx, cy, w, d, eave_z, ridge_z, ov=0.30):
@@ -2311,11 +2394,38 @@ def lbox_point(cx, cy, yaw, x, y, z):
 # Piazza del Mercato: bancarelle, casse di ortaggi e ombrelloni
 # ---------------------------------------------------------------------------
 def build_market_stall(B, x, y, yaw, canvas_key):
+    """Bancarella con telaio ligneo raccordato alla tenda, banco e cassette.
+
+    Prima tutti e quattro i montanti salivano da `z = 0,00` (21 cm sotto il
+    lastricato della piazza a `z = 0,21 m`) fino a `z = 2,50 m`, bucando di
+    36 cm la falda anteriore della tenda (`z = 2,14 m`), mentre le gambe del
+    banco e la cassa bassa a terra affondavano di 20 cm nel basolato.
+    """
     w, d, htop = 3.4, 2.5, 2.5
+    floor_z = 0.21
+    y_front, y_back = -d / 2 - 0.35, d / 2 + 0.25
+    z_front, z_back = htop - 0.42, htop
+    post_ly = (-d / 2 + 0.1, d / 2 - 0.1)
+    post_tops = []
+    for sy_idx, ly in enumerate(post_ly):
+        t_ly = (ly - y_front) / (y_back - y_front)
+        post_top = z_front + (z_back - z_front) * t_ly - 0.02
+        post_tops.append(post_top)
+        post_h = post_top - floor_z
+        post_zc = floor_z + post_h / 2
+        for sx in (-1, 1):
+            lbox(B["wood"], x, y, yaw, sx * (w / 2 - 0.1), ly,
+                 post_zc, 0.09, 0.09, post_h)
+        # Traversa longitudinale in sommità tra i montanti anteriore/posteriore.
+        lbox(B["wood"], x, y, yaw, 0.0, ly, post_top - 0.035,
+             w - 0.11, 0.07, 0.07)
+    # Puntoni laterali inclinati sotto la falda della tenda.
     for sx in (-1, 1):
-        for sy in (-1, 1):
-            lbox(B["wood"], x, y, yaw, sx * (w / 2 - 0.1), sy * (d / 2 - 0.1),
-                 htop / 2, 0.09, 0.09, htop)
+        lx = sx * (w / 2 - 0.1)
+        add_tube(B["wood"],
+                 (lbox_point(x, y, yaw, lx, post_ly[0], post_tops[0] - 0.035),
+                  lbox_point(x, y, yaw, lx, post_ly[1], post_tops[1] - 0.035)),
+                 0.035, 8)
     # Tenda a righe leggermente inclinata verso il fronte.
     n = 6
     for i in range(n):
@@ -2323,14 +2433,16 @@ def build_market_stall(B, x, y, yaw, canvas_key):
         xb = -w / 2 - 0.25 + (w + 0.5) * (i + 1) / n
         key = canvas_key if i % 2 == 0 else "white"
         pts = [lbox_point(x, y, yaw, *p) for p in
-               ((xa, -d / 2 - 0.35, htop - 0.42), (xb, -d / 2 - 0.35, htop - 0.42),
-                (xb, d / 2 + 0.25, htop), (xa, d / 2 + 0.25, htop))]
+               ((xa, y_front, z_front), (xb, y_front, z_front),
+                (xb, y_back, z_back), (xa, y_back, z_back))]
         B[key].quad(*pts)
-    # Banco con merce esposta in cassette.
+    # Banco con merce esposta in cassette e gambe appoggiate sul lastricato.
     lbox(B["wood_light"], x, y, yaw, 0, -0.2, 0.86, w - 0.3, 1.1, 0.10)
+    leg_h = 0.81 - floor_z
+    leg_zc = floor_z + leg_h / 2
     for side in (-1, 1):
-        lbox(B["wood_light"], x, y, yaw, side * (w / 2 - 0.35), -0.2, 0.44,
-             0.10, 1.0, 0.86)
+        lbox(B["wood_light"], x, y, yaw, side * (w / 2 - 0.35), -0.2, leg_zc,
+             0.10, 1.0, leg_h)
     produce = ("produce_red", "produce_green", "produce_orange",
                "produce_yellow")
     for i in range(4):
@@ -2341,10 +2453,85 @@ def build_market_stall(B, x, y, yaw, canvas_key):
             ox = px + random.uniform(-0.24, 0.24)
             oy = -0.2 + random.uniform(-0.28, 0.28)
             lbox(B[key], x, y, yaw, ox, oy, 1.16, 0.16, 0.16, 0.12)
-    # Cassette impilate a terra accanto al banco.
+    # Cassette impilate sul lastricato (`z >= 0,21 m`) accanto al banco.
     for k in range(2):
-        lbox(B["wood"], x, y, yaw, w / 2 + 0.45, 0.5 - k * 0.05,
-             0.16 + k * 0.30, 0.7, 0.9, 0.28)
+        lbox(B["wood"], x, y, yaw, w / 2 + 0.35, 0.45 - k * 0.05,
+             floor_z + 0.14 + k * 0.28, 0.66, 0.84, 0.28)
+
+
+def build_market_cart(B, mats, col, x=-13.6, y=9.5, yaw=PI / 2):
+    """Carretto agricolo a due ruote a raggi con cassette di ortaggi e lavagna.
+
+    Prima entrambe le ruote erano sullo stesso fianco (`ly = -0,60`) e create
+    con `axis="Y"`, quindi con `yaw = pi/2` risultavano perpendicolari al
+    cassone, piene come macine e affondate di 21 cm sotto il lastricato;
+    inoltre il palo della lavagna scendeva a `z = -0,10 m` e la lavagna
+    intersecava le ruote.
+    """
+    floor_z = 0.21
+    wheel_r = 0.34
+    tire_r = 0.04
+    wheel_z = floor_z + wheel_r + tire_r  # 0.59 m: battistrada a quota 0.21 m
+    wheel_lx = -0.12
+    # Due ruote a raggi sui due fianchi opposti (`ly = ±0,60`), giacenti nel
+    # piano locale XZ (rotolamento lungo l'asse locale X del carretto).
+    for side in (-1, 1):
+        ly = side * 0.60
+        ring_pts = [
+            lbox_point(x, y, yaw, wheel_lx + math.cos(TAU * k / 16) * wheel_r,
+                       ly, wheel_z + math.sin(TAU * k / 16) * wheel_r)
+            for k in range(17)
+        ]
+        add_tube(B["metal"], ring_pts, tire_r, 8)
+        for s in range(6):
+            ang = PI * s / 6
+            p0 = lbox_point(x, y, yaw, wheel_lx - math.cos(ang) * wheel_r,
+                            ly, wheel_z - math.sin(ang) * wheel_r)
+            p1 = lbox_point(x, y, yaw, wheel_lx + math.cos(ang) * wheel_r,
+                            ly, wheel_z + math.sin(ang) * wheel_r)
+            add_tube(B["wood"], (p0, p1), 0.020, 6)
+        add_tube(B["metal_gold"],
+                 (lbox_point(x, y, yaw, wheel_lx, ly - 0.04, wheel_z),
+                  lbox_point(x, y, yaw, wheel_lx, ly + 0.04, wheel_z)),
+                 0.065, 10)
+    # Assale trasversale tra i due mozzi.
+    add_tube(B["metal"],
+             (lbox_point(x, y, yaw, wheel_lx, -0.62, wheel_z),
+              lbox_point(x, y, yaw, wheel_lx, 0.62, wheel_z)),
+             0.030, 8)
+    # Pianale e sponde in legno con piedini anteriori e stanghe posteriori.
+    lbox(B["wood"], x, y, yaw, 0.0, 0.0, 0.72, 1.70, 1.06, 0.08)
+    for side in (-1, 1):
+        lbox(B["wood_light"], x, y, yaw, 0.0, side * 0.50, 0.86, 1.66, 0.06, 0.20)
+        # Piedini di appoggio anteriori fino a quota lastricato (0,21 m).
+        lbox(B["metal"], x, y, yaw, 0.58, side * 0.42, 0.445, 0.05, 0.05, 0.47)
+        # Stanghe posteriori con impugnatura per la spinta manuale.
+        lbox(B["wood"], x, y, yaw, -0.98, side * 0.42, 0.78, 0.42, 0.05, 0.05)
+        add_tube(B["wood_light"],
+                 (lbox_point(x, y, yaw, -1.12, side * 0.42, 0.78),
+                  lbox_point(x, y, yaw, -1.24, side * 0.42, 0.78)),
+                 0.028, 8)
+    for lx in (-0.82, 0.82):
+        lbox(B["wood_light"], x, y, yaw, lx, 0.0, 0.86, 0.06, 0.96, 0.20)
+    # Cassette di ortaggi caricate sul pianale del carretto.
+    cart_crates = (
+        (-0.46, "produce_red"),
+        (0.00, "produce_yellow"),
+        (0.46, "produce_green"),
+    )
+    for cx_l, pkey in cart_crates:
+        lbox(B["wood"], x, y, yaw, cx_l, 0.0, 0.84, 0.44, 0.82, 0.16)
+        for ox in (-0.11, 0.11):
+            for oy in (-0.22, 0.0, 0.22):
+                lbox(B[pkey], x, y, yaw, cx_l + ox, oy, 0.95, 0.14, 0.16, 0.10)
+    # Lavagna dei prezzi su cavalletto a fianco del carretto (`ly = -0,90`),
+    # ben staccata dalla ruota destra (`ly = -0,60`) e appoggiata a `z = 0,21 m`.
+    lbox(B["roof_dark"], x, y, yaw, 0.0, -0.90, 1.21, 1.15, 0.06, 0.86)
+    lbox(B["wood"], x, y, yaw, 0.0, -0.95, 0.86, 0.06, 0.06, 1.30)
+    lbox(B["wood"], x, y, yaw, 0.0, -0.95, 0.24, 0.56, 0.26, 0.06)
+    txt_pos = lbox_point(x, y, yaw, 0.0, -0.86, 1.62)
+    add_text("MERCATO", "Insegna mercato", txt_pos, 0.26,
+             mats["cream"], col, yaw=yaw)
 
 
 def build_market_square(B, mats, col):
@@ -2363,15 +2550,7 @@ def build_market_square(B, mats, col):
                         (0, -7.0, "canvas_green")):
         B["metal"].cylinder((ux, uy, 1.25), 0.055, 2.5, 10)
         B[key].cone((ux, uy, 2.62), 1.75, 0.12, 0.60, 12)
-    # Carretto con cassette e lavagna dei prezzi.
-    lbox(B["wood"], -13.6, 9.5, PI / 2, 0, 0, 0.62, 1.7, 1.1, 0.5)
-    for side in (-1, 1):
-        B["metal"].cylinder(lbox_point(-13.6, 9.5, PI / 2, side * 0.55, -0.6,
-                                       0.42), 0.42, 0.08, 14, axis="Y")
-    lbox(B["roof_dark"], -13.6, 9.5, PI / 2, 0, -0.72, 1.15, 1.15, 0.06, 0.9)
-    lbox(B["wood"], -13.6, 9.5, PI / 2, 0, -0.78, 0.55, 0.06, 0.06, 1.3)
-    add_text("MERCATO", "Insegna mercato", (-12.85, 9.5, 1.62), 0.26,
-             mats["cream"], col, yaw=PI / 2)
+    build_market_cart(B, mats, col, -13.6, 9.5, PI / 2)
 
 
 # ---------------------------------------------------------------------------
