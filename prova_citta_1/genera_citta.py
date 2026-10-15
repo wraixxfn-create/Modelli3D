@@ -128,6 +128,18 @@ rampe accessibili e dalle piastre tattili gialle (`x + 5,40, y + 5,40`), con
 pulsante di chiamata fissato sul fusto e mini-segnale pedonale collegato al
 palo da due staffe metalliche anziché sospeso nel vuoto.
 
+La ventiquattresima versione interviene su tre punti soltanto: alla fermata
+autobus la pavimentazione tattile — guida in pavé, fascia gialla e bolli di
+avvertimento — è incassata nel marciapiede (prima sporgeva 3,25 cm, 5,75 cm e
+dieci centimetri, un gradino continuo da scavalcare) e resta una
+pavimentazione, non un arredo che riduce il passaggio libero; nelle due
+rotatorie il cordolo dell'isola centrale diventa un anello con parete che
+contiene il prato e la fontanella ha una vera vasca con l'acqua dentro (prima
+erano un tamburo pieno con l'erba che debordava e una lamina d'acqua stesa
+come un coperchio); nella pieve l'edicola votiva, che affondava dodici
+centimetri nel basamento in pietra ed era piantata sul fianco nord della
+navata, è appoggiata al basolato del sagrato, davanti alla facciata.
+
 Richiede Blender 5.0+ e i modelli originali presenti nelle cartelle sorelle.
 
     python3 genera_citta.py                 # salva citta.blend
@@ -2413,8 +2425,16 @@ def build_church(B, mats, col, cx=-48.0, cy=-17.5, yaw=PI / 2):
         for side in (-1, 1):
             lbox(B["concrete"], cx, cy, yaw, lx + side * 0.75, -13.5, 0.35,
                  0.14, 0.44, 0.30)
-    lbox(B["trim"], cx, cy, yaw, 6.9, -6.0, 1.5, 0.5, 0.9, 1.9)
-    lbox(B["metal_gold"], cx, cy, yaw, 7.12, -6.0, 1.6, 0.10, 0.5, 0.7)
+    # Edicola votiva nell'angolo fra la facciata e il fianco nord della
+    # navata. Stava piantata nel fianco della navata, dentro il basamento
+    # in pietra: il corpo (1,90 m di altezza) partiva da z = 0,55 m, cioè
+    # 12 cm sotto la quota del basamento (0,67 m), e affondava nel
+    # calcestruzzo; la porticina restava a 58 cm dalla quota del basamento
+    # e la nicchia guardava verso la campagna, fuori dal sagrato. Ora è
+    # appoggiata al basolato del sagrato (0,21 m), nell'angolo della
+    # facciata, e la porticina dorata è alla stessa altezza relativa.
+    lbox(B["trim"], cx, cy, yaw, 7.30, -11.50, 1.16, 0.5, 0.9, 1.9)
+    lbox(B["metal_gold"], cx, cy, yaw, 7.52, -11.50, 1.26, 0.10, 0.5, 0.7)
 
 
 def add_gable_roof(batch, wall_batch, cx, cy, w, d, eave_z, ridge_z, ov=0.30):
@@ -2626,6 +2646,37 @@ def in_sector(angle, radius, axes, half_width):
     return any(abs(((angle - ax + PI) % TAU) - PI) < half for ax in axes)
 
 
+def add_annulus(batch, cx, cy, r_in, r_out, z0, z1, segments=64):
+    """Anello con parete: cordolo, bordo di vasca, contenitore di prato.
+
+    `Batch.cylinder` chiude le due basi, quindi un cilindro usato come
+    cordolo è in realtà un tamburo pieno: la calotta superiore copre tutto
+    l'interno e, se sotto c'è del prato, l'erba deborda dal bordo. Qui si
+    costruiscono le quattro superfici di un anello vero — piano superiore,
+    faccia esterna, faccia interna, piano inferiore — così il contenuto
+    resta dentro e il filo del cordolo sporge sopra di esso.
+    """
+    for i in range(segments):
+        a0 = TAU * i / segments
+        a1 = TAU * (i + 1) / segments
+        c0, s0 = math.cos(a0), math.sin(a0)
+        c1, s1 = math.cos(a1), math.sin(a1)
+        in0, in1 = (cx + r_in * c0, cy + r_in * s0), (cx + r_in * c1, cy + r_in * s1)
+        out0, out1 = (cx + r_out * c0, cy + r_out * s0), (cx + r_out * c1, cy + r_out * s1)
+        # Piano superiore: il verso della faccia guarda in alto.
+        batch.quad((in0[0], in0[1], z1), (out0[0], out0[1], z1),
+                   (out1[0], out1[1], z1), (in1[0], in1[1], z1))
+        # Faccia esterna: verso radiale verso l'esterno.
+        batch.quad((out0[0], out0[1], z0), (out1[0], out1[1], z0),
+                   (out1[0], out1[1], z1), (out0[0], out0[1], z1))
+        # Faccia interna: verso radiale verso l'asse.
+        batch.quad((in0[0], in0[1], z0), (in0[0], in0[1], z1),
+                   (in1[0], in1[1], z1), (in1[0], in1[1], z0))
+        # Piano inferiore: verso della faccia guarda in basso.
+        batch.quad((in0[0], in0[1], z0), (in1[0], in1[1], z0),
+                   (out1[0], out1[1], z0), (out0[0], out0[1], z0))
+
+
 def add_ring_slab(batch, cx, cy, r_in, r_out, z, segments=72,
                   axes=(), half_width=0.0):
     """Corona piana (marciapiede, banchina) con i settori esclusi."""
@@ -2669,12 +2720,27 @@ def build_roundabout(B, x, y):
     axes = (0.0, PI / 2, PI, -PI / 2)
     # Anello carrabile alla quota delle carreggiate afferenti.
     B["asphalt"].cylinder((x, y, 0.005), r_out, 0.045, 48)
-    # Isola centrale: cordolo, prato e fontana.
-    B["curb"].cylinder((x, y, 0.09), r_island + 0.22, 0.24, 40)
-    B["grass"].cylinder((x, y, 0.20), r_island, 0.10, 40)
-    B["concrete"].cylinder((x, y, 0.42), 1.15, 0.5, 24)
-    B["water"].cylinder((x, y, 0.66), 0.95, 0.04, 24)
-    B["trim"].cylinder((x, y, 1.05), 0.28, 0.8, 16)
+    # Isola centrale: cordolo, prato e fontana. Il cordolo era un cilindro
+    # pieno — `Batch.cylinder` chiude le due basi — e la sua calotta
+    # superiore (0,21 m) restava sotto il manto erboso (0,25 m): l'erba
+    # debordava dal bordo di 4 cm e l'aiuola si leggeva come una zolla di
+    # prato con un labbro basso, non come un'aiuola contenuta. Ora il
+    # cordolo è un anello con parete, alto fino a 0,31 m, e il prato
+    # (0,25 m) sta dentro, con 6 cm di pietra a vista dal filo interno.
+    add_annulus(B["curb"], x, y, r_island, r_island + 0.22, -0.03, 0.31, 64)
+    B["grass"].cylinder((x, y, 0.20), r_island + 0.02, 0.10, 40)
+    # Fontanella a vasca. La vasca era un cilindro pieno con la lamina
+    # d'acqua appoggiata sopra: il pelo dell'acqua (0,68 m) copriva la
+    # calotta del tamburo (0,67 m) e la fontana si leggeva come un disco di
+    # granito con sopra un coperchio d'acqua, senza bacino. Ora fondo, bordo
+    # e acqua sono tre pezzi distinti: l'acqua sta dentro la vasca, 16 cm
+    # sotto il filo del cordolo, e il getto centrale spicca dal fondo.
+    B["concrete"].cylinder((x, y, 0.33), 0.97, 0.18, 24)
+    add_annulus(B["concrete"], x, y, 0.95, 1.15, 0.24, 0.62, 32)
+    # L'acqua è trasparente: il fondo è incassato di un centimetro nel
+    # pavimento della vasca, così le due superfici non si sovrappongono.
+    B["water"].cylinder((x, y, 0.435), 0.96, 0.05, 24)
+    B["trim"].cylinder((x, y, 0.945), 0.28, 1.01, 16)
     B["metal_gold"].sphere((x, y, 1.62), 0.34, (0.8, 0.8, 1.1), 14, 8)
     for i in range(14):
         a = TAU * i / 14
@@ -4357,12 +4423,20 @@ def build_bus_stop(B, mats, col):
     for i in range(7):
         B["road_yellow"].box((41.5 + i * 2, -73.55, .045), (1.2, .12, .025))
     # Percorso accessibile fra l'uscita della pensilina e il bordo di salita:
-    # guida tattile longitudinale e fascia a bolli di avvertimento sul ciglio.
-    B["tile_b"].box((48, -75.15, .125), (.42, 1.35, .035))
-    B["road_yellow"].box((48, -74.35, .155), (5.8, .42, .025))
+    # guida tattile longitudinale e fascia gialla a bolli di avvertimento sul
+    # ciglio. La pavimentazione tattile non era incassata: la guida in pavé
+    # sporgeva 3,25 cm dal marciapiede (0,11 m), la fascia gialla 5,75 cm e i
+    # bolli dieci centimetri — un gradino continuo lungo tutto il percorso,
+    # da scavalcare per arrivare al bordo di salita. Ora è a filo: la guida e
+    # la fascia sono incassate nel marciapiede (2 mm di rialzo, sotto la
+    # soglia di 5 mm) e i bolli sporgono 6 mm dal piano, come gli avvisamenti
+    # tattili reali. Il percorso resta una pavimentazione — non un arredo —
+    # e non riduce il passaggio libero di 1,775 m.
+    B["tile_b"].box((48, -75.15, .0945), (.42, 1.35, .035))
+    B["road_yellow"].box((48, -74.35, .0995), (5.8, .42, .025))
     for i in range(13):
         x = 45.25 + i * .458
-        B["road_yellow"].cylinder((x, -74.35, .183), .055, .055, 8)
+        B["road_yellow"].cylinder((x, -74.35, .110), .035, .012, 8)
     # Arredi arretrati: rimane libero il passaggio lungo il bordo stradale.
     for x in (39.5, 40.8, 42.1):
         add_tube(B["metal"], ((x - .32, -77.3, .11), (x - .32, -77.3, .95),

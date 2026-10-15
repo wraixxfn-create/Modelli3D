@@ -50,6 +50,86 @@ in un unico contesto.
   città — e oltre le colline tre **dorsali lontane in foschia** che chiudono
   l'orizzonte, con **cumuli** nel cielo.
 
+## Miglioramenti della ventiquattresima versione
+
+**Esattamente tre interventi nel generatore**, senza cambiare viabilità,
+posizione degli edifici, arredi, camera o illuminazione della scena:
+
+1. **Percorso tattile della fermata autobus (`build_bus_stop`)** — la
+   pavimentazione tattile che collega l'uscita della pensilina al bordo di
+   salita non era incassata nel marciapiede: la guida in pavé
+   (`0,42 × 1,35 m`, spessore `3,5 cm`) aveva il piano a `0,1425 m`, cioè
+   `3,25 cm` sopra il marciapiede (`0,11 m`); la fascia gialla di
+   avvertimento (`5,80 × 0,42 m`) sporgeva `5,75 cm`; i tredici bolli,
+   cilindri di `5,5 cm` di raggio e `5,5 cm` di altezza, arrivavano a
+   `0,2105 m`, dieci centimetri sopra il piano — un gradino continuo da
+   scavalcare per tutta la lunghezza del percorso. La guida attraversava
+   inoltre il passaggio libero della fermata, che il controllo
+   dell'undicesima versione chiede libero per `1,775 m`: la pista tattile
+   è una pavimentazione, non un arredo, ma il generatore la trattava come
+   un mobile. Ora guida e fascia sono incassate nel marciapiede (`2 mm` di
+   rialzo, sotto la soglia di `5 mm`), i bolli sono alti `12 mm` e sporgono
+   `6 mm` dal piano, e pensilina, panca, cestino, bacheca e portabiciclette
+   lasciano di nuovo libero tutto il passaggio.
+2. **Isola centrale delle rotatorie (`build_roundabout`)** — il cordolo
+   dell'isola era un cilindro pieno: `Batch.cylinder` chiude le due basi,
+   quindi la calotta superiore (`0,21 m`) copriva l'intero disco e restava
+   sotto il manto erboso (`0,25 m`): l'erba debordava dal bordo di `4 cm` e
+   l'aiuola si leggeva come una zolla di prato con un labbro basso, non come
+   un'aiuola contenuta. La fontanella era un tamburo di calcestruzzo
+   (`r = 1,15 m`, da `0,17` a `0,67 m`) con la lamina d'acqua stesa sopra
+   come un coperchio (`0,64–0,68 m`): il pelo dell'acqua era più alto della
+   calotta e copriva un bacino che non esisteva. Ora il cordolo è un anello
+   con parete (`add_annulus`), alto fino a `0,31 m`, che contiene il prato
+   con `6 cm` di pietra a vista; la fontana ha fondo, bordo e acqua distinti
+   — l'acqua sta dentro la vasca, `16 cm` sotto il filo, e il getto centrale
+   spicca dal fondo. Anello carrabile, marciapiede anulare, isole salvagente
+   e attraversamenti restano come prima.
+3. **Edicola votiva della pieve (`build_church`)** — la nicchia di marmo con
+   la porticina dorata era piantata nel fianco nord della navata, dentro il
+   basamento in pietra: il corpo (`0,50 × 0,90 × 1,90 m`) partiva da
+   `z = 0,55 m`, cioè `12 cm` sotto la quota del basamento (`0,67 m`), e
+   affondava nel calcestruzzo; la porticina restava a `58 cm` dalla quota
+   del basamento e la nicchia guardava verso la campagna, fuori dal
+   sagrato. Ora è appoggiata al basolato del sagrato, nell'angolo fra la
+   facciata e il fianco nord della navata: il fondo coincide con la quota
+   del basolato (`0,21 m`), il corpo è a `1,05 m` dalla facciata e a
+   `55 cm` dalla parete nord della navata, e la porticina dorata, alla
+   stessa altezza relativa del corpo, è fra `70 cm` e `1,40 m` dal piano,
+   cioè a portata di mano.
+
+Verifica mirata, eseguibile anche senza Blender:
+
+```bash
+python3 -m unittest discover -s prova_citta_1 -p 'test_fermata_rotatoria_pieve.py' -v
+```
+
+I tredici test controllano che la guida tattile e la fascia gialla siano
+incassate nel marciapiede (fondo sotto il piano, rialzo di `2 mm`), che i
+tredici bolli sporgano `6 mm` e siano in fila regolare lungo il ciglio,
+che il percorso colleghi la pensilina al bordo di salita restando dentro la
+piattaforma; che il cordolo dell'isola sia un anello con parete — nessuna
+faccia copre il centro dell'aiuola — con il filo a `0,31 m` e il prato
+`6 cm` sotto, che la fontana abbia una vera vasca con l'acqua `16 cm` sotto
+il filo e il getto che spicca dal fondo; e che l'edicola votiva sia
+appoggiata al basolato del sagrato, dentro il suo ingombro, fuori dalla
+pianta del basamento in pietra della pieve e a `1,05 m` dalla facciata.
+Nove dei tredici test falliscono sul generatore precedente: sono
+regressioni vere, non descrizioni.
+
+Sono state aggiornate anche due verifiche esistenti, rese obsolete dai
+primi interventi: `test_fermata_bandiera_viali.py` controlla i bolli con
+il nuovo raggio (`3,5 cm` invece di `5,5 cm`), e `test_urbanistica.py` non
+conta più la pista tattile fra gli arredi che devono lasciare libero il
+passaggio di `1,775 m`, verificando invece che sia a filo del marciapiede.
+Con queste correzioni **torna verde anche il controllo dell'undicesima
+versione**, che era rosso dalla ventiduesima: l'intera suite della città
+passa, **centotrentotto test**.
+
+**Stato degli artefatti:** `citta.blend` e `anteprima.png` sono rigenerati
+con Blender 5.0.0 e comprendono queste tre migliorie (il file del
+repository era fermo alla ventiduesima versione).
+
 ## Miglioramenti della ventitreesima versione
 
 **Esattamente tre interventi nel generatore**, senza cambiare viabilità,
@@ -946,6 +1026,7 @@ denoising OpenImageDenoise e view transform AgX.
 | `test_pieve_palazzi_laghetto.py` | Tredici controlli su lesene della pieve, corpo scala dei palazzi e laghetto |
 | `test_lampioni_secchiello_molla.py` | Nove controlli su lampioni stradali, secchiello della sabbiera e cavallino a molla |
 | `test_parchi_caffe_pontile.py` | Tredici controlli su aiuole e fontanella dei parchi, platea del chiosco e pali del pontile |
+| `test_fermata_rotatoria_pieve.py` | Tredici controlli su percorso tattile della fermata, isola centrale delle rotatorie ed edicola votiva della pieve |
 
 ## Rigenerazione
 
@@ -961,8 +1042,10 @@ python3 genera_citta.py --render         # render Cycles a qualità alta
 
 Il file `.blend` è salvato con le impostazioni di render finali; `--quick`
 riduce temporaneamente campioni e risoluzione solo per il PNG di controllo.
+Gli artefatti del repository (`citta.blend` e `anteprima.png`) sono stati
+rigenerati con **Blender 5.0.0** alla ventiquattresima versione.
 
-Per eseguire tutti i **125 test geometrici** (inclusi i controlli sugli
+Per eseguire tutti i **138 test geometrici** (inclusi i controlli sugli
 ingombri dei modelli sorgente reali), dalla radice del
 repository, nello stesso ambiente Python con `bpy`:
 

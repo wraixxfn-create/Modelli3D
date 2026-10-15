@@ -253,8 +253,10 @@ class VialiTests(unittest.TestCase):
                  and c[1][0] == 48 and c[1][1] == -75.15]
         warning = [c for c in calls["box"] if c[0] is group["road_yellow"]
                    and c[1][1] == -74.35]
+        # Dalla ventiquattresima versione i bolli sono alti 12 mm e sporgono
+        # 6 mm dal piano: non più dieci centimetri di cupola.
         domes = [c for c in calls["cylinder"] if c[0] is group["road_yellow"]
-                 and c[1][1] == -74.35 and abs(c[2] - .055) < 1e-9]
+                 and c[1][1] == -74.35 and abs(c[2] - .035) < 1e-9]
         self.assertEqual(len(guide), 1)
         self.assertEqual(guide[0][2], (.42, 1.35, .035))
         self.assertEqual(len(warning), 1)
