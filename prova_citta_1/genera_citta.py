@@ -68,6 +68,15 @@ La quindicesima versione interviene soltanto sulla rotazione completa dei
 lampioni con lanterne intelaiate, sul secchiello cavo con manico della sabbiera e sul cavallino con
 molla elicoidale, seduta, impugnature e poggiapiedi del parco giochi.
 
+La sedicesima versione tocca tre soli elementi: la pensilina della fermata,
+che da scatola opaca diventa telaio aperto verso la carreggiata con parete di
+fondo vetrata ripartita, panca, cestino e plafoniera; il tricolore del
+municipio, il cui pennone attraversa ora la falda dentro una piastra di
+ancoraggio e sale sopra il colmo, invece di restare conficcato nel tetto con
+il telo appeso fuori dalla gronda; e i filari alberati dei viali, portati sul
+centro del marciapiede con piazzole di raggio 1,02 m, perché quelle vecchie
+sbordavano sul prato e sulle facciate.
+
 Richiede Blender 5.0+ e i modelli originali presenti nelle cartelle sorelle.
 
     python3 genera_citta.py                 # salva citta.blend
@@ -1778,9 +1787,20 @@ def build_town_hall(B, mats, col):
     B["terracotta"].cone((tx, ty, 14.18), 2.0, 0.08, 1.15, 4)
     B["metal_gold"].cylinder((tx, ty, 15.12), 0.065, 1.05, 12)
     B["metal_gold"].cone((tx, ty, 15.76), 0.20, 0.015, 0.40, 12)
-    # Pennone con bandiera sul colmo.
-    B["metal"].cylinder((8.9, cy + 1.2, 14.05), 0.055, 2.4, 12)
-    build_tricolore(B, 8.95, cy + 1.2, 14.5)
+    # Pennone e tricolore. Prima l'asta era conficcata nella falda di poppa a
+    # 1,2 m dal colmo, con la base 18 cm sopra le tegole: la bandiera pendeva
+    # fuori dal tetto verso est, appesa al nulla e larga appena metà di quella
+    # della torre. Ora il pennone attraversa la falda dentro una piastra di
+    # ancoraggio, sale sopra il colmo e regge il tricolore in quota, sopra la
+    # gronda, senza toccare né la torre né i camini.
+    pole_x, pole_y = 5.60, cy + 0.55
+    ridge_z, eave_z = 13.25, 9.96
+    slope_z = ridge_z - abs(pole_y - cy) / 6.8 * (ridge_z - eave_z) - 0.02
+    B["metal_gold"].box((pole_x, pole_y, slope_z + 0.07), (0.62, 0.48, 0.14))
+    B["metal"].cylinder((pole_x, pole_y, slope_z + 1.72), 0.055, 3.48, 12)
+    B["metal_gold"].sphere((pole_x, pole_y, slope_z + 3.50), 0.085,
+                           segments=10, rings=6)
+    build_tricolore(B, pole_x + 0.05, pole_y, slope_z + 2.62)
     # Lampioni simmetrici all'ingresso.
     for x in (-8.2, 8.2):
         add_lamp(B, x, front - 1.1, height=4.2, ornate=True)
@@ -3662,12 +3682,18 @@ def make_local_tree_template(mats):
     return col
 
 
-# Posizioni degli alberi nuovi: i filari da viale (y = ±39.5 e lungo Viale
-# Roma) e gli esemplari d'angolo nei due parchi. Sono condivise fra le istanze
-# e le aiuole, così piazzole e sfalci combaciano esattamente con le chiome.
-AVENUE_TREES = ([(x, -39.5) for x in (-58, -47, -36, 36, 47, 58)] +
-                [(x, 39.5) for x in (-58, -47, -36, 36, 47, 58)] +
-                [(sx, y) for sx in (-7.9, 7.9) for y in (-88, -77, 81, 92)])
+# Posizioni degli alberi nuovi: i filari da viale (y = ±37,25 e x = ±6,35
+# lungo Viale Roma) e gli esemplari d'angolo nei due parchi. Sono condivise
+# fra le istanze e le aiuole, così piazzole e sfalci combaciano esattamente
+# con le chiome. Le file y = ±39,5 stavano 49 cm fuori dal marciapiede e 12 cm
+# fuori dal limite dei lotti: la piazzola di ghiaia sporgeva sull'erba del
+# giardino e il tronco arrivava a 5 cm dal filo delle facciate. Ora ogni
+# albero è sul centro del proprio marciapiede — y = ±37,25 sulle trasversali,
+# x = ±6,35 su Viale Roma (carreggiata larga 10 m) — con almeno 12 cm fra
+# l'anello in granito e l'asfalto.
+AVENUE_TREES = ([(x, -37.25) for x in (-58, -47, -36, 36, 47, 58)] +
+                [(x, 37.25) for x in (-58, -47, -36, 36, 47, 58)] +
+                [(sx, y) for sx in (-6.35, 6.35) for y in (-88, -77, 81, 92)])
 PARK_TREES = ((-64, 63), (-41, 61), (-41, 43),
               (41, -63), (64, -63), (64, -41))
 
@@ -3719,22 +3745,27 @@ def build_lawn_care(B):
             fx = x0 + 1.0 + (w - 2.0) * (i + 0.5) / k
             B["flower"].sphere((fx, flowers, 0.26), 0.20, (1.0, 0.8, 0.6), 7, 5)
             B["leaf_light"].sphere((fx, flowers, 0.16), 0.22, (1.0, 1.0, 0.5), 6, 4)
-    # Piazzole e filari dei viali alberati.
+    # Piazzole e filari dei viali alberati. L'anello in granito è tarato sui
+    # 2,25 m di marciapiede: con il vecchio raggio di 1,42 m la piazzola — e
+    # con essa la ghiaia e la corona di fiori — sbordava di 30 cm sul prato,
+    # spingendosi fino a 2,5 m fuori dal cordolo sui filari delle trasversali.
     for i, (x, y) in enumerate(list(AVENUE_TREES) + list(PARK_TREES)):
-        B["curb"].cylinder((x, y, 0.05), 1.42, 0.18, 20)
-        B["sand"].cylinder((x, y, 0.13), 1.16, 0.09, 20)
-        B["leaf_light"].sphere((x, y, 0.36), 0.42, (1.0, 1.0, 0.62), 8, 5)
+        B["curb"].cylinder((x, y, 0.05), 1.02, 0.18, 20)
+        B["sand"].cylinder((x, y, 0.13), 0.78, 0.09, 20)
+        B["leaf_light"].sphere((x, y, 0.34), 0.34, (1.0, 1.0, 0.62), 8, 5)
         for j in range(5):
             a = TAU * j / 5 + i * 0.4
-            B["flower"].sphere((x + math.cos(a) * 1.16, y + math.sin(a) * 1.16,
-                               0.24), 0.15, (1.0, 0.9, 0.6), 6, 4)
+            B["flower"].sphere((x + math.cos(a) * 0.84, y + math.sin(a) * 0.84,
+                               0.24), 0.13, (1.0, 0.9, 0.6), 6, 4)
     # Siepi basse fra un albero e l'altro dei due filari sud e nord: anche
-    # qui il piede della siepe scende sotto la quota del rilievo.
-    for row, ry in enumerate((-39.5, 39.5)):
+    # qui il piede della siepe scende sotto la quota del rilievo e la siepe
+    # resta all'esterno del marciapiede (y = ±38,9), senza tagliare né la
+    # piazzola del filare né il passaggio pedonale.
+    for sign in (-1, 1):
         for seg in range(2):
             x0 = (-58.0 if seg == 0 else 36.0)
             x1 = (-36.0 if seg == 0 else 58.0)
-            B["leaf"].box(((x0 + x1) / 2, ry + (0.9 if row == 0 else -0.9), 0.30),
+            B["leaf"].box(((x0 + x1) / 2, sign * 38.9, 0.30),
                           (abs(x1 - x0) - 2.4, 0.42, 0.72))
 
 
@@ -3807,14 +3838,50 @@ def build_car(B, cx, cy, yaw, body_key="blue", name="Auto"):
 
 
 def build_bus_shelter(B, x, y, yaw=0):
-    for dx in (-2.7, 2.7):
-        lbox(B["metal"], x, y, yaw, dx, -0.8, 1.70, 0.12, 0.12, 3.18)
-    lbox(B["glass"], x, y, yaw, 0, -0.8, 1.72, 5.3, 0.07, 2.75)
-    lbox(B["glass"], x, y, yaw, -2.7, -0.2, 1.72, 0.07, 1.2, 2.75)
-    lbox(B["metal"], x, y, yaw, 0, 0, 3.30, 5.8, 2.1, 0.18)
-    lbox(B["wood_light"], x, y, yaw, 0, -0.45, 0.58, 2.3, 0.5, 0.12)
-    for dx in (-0.9, 0.9):
-        lbox(B["metal"], x, y, yaw, dx, -0.45, 0.315, 0.08, 0.4, 0.41)
+    """Pensilina aperta verso la strada, con panca e luce sotto la copertura.
+
+    Prima era una scatola opaca: una lastra di vetro fumé di 5,3 × 2,75 m
+    chiudeva tutto il fondo, una seconda di 1,2 × 2,75 m occupava la testata e
+    la copertura era un coperchio scuro senza fascia né sottotetto. Da terra
+    l'attesa spariva dietro un volume nero che arrivava a coprire il
+    marciapiede, mentre panca, cestino e bacheca restavano fuori, in mezzo al
+    prato. Ora il telaio è aperto sul fronte nord (verso la carreggiata), con
+    parete di fondo vetrata ripartita da montanti, ritorni corti alle due
+    testate, panca continua e punto luce all'interno.
+
+    L'ingombro resta quello di prima: copertura di 5,86 × 2,30 m con il filo
+    d'ombra a 1,05 m dal filo dei pilastrini — così il passaggio libero sul
+    marciapiede resta di 1,775 m — fondo a 0,85 m dietro l'asse e nessun
+    elemento oltre i 3 m d'altezza.
+    """
+    back, front, half = -0.85, 0.95, 2.62
+    # Montanti d'angolo e pilastrini posti sul filo del fronte.
+    for dx in (-half, half):
+        for dy in (back, front):
+            lbox(B["metal"], x, y, yaw, dx, dy, 1.34, 0.11, 0.11, 2.58)
+    # Parete di fondo: zoccolo, cinque montanti e vetrata ripartita.
+    lbox(B["metal"], x, y, yaw, 0, back, 0.21, 5.30, 0.13, 0.24)
+    for dx in (-2.62, -1.31, 0.0, 1.31, 2.62):
+        lbox(B["metal"], x, y, yaw, dx, back, 1.34, 0.09, 0.11, 2.58)
+    lbox(B["glass"], x, y, yaw, 0, back, 1.36, 5.18, 0.055, 2.02)
+    lbox(B["metal"], x, y, yaw, 0, back, 2.42, 5.34, 0.12, 0.12)
+    # Ritorni corti alle testate: chiudono il fianco senza murare l'attesa.
+    for dx in (-half, half):
+        lbox(B["glass"], x, y, yaw, dx, -0.32, 1.30, 0.055, 0.95, 1.90)
+        lbox(B["metal"], x, y, yaw, dx, -0.32, 0.28, 0.10, 1.10, 0.16)
+    # Copertura aggettante: sottotetto chiaro, fascia antracite e lastra. Lo
+    # sbalzo verso la carreggiata resta quello di prima (filo a 1,05 m dal
+    # filo dei pilastrini), così il passaggio libero sul marciapiede non
+    # scende sotto 1,775 m.
+    lbox(B["wood_light"], x, y, yaw, 0, -0.15, 2.50, 5.34, 1.94, 0.06)
+    lbox(B["metal"], x, y, yaw, 0, -0.15, 2.57, 5.72, 2.22, 0.26)
+    lbox(B["white"], x, y, yaw, 0, -0.15, 2.74, 5.86, 2.30, 0.10)
+    # Panca continua al fondo, cestino e plafoniera dentro la pensilina.
+    for dx in (-1.55, 0.0, 1.55):
+        lbox(B["metal"], x, y, yaw, dx, -0.52, 0.32, 0.09, 0.36, 0.38)
+    lbox(B["wood_light"], x, y, yaw, 0, -0.52, 0.55, 3.34, 0.42, 0.08)
+    lbox(B["metal"], x, y, yaw, 2.18, -0.48, 0.42, 0.34, 0.34, 0.56)
+    lbox(B["lamp"], x, y, yaw, 0, -0.10, 2.42, 0.68, 0.26, 0.10)
 
 
 BUS_POSITION = (48, -71.9)
@@ -3865,7 +3932,7 @@ def build_bus_stop(B, mats, col):
     B["sidewalk"].box(((a + b) / 2, (c + d) / 2, -0.025), (b - a, d - c, .27))
     build_bus_shelter(B, 48, -77)
     add_text("FERMATA · LINEA 1", "Insegna fermata autobus",
-             (48, -75.93, 3.30), .24, mats["white"], col, yaw=PI)
+             (48, -75.90, 2.86), .24, mats["white"], col, yaw=PI)
     add_text("1 CENTRO", "Destinazione autobus", (53.20, -71.9, 2.77),
              .17, mats["white"], col, yaw=PI / 2)
     for i in range(7):

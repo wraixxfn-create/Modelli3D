@@ -21,6 +21,17 @@ def load_geometry():
     tree.body = [node for node in tree.body
                  if isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name in names]
     scope = {"math": math, "PI": math.pi, "TAU": math.tau, "add_tube": Mock()}
+    try:
+        import bpy
+    except ImportError:
+        pass
+    else:
+        # Le annotazioni di `Batch` citano `bpy.types`: quando bpy e'
+        # disponibile va passato all'exec, non solo mathutils/math.
+        scope["bpy"] = bpy
+    # `Batch.poly` annota `collections.abc.Iterable`, valutato a def-time.
+    import collections.abc
+    scope.setdefault("collections", collections)
     exec(compile(tree, "genera_citta.py", "exec"), scope)
     return scope, SimpleNamespace(**scope)
 
