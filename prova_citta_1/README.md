@@ -50,6 +50,66 @@ in un unico contesto.
   città — e oltre le colline tre **dorsali lontane in foschia** che chiudono
   l'orizzonte, con **cumuli** nel cielo.
 
+## Miglioramenti della ventunesima versione
+
+**Esattamente tre migliorie nel generatore**, senza cambiare viabilità,
+posizione degli edifici, arredi, camera o illuminazione della scena:
+
+1. **Lesene della navata (`build_church`)** — le quattro lesene per lato
+   (`0,22 × 1,10 m`, alte `9,60 m`) cadevano in asse con le finestre laterali:
+   a `ly = ±2,60 m` contro finestre a `ly = ±2,30 m` la compenetrazione
+   arrivava a `1,00 m` lungo l'imbotte, per tutti i `12 cm` di spessore e su
+   tutta l'altezza della vetrata (`z = 4,30–6,90 m`); a `ly = ±8,00 m` contro
+   finestre a `ly = ±7,00 m` ne restavano altri `30 cm`, perché il davanzale
+   (`1,80 m`) supera la vetrata (`1,50 m`). Otto compenetrazioni in tutto,
+   quattro per fiancata, mozzavano le finestre contro i pilastri. Ora le
+   lesene stanno nelle campate
+   libere fra le finestre, a `ly = ±4,65 m` e `±8,85 m`: `90 cm` dalle mostre
+   interne, `40 cm` da quelle esterne e `60 cm` dallo spigolo della navata, con
+   le finestre che restano quattro per lato come prima.
+2. **Corpo scala vetrato dei palazzi (`_apartment_elevator_shaft`,
+   `_apartment_side_windows`)** — la fascia vetrata del vano era arretrata di
+   `-0,02 × profondità` (`28 cm` sui palazzi da `14 m`, `30 cm` su quelli da
+   `15 m`): le due colonne centrali di finestre di ogni fianco finivano sotto
+   il vetro illuminato, da `5 cm` a `91 cm` di compenetrazione secondo la
+   profondità, su tutta l'altezza della finestra (`1,62 m`) e per tutti i piani
+   — ottanta compenetrazioni in tutto: sedici su ciascuno dei due palazzi da
+   `14 m` affacciati sulla piazza e otto su ciascuno degli altri sei edifici.
+   Ora il vano è in asse sul fianco e le quattro colonne per lato stanno a
+   `ly = ±2,30 m` e `±0,33 × profondità`: `12 cm` fra traverso di piano
+   (`2,90 m`) e cornice della finestra e `25 cm` fra traverso e vetrata, con
+   le quattro colonne per piano che restano quattro.
+3. **Laghetto del Parco delle Rose (`build_pond`)** — il cordolo era un
+   cilindro troncoconico **pieno** (`raggio 4,40 → 4,10 m`, alto `0,22 m` con
+   l'asse a `z = 0,10 m`) e `Batch.cylinder` chiude le due basi: la calotta
+   superiore copriva l'intero bacino a `z = 0,21 m`, un centimetro sopra il
+   pelo dell'acqua (`z = 0,20 m`, raggio `3,85 m`), quindi il laghetto si
+   leggeva come un disco di granito e acqua, ninfee (`z = 0,195–0,225 m`) e
+   anatre restavano sotto il coperchio. Ora il cordolo è un anello a sezione
+   tonda, come la vasca della fontana in piazza — `ring((cx, cy, 0,10), 4,25,
+   0,15 m)` — con lo stesso ingombro esterno (`4,40 m`), foro da `4,10 m` e
+   cresta a `0,25 m`; bacino, fondo e sponde restano invariati.
+
+Verifica mirata, eseguibile anche senza Blender:
+
+```bash
+python3 -m unittest discover -s prova_citta_1 -p 'test_pieve_palazzi_laghetto.py' -v
+```
+
+I dodici test verificano che le otto lesene della pieve siano nelle campate
+libere, senza compenetrazioni con vetrate e davanzali e con almeno 39 cm di
+pietra libera su ogni lato; che il corpo scala dei palazzi sia in asse e che
+nessuna delle quattro colonne di finestre per lato cada dentro il traverso o
+sotto il vetro, con almeno `12 cm` fra cornici e traverso e `25 cm` fra
+traverso e vetrata per tutte e tre le profondità in uso (`11`, `14` e `15 m`); e
+che il cordolo del laghetto non copra il centro del bacino ad alcuna quota,
+sia un anello con foro `4,10 m` e cresta `0,25 m`, e che acqua (`3,85 m`) e
+fondo restino quelli di prima. L'intera suite della città resta verde:
+centonove test con Blender 5.0.1.
+
+**Stato degli artefatti:** `citta.blend` e `anteprima.png` sono rigenerati con
+Blender 5.0.1 e comprendono queste tre migliorie.
+
 ## Miglioramenti della ventesima versione
 
 **Esattamente tre migliorie nel generatore**, senza cambiare viabilità,
@@ -805,7 +865,7 @@ python3 genera_citta.py --render         # render Cycles a qualità alta
 Il file `.blend` è salvato con le impostazioni di render finali; `--quick`
 riduce temporaneamente campioni e risoluzione solo per il PNG di controllo.
 
-Per eseguire tutti i **97 test geometrici** (inclusi i controlli sugli
+Per eseguire tutti i **109 test geometrici** (inclusi i controlli sugli
 ingombri dei modelli sorgente reali), dalla radice del
 repository, nello stesso ambiente Python con `bpy`:
 
