@@ -50,6 +50,67 @@ in un unico contesto.
   città — e oltre le colline tre **dorsali lontane in foschia** che chiudono
   l'orizzonte, con **cumuli** nel cielo.
 
+## Miglioramenti della diciannovesima versione
+
+**Esattamente tre migliorie nel generatore**, senza cambiare viabilità,
+posizione degli edifici, arredi, camera o illuminazione della scena:
+
+1. **Arredi inclinati delle coperture nei propri alloggiamenti** — sui tetti
+   degli otto palazzi, i sei richiami a `lbox_tilt` (tre pannelli fotovoltaici
+   con relativo vetro, due lucernari con vetro caldo e due lettini con
+   materassino rosso e blu) passavano scostamenti locali `(x, y)` che
+   `lbox_tilt` ignorava, accumulando tutti e quattordici i volumi inclinati in
+   un unico groviglio al centro della copertura `(0, 0)` — proprio in mezzo
+   allo stendino — mentre i tre telai metallici sul retro (`depth * 0,30`) e i
+   quattro sostegni dei lettini sul fronte restavano vuoti sulla soletta;
+   inoltre alle quote originarie il bordo basso scendeva di 8–13 cm sotto il
+   piano di calpestio (`roof_z + 0,03 m`). Ora una funzione locale porta i
+   centri nel mondo prima dell'inclinazione, scosta gli strati superiori lungo
+   la normale al piano inclinato e alza le quote sul filo dei rispettivi
+   sostegni: i tre pannelli fotovoltaici poggiano sui telai metallici, i due
+   lucernari affiancano il corpo scala e i due lettini poggiano sui pattini a
+   prua della terrazza, lasciando libero lo stendino.
+2. **Rami degli alberi urbani innestati sul tronco** — nel prototipo di albero
+   urbano (istanziato 31 volte fra parchi e filari dei viali), i quattro rami
+   secondari calcolavano la radice nel fusto `p0` (`r = 0,10 m`,
+   `z = 2,7–3,0 m`) e la punta nella chioma `p1` (`r = 1,50 m`,
+   `z = 4,1–4,6 m`), ma venivano generati con `trunk.cylinder(midpoint, rad,
+   dist(p0, p1), 10, axis="Z")`: quattro cilindri verticali sospesi nel vuoto
+   a 80 cm dall'asse del tronco (58 cm fuori dalla corteccia), che spuntavano
+   per oltre un metro sotto le fronde fino a quota 2,42 m. Ora ciascun ramo è
+   un tubo continuo inclinato (`add_tube`) teso da `p0` a `p1`, radicato dentro
+   il fusto (`r = 0,10 m < 0,22 m`) e innestato nei lobi laterali della chioma.
+3. **Panni stesi dentro i balconi** — sulle facciate di Palazzo delle Logge e
+   Casa del Mercato i panni stesi ai piani primo e secondo tendevano un unico
+   cilindro di 6,8 m sull'asse globale `Y` da `x = -3,4` a `+3,4` a quota
+   `z = 6,21` e `9,06 m` — cioè 23 cm sotto l'intradosso dei balconi (`6,44` e
+   `9,29 m`) — appendendo cinque panni fino a 90 cm sotto le solette e davanti
+   alle campate prive di balcone (`x = 0` al primo piano, `x = ±2,96 m` al
+   secondo). Ora `add_balcony_laundry` tende i fili nel riferimento locale solo
+   dentro i cinque balconi effettivi dei due livelli (`x = ±2,96 m` al primo
+   piano; `x = -5,92, 0, +5,92 m` al secondo), alla quota del corrimano
+   (`slab_z + 0,78 m`) fra le due spallette laterali, con tre panni per balcone
+   appesi al filo e interamente sopra il calpestio (`slab_z + 0,10 m`).
+
+Verifica mirata, con il Python di Blender:
+
+```bash
+python3 -m unittest discover -s prova_citta_1 -p 'test_coperture_alberi_panni.py' -v
+```
+
+I sette test verificano che su tutte e tre le taglie di palazzo (`18×14`,
+`20×15`, `16×11`) pannelli fotovoltaici, lucernari e lettini stiano sui propri
+alloggiamenti sopra la soletta con gli strati superiori scostati lungo la
+normale e ruotino con lo `yaw`; che i quattro rami del prototipo di albero
+urbano partano dentro il fusto e salgano in diagonale nella chioma senza
+cilindri verticali sospesi sotto le fronde; e che i cinque fili e i quindici
+panni di ciascun palazzo cadano solo nei balconi presenti sui livelli 1 e 2,
+sopra il piano di calpestio e invarianti per rotazione. L'intera suite della
+città resta verde: ottantotto test con Blender 5.0.1.
+
+**Stato degli artefatti:** `citta.blend` e `anteprima.png` sono rigenerati con
+Blender 5.0.1 e comprendono queste tre migliorie.
+
 ## Miglioramenti della diciottesima versione
 
 **Esattamente tre migliorie nel generatore**, senza cambiare viabilità,
@@ -653,6 +714,8 @@ denoising OpenImageDenoise e view transform AgX.
 | `test_furgone_cassonetti_edicola.py` | Nove controlli su furgone, cassonetti ed edicola |
 | `test_fermata_bandiera_viali.py` | Dieci controlli su pensilina, tricolore e filari dei viali |
 | `test_vetrine_scale.py` | Sette controlli su corpi scala e vetrine del piano terra |
+| `test_espositori_tappeto_ruote.py` | Sette controlli su espositori dell'edicola, tappeto giochi e ruote del furgone |
+| `test_coperture_alberi_panni.py` | Sette controlli su coperture dei palazzi, rami degli alberi urbani e panni sui balconi |
 
 ## Rigenerazione
 
@@ -669,11 +732,8 @@ python3 genera_citta.py --render         # render Cycles a qualità alta
 Il file `.blend` è salvato con le impostazioni di render finali; `--quick`
 riduce temporaneamente campioni e risoluzione solo per il PNG di controllo.
 
-Per eseguire tutti i **74 test geometrici** (i sei della decima versione, i 19
-di urbanistica, i quattro della dodicesima, i dieci della tredicesima, i nove
-della quattordicesima, i nove della quindicesima, i dieci della sedicesima e i sette
-della diciassettesima,
-inclusi i controlli sugli ingombri dei modelli sorgente reali), dalla radice del
+Per eseguire tutti gli **88 test geometrici** (inclusi i controlli sugli
+ingombri dei modelli sorgente reali), dalla radice del
 repository, nello stesso ambiente Python con `bpy`:
 
 ```bash
