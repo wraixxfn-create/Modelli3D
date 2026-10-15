@@ -50,6 +50,58 @@ in un unico contesto.
   città — e oltre le colline tre **dorsali lontane in foschia** che chiudono
   l'orizzonte, con **cumuli** nel cielo.
 
+## Miglioramenti della diciottesima versione
+
+**Esattamente tre migliorie nel generatore**, senza cambiare viabilità,
+posizione degli edifici, arredi, camera o illuminazione della scena:
+
+1. **Tappeto del parco giochi raccordato al prato** — il tappeto di gomma
+   (12 × 9 m) alzava il bordo a 19 cm: 11 cm sopra il prato che lo circonda
+   (8 cm) e 1 cm sopra i vialetti di ghiaia (18 cm), un gradino netto su tutto
+   il perimetro. Il tappeto riceve ora una scarpata perimetrale di gomma larga
+   55 cm, con i quattro angoli mitrati, che porta il bordo esterno a 5 cm —
+   sotto l'erba e sotto la ghiaia — e smorza il dislivello in una pendenza di
+   14,3°, senza scalini né fessure fra tappeto e terreno.
+2. **Ruote in sagoma del furgone del mercato** — i quattro anelli stavano a
+   0,965 m dal mezzero, cioè 5 cm fuori dalle fiancate (0,91 m), e sembravano
+   appoggiati di taglio sul fianco, mentre il vuoto dentro il pneumatico
+   lasciava il cerchio aperto, con un mozzo che sporgeva fuori misura. Ora il
+   battistrada sta in sagoma (0,905 m, 5 mm dentro la fiancata) ed esce solo
+   sotto il bordo basso della carrozzeria; il canale del cerchio, di 0,275 m,
+   copre il vuoto del pneumatico (0,28 m interni) e il mozzo, appena esterno al
+   canale, chiude il cerchio. Il punto più basso resta 4 cm sopra la
+   carreggiata.
+3. **Espositori dell'edicola** — le cinque copertine erano lastre da
+   36 × 48 cm che galleggiavano 4 cm sopra il banco, sul filo del ripiano; i
+   tre quotidiani erano fogli appesi 1,5–2,7 cm davanti al raccoglitore, nel
+   vuoto. Ora le copertine salgono su un leggìo inclinato di 62° (0,44 m di
+   sviluppo), incastrato fra la base appoggiata sul banco e la sua battuta
+   frontale, e la fascetta del titolo poggia su ciascuna copertina. I
+   quotidiani stanno su tre mensole dentro il raccoglitore — ora aperto sul
+   fronte, con sponde, fondale, fondo e cielo — ognuna con la battuta sul bordo
+   libero e il foglio che si appoggia alla mensola e s'inclina contro il
+   fondale. Base, battuta e raccoglitore restano nell'ingombro di prima
+   (78 × 16 × 94 cm), quindi banco, tenda, insegna e camera non cambiano.
+
+Verifica mirata, con il Python di Blender (come i primi test della città):
+
+```bash
+python3 -m unittest discover -s prova_citta_1 -p 'test_espositori_tappeto_ruote.py' -v
+```
+
+I sette test verificano che il leggìo s'incastri fra base e battuta e che le
+cinque copertine vi appoggino con la fascetta sopra; che ogni mensola abbia la
+sua battuta e il quotidiano poggiato fra mensola e fondale; che il tappeto
+scenda sotto la quota dell'erba con la scarpata mitrata a 14,3°; che i quattro
+pneumatici stiano in sagoma sotto le fiancate, con canale e mozzo a chiudere il
+cerchio; e, per tutti e tre gli elementi, la validità delle mesh. L'intera
+suite della città resta verde: ottantuno test con Blender 5.0.1.
+
+**Stato degli artefatti:** `citta.blend` e `anteprima.png` sono rigenerati con
+Blender 5.0.1 e comprendono queste tre migliorie. Nella veduta d'insieme i tre
+dettagli occupano pochi pixel: la scarpata del tappeto, le ruote del furgone e
+gli espositori dell'edicola si leggono nei ritagli ingranditi.
+
 ## Miglioramenti della diciassettesima versione
 
 **Esattamente tre migliorie nel generatore**, senza cambiare viabilità,

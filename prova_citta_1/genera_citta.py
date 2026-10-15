@@ -77,6 +77,24 @@ il telo appeso fuori dalla gronda; e i filari alberati dei viali, portati sul
 centro del marciapiede con piazzole di raggio 1,02 m, perché quelle vecchie
 sbordavano sul prato e sulle facciate.
 
+La diciassettesima versione interviene sul fronte commerciale dei palazzi: i
+corpi scala, che il vetro fumé riduceva a blocchi neri piatti, passano al vetro
+illuminato e ricevono due montanti che ne dividono le facciate in tre campate;
+le vetrine dei negozi e l'ingresso vetrato passano anch'essi al vetro
+illuminato; e ogni vetrina riceve un montante centrale che ne divide la lastra
+in due specchiature.
+
+La diciottesima versione rifinisce tre appoggi che in render non reggevano: il
+tappeto del parco giochi, che alzava un gradino di 11 cm su tutto il perimetro,
+riceve una scarpata di gomma mitrata che porta il bordo sotto la quota
+dell'erba; le ruote del furgone del mercato, che stavano 5 cm fuori dalle
+fiancate come anelli appoggiati di taglio e lasciavano aperto il vuoto del
+pneumatico, rientrano in sagoma sotto il bordo basso della carrozzeria, con
+canale e mozzo a chiudere il cerchio; e gli espositori dell'edicola, con le
+copertine sospese sopra il banco e i quotidiani appesi davanti al raccoglitore,
+trovano un leggìo inclinato di 62° e tre mensole con battuta dentro un
+raccoglitore aperto sul fronte.
+
 Richiede Blender 5.0+ e i modelli originali presenti nelle cartelle sorelle.
 
     python3 genera_citta.py                 # salva citta.blend
@@ -2535,7 +2553,29 @@ def build_pond(B, cx, cy):
 # Parco giochi nel Giardino del Borgo
 # ---------------------------------------------------------------------------
 def build_playground(B, cx, cy):
-    B["rubber"].box((cx, cy, 0.14), (12.0, 9.0, 0.10))
+    deck_w, deck_d, deck_top = 12.0, 9.0, 0.19
+    B["rubber"].box((cx, cy, 0.14), (deck_w, deck_d, 0.10))
+    # Raccordo perimetrale. Il tappeto (12 x 9 m) restava 11 cm sopra il prato
+    # che lo circonda (0,08 m) e 1 cm sopra i vialetti di ghiaia (0,18 m):
+    # un gradino netto su tutto il bordo. Una scarpata di gomma larga 55 cm
+    # porta il bordo alto sotto la quota dell'erba, così il dislivello si
+    # smorza in pendenza, senza scalini né fessure fra tappeto e terreno.
+    ramp_run, ramp_z = 0.55, 0.05
+    x0, x1 = cx - deck_w / 2, cx + deck_w / 2
+    y0, y1 = cy - deck_d / 2, cy + deck_d / 2
+    for quad in (((x0, y1, deck_top), (x1, y1, deck_top),
+                  (x1 + ramp_run, y1 + ramp_run, ramp_z),
+                  (x0 - ramp_run, y1 + ramp_run, ramp_z)),
+                 ((x1, y0, deck_top), (x0, y0, deck_top),
+                  (x0 - ramp_run, y0 - ramp_run, ramp_z),
+                  (x1 + ramp_run, y0 - ramp_run, ramp_z)),
+                 ((x0, y0, deck_top), (x0, y1, deck_top),
+                  (x0 - ramp_run, y1 + ramp_run, ramp_z),
+                  (x0 - ramp_run, y0 - ramp_run, ramp_z)),
+                 ((x1, y1, deck_top), (x1, y0, deck_top),
+                  (x1 + ramp_run, y0 - ramp_run, ramp_z),
+                  (x1 + ramp_run, y1 + ramp_run, ramp_z))):
+        B["rubber"].quad(*quad)
     # Altalena doppia: veri cavalletti a A appoggiati sul tappeto.
     ax, ay = cx - 3.4, cy + 1.6
     ground_z, beam_z = 0.19, 2.85
@@ -2834,16 +2874,23 @@ def add_van(B, x, y, yaw, body_key):
         box("roof_dark", 2.415, side * 0.42, 0.55, 0.045, 0.05, 0.24)
 
     # Quattro pneumatici ad anello e quattro mozzi, non dischi globali. Il
-    # punto più basso resta quattro centimetri sopra la carreggiata.
+    # punto più basso resta quattro centimetri sopra la carreggiata; gli anelli
+    # però stavano a 0,965 m dal mezzero, cioè 5 cm fuori dalle fiancate (0,91 m
+    # sui volumi principali), e sembravano appoggiati di taglio sul fianco,
+    # mentre il vuoto dentro il pneumatico lasciava il cerchio aperto. Ora il
+    # battistrada è in sagoma, esce solo sotto il bordo basso della carrozzeria,
+    # e canale e mozzo chiudono la ruota.
     wheel_z, wheel_r = 0.43, 0.335
     for wx in (-1.38, 1.38):
         for side in (-1, 1):
-            ring = [(wx + wheel_r * math.cos(i * TAU / 24), side * 0.91,
+            ring = [(wx + wheel_r * math.cos(i * TAU / 24), side * 0.85,
                      wheel_z + wheel_r * math.sin(i * TAU / 24))
                     for i in range(25)]
             tube("roof_dark", ring, 0.055, 10)
-            tube("metal", ((wx, side * 0.83, wheel_z),
-                           (wx, side * 1.00, wheel_z)), 0.115, 12)
+            tube("metal", ((wx, side * 0.80, wheel_z),
+                           (wx, side * 0.885, wheel_z)), 0.275, 14)
+            tube("metal", ((wx, side * 0.79, wheel_z),
+                           (wx, side * 0.898, wheel_z)), 0.115, 12)
 
 
 def add_waste_container(B, x, y, yaw, body_key):
@@ -2915,17 +2962,65 @@ def build_newsstand(B, mats, col, x=17.2, y=-19.2, yaw=0.0):
                  (lbox_point(x, y, yaw, side * 1.34, -1.08, 2.23),
                   lbox_point(x, y, yaw, side * 1.34, -1.70, 1.93)), 0.025)
 
-    # Cinque copertine sul banco e tre quotidiani nel raccoglitore inferiore.
+    # Espositori con appoggio. Le cinque copertine erano lastre sospese 4 cm
+    # sopra il banco, con il bordo 1,5 cm oltre il ripiano; i tre quotidiani
+    # erano fogli appesi 1,5-2,7 cm davanti al raccoglitore, nel vuoto. Adesso
+    # le copertine salgono su un leggìo inclinato di 62°, incastrato fra la
+    # base e la sua battuta, i quotidiani stanno su tre mensole dentro il
+    # raccoglitore, aperto sul fronte, e le fascette del titolo poggiano sulle
+    # copertine.
+    co, si = math.cos(yaw), math.sin(yaw)
+    show_pitch = 1.086            # 62,2°: il piano si alza verso la piazza
+    cp, sp = math.cos(show_pitch), math.sin(show_pitch)
+    show_len = 0.44               # sviluppo del piano lungo la pendenza
+    show_y0, show_z0 = -1.360, 1.250   # bordo basso, dentro la base sul banco
+
+    def tilt(key, lx, ly, lz, sx, sy, sz, pitch):
+        """Scatola inclinata attorno all'asse locale X, centrata in (lx,ly,lz).
+
+        `lbox_tilt` non applica gli scostamenti locali x/y che riceve: il
+        centro va quindi portato nel mondo qui, con la sola rotazione di
+        imbardata.
+        """
+        wx = x + lx * co - ly * si
+        wy = y + lx * si + ly * co
+        lbox_tilt(B[key], wx, wy, yaw, 0, 0, lz, sx, sy, sz, pitch)
+
+    def on_board(u, v, w):
+        """Punto sul piano del leggìo: u traverso, v lungo la salita, w fuori."""
+        return (u, show_y0 + v * cp - w * sp, show_z0 + v * sp + w * cp)
+
+    # Base in legno appoggiata sul banco (che sporge fino a y = -1,42) con la
+    # battuta frontale che trattiene il bordo basso del piano.
+    box("wood", 0, -1.350, 1.225, 2.28, 0.14, 0.05)
+    box("wood", 0, -1.405, 1.280, 2.28, 0.03, 0.06)
+    tilt("wood_light", *on_board(0, show_len / 2, 0), 2.28, show_len, 0.05,
+         show_pitch)
     cover_keys = ("cloth_red", "cloth_yellow", "cloth_green",
                   "cloth_violet", "cloth_blue")
     for i, key in enumerate(cover_keys):
-        lx = -0.92 + i * 0.46
-        box("white", lx, -1.435, 1.48, 0.36, 0.035, 0.48)
-        box(key, lx, -1.458, 1.60, 0.28, 0.018, 0.10)
-    box("wood", 0.72, -1.32, 0.63, 0.78, 0.16, 0.94)
-    for i in range(3):
-        box("white", 0.72, -1.415 - i * 0.012, 0.82 - i * 0.23,
-            0.64, 0.025, 0.18)
+        u = -0.90 + i * 0.45
+        # Copertina a 4 cm dal mezzero del piano e fascetta del titolo posata
+        # sulla copertina, 6 cm più su lungo la salita.
+        tilt("white", *on_board(u, 0.235, 0.040), 0.36, 0.30, 0.03, show_pitch)
+        tilt(key, *on_board(u, 0.295, 0.061), 0.28, 0.09, 0.012, show_pitch)
+    # Raccoglitore aperto sul fronte: due sponde, fondale, fondo e cielo. Ogni
+    # mensola ha la battuta sul bordo libero e un quotidiano piegato che poggia
+    # sulla mensola e s'inclina contro il fondale.
+    rack_x = 0.72
+    for side in (-1, 1):
+        box("wood", rack_x + side * 0.36, -1.320, 0.630, 0.06, 0.16, 0.94)
+    box("wood", rack_x, -1.264, 0.630, 0.66, 0.05, 0.94)
+    box("wood", rack_x, -1.320, 0.185, 0.66, 0.16, 0.05)
+    box("wood", rack_x, -1.320, 1.075, 0.66, 0.16, 0.05)
+    sheet, sheet_y0, sheet_y1 = 0.20, -1.385, -1.289
+    news_pitch = math.acos((sheet_y1 - sheet_y0) / sheet)
+    rise = sheet * math.sin(news_pitch)
+    for zshelf in (0.40, 0.62, 0.84):
+        box("wood_light", rack_x, -1.325, zshelf, 0.66, 0.13, 0.04)
+        box("wood", rack_x, -1.398, zshelf + 0.045, 0.66, 0.025, 0.05)
+        tilt("white", rack_x, (sheet_y0 + sheet_y1) / 2,
+             zshelf + 0.02 + rise / 2, 0.60, sheet, 0.02, news_pitch)
     sign = lbox_point(x, y, yaw, 0, -1.335, 2.43)
     add_text("EDICOLA", "Edicola — insegna", sign, 0.28,
              mats["white"], col, yaw=yaw)
