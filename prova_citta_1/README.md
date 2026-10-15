@@ -50,6 +50,38 @@ in un unico contesto.
   città — e oltre le colline tre **dorsali lontane in foschia** che chiudono
   l'orizzonte, con **cumuli** nel cielo.
 
+## Miglioramenti della diciassettesima versione
+
+**Esattamente tre migliorie nel generatore**, senza cambiare viabilità,
+posizione degli edifici, arredi, camera o illuminazione della scena:
+
+1. **Corpi scala vetrati leggibili** — sui fianchi dei palazzi il vetro fumé
+   rendeva i corpi scala come blocchi neri piatti. Ora il vetro è illuminato
+   (`glass_warm`) e due montanti verticali dividono ciascuna facciata in tre
+   campate, collegate ai traversi di piano già presenti.
+2. **Vetrine del piano terra illuminate** — le vetrine dei negozi e l'ingresso
+   vetrato usavano lo stesso vetro fumé che in render sembrava nero. Ora sono in
+   vetro illuminato, così il fronte commerciale si legge come negozio.
+3. **Montante centrale delle vetrine** — ogni vetrina dei negozi è divisa da un
+   montante centrale in due specchiature, invece di una lastra unica.
+
+Le migliorie 2 e 3 riguardano lo stesso fronte commerciale: sono due dettagli
+distinti, ma appartengono alla stessa area del piano terra.
+
+Verifica mirata, eseguibile anche senza Blender:
+
+```bash
+python3 -m unittest discover -s prova_citta_1 -p 'test_vetrine_scale.py' -v
+```
+
+I sette test contano le scatole per materiale (il vetro fumé non viene più
+usato per corpi scala e vetrine), verificano la presenza dei montanti, la
+posizione dei montanti esterna al piano del vetro e la stabilità della
+struttura alle rotazioni. Il caricamento non richiede `bpy`.
+
+**Stato degli artefatti:** `citta.blend` e `anteprima.png` sono rigenerati con
+Blender 5.0.1 e comprendono queste tre migliorie.
+
 ## Miglioramenti della sedicesima versione
 
 **Esattamente tre migliorie nel generatore**, senza cambiare viabilità,
@@ -568,6 +600,7 @@ denoising OpenImageDenoise e view transform AgX.
 | `test_persone_scooter_caffe.py` | Dieci controlli su persone sedute, scooter e caffè |
 | `test_furgone_cassonetti_edicola.py` | Nove controlli su furgone, cassonetti ed edicola |
 | `test_fermata_bandiera_viali.py` | Dieci controlli su pensilina, tricolore e filari dei viali |
+| `test_vetrine_scale.py` | Sette controlli su corpi scala e vetrine del piano terra |
 
 ## Rigenerazione
 
@@ -584,9 +617,10 @@ python3 genera_citta.py --render         # render Cycles a qualità alta
 Il file `.blend` è salvato con le impostazioni di render finali; `--quick`
 riduce temporaneamente campioni e risoluzione solo per il PNG di controllo.
 
-Per eseguire tutti i **67 test geometrici** (i sei della decima versione, i 19
+Per eseguire tutti i **74 test geometrici** (i sei della decima versione, i 19
 di urbanistica, i quattro della dodicesima, i dieci della tredicesima, i nove
-della quattordicesima, i nove della quindicesima e i dieci della sedicesima,
+della quattordicesima, i nove della quindicesima, i dieci della sedicesima e i sette
+della diciassettesima,
 inclusi i controlli sugli ingombri dei modelli sorgente reali), dalla radice del
 repository, nello stesso ambiente Python con `bpy`:
 
