@@ -95,6 +95,19 @@ copertine sospese sopra il banco e i quotidiani appesi davanti al raccoglitore,
 trovano un leggìo inclinato di 62° e tre mensole con battuta dentro un
 raccoglitore aperto sul fronte.
 
+La diciannovesima versione corregge tre elementi fuori posto tra coperture,
+alberature e balconi: gli arredi inclinati dei tetti dei palazzi (tre pannelli
+fotovoltaici, due lucernari e due lettini), che `lbox_tilt` accumulava nel
+centro della copertura in mezzo allo stendino lasciando vuoti i telai sul retro
+e i sostegni sul fronte, tornano ciascuno sul proprio alloggiamento sopra la
+soletta; i quattro rami del prototipo di albero urbano, prima cilindri
+verticali (`axis="Z"`) sospesi nel vuoto a 80 cm dal fusto che spuntavano sotto
+la chioma, diventano tubi inclinati radicati nel tronco e innestati nei lobi di
+fogliame; e i panni stesi sui fronti di Palazzo delle Logge e Casa del Mercato,
+prima appesi a un filo unico di 6,8 m sotto l'intradosso dei balconi e davanti
+alle campate prive di balcone, passano dentro i cinque balconi effettivi dei
+piani primo e secondo, tesi fra le spallette laterali alla quota del corrimano.
+
 Richiede Blender 5.0+ e i modelli originali presenti nelle cartelle sorelle.
 
     python3 genera_citta.py                 # salva citta.blend
@@ -1581,16 +1594,32 @@ def _apartment_roof_and_terrace(
         lbox(B["concrete"], cx, cy, yaw, 0, y, roof_z + 0.90, width + 0.40, 0.40, 0.12)
     lbox(B["metal"], cx, cy, yaw, 0, -depth / 2 - 0.16, roof_z + 0.06,
          width + 0.44, 0.30, 0.14)
+    co, si = math.cos(yaw), math.sin(yaw)
+
+    def tilt(key, lx, ly, lz, sx, sy, sz, pitch, normal_offset=0.0):
+        """Scatola inclinata nel riferimento del tetto, con eventuale offset normale.
+
+        `lbox_tilt` non applica gli scostamenti locali x/y: i sei richiami
+        delle coperture (fotovoltaico, lucernari e lettini) finivano quindi
+        tutti sovrapposti in (0, 0), dentro lo stendino, lasciando vuoti i
+        telai sul retro e i sostegni sul fronte.
+        """
+        ly_n = ly - normal_offset * math.sin(pitch)
+        lz_n = lz + normal_offset * math.cos(pitch)
+        wx = cx + lx * co - ly_n * si
+        wy = cy + lx * si + ly_n * co
+        lbox_tilt(B[key], wx, wy, yaw, 0, 0, lz_n, sx, sy, sz, pitch)
+
     # Pannelli fotovoltaici su telaietto, inclinati di 16° verso il fronte.
     pitch = math.radians(16.0)
     for i in range(3):
         px = -width * 0.30 + i * 2.45
         lbox(B["metal"], cx, cy, yaw, px, depth * 0.30, roof_z + 0.13,
              2.00, 2.45, 0.14)
-        lbox_tilt(B["roof_dark"], cx, cy, yaw, px, depth * 0.30,
-                  roof_z + 0.33, 1.92, 2.42, 0.10, pitch)
-        lbox_tilt(B["glass"], cx, cy, yaw, px, depth * 0.30,
-                  roof_z + 0.41, 1.74, 2.24, 0.04, pitch)
+        tilt("roof_dark", px, depth * 0.30,
+             roof_z + 0.58, 1.92, 2.42, 0.10, pitch)
+        tilt("glass", px, depth * 0.30,
+             roof_z + 0.58, 1.74, 2.24, 0.04, pitch, 0.07)
     # Ciminiere in laterizio con cieloletto e due sfiati metallici.
     for i in range(2):
         ch = 1.30 + 0.34 * i
@@ -1615,10 +1644,10 @@ def _apartment_roof_and_terrace(
              roof_z + 2.62, 0.05, 0.05, 0.42)
     lbox(B["metal"], cx, cy, yaw, bx, by - 1.16, roof_z + 2.86, 2.30, 0.07, 0.07)
     for i in range(2):
-        lbox_tilt(B["metal"], cx, cy, yaw, bx + 2.05 + i * 1.60, by + 0.15,
-                  roof_z + 0.14, 1.42, 1.42, 0.10, -0.28)
-        lbox_tilt(B["glass_warm"], cx, cy, yaw, bx + 2.05 + i * 1.60, by + 0.15,
-                  roof_z + 0.22, 1.24, 1.24, 0.06, -0.28)
+        tilt("metal", bx + 2.05 + i * 1.60, by + 0.15,
+             roof_z + 0.28, 1.42, 1.42, 0.10, -0.28)
+        tilt("glass_warm", bx + 2.05 + i * 1.60, by + 0.15,
+             roof_z + 0.28, 1.24, 1.24, 0.06, -0.28, 0.08)
     # Terrazza abitata: pergolato a listelli, tavolo con sedie, due lettini,
     # ombrellone, fioriere in coccio e stendino. È la quota più esposta della
     # città, quella che dall'alto si legge prima di ogni altra.
@@ -1641,10 +1670,10 @@ def _apartment_roof_and_terrace(
     for i in range(2):
         lx0 = width * 0.02 + i * 0.90
         ly0 = -depth / 2 + 1.35
-        lbox_tilt(B["white"], cx, cy, yaw, lx0, ly0, roof_z + 0.20,
-                  0.72, 1.95, 0.12, -0.20)
-        lbox_tilt(B["red" if i == 0 else "blue"], cx, cy, yaw, lx0, ly0,
-                  roof_z + 0.29, 0.62, 1.80, 0.05, -0.20)
+        tilt("white", lx0, ly0, roof_z + 0.38,
+             0.72, 1.95, 0.12, -0.20)
+        tilt("red" if i == 0 else "blue", lx0, ly0,
+             roof_z + 0.38, 0.62, 1.80, 0.05, -0.20, 0.085)
         for k in range(2):
             lbox(B["metal"], cx, cy, yaw, lx0 - 0.28 + k * 0.56, ly0,
                  roof_z + 0.09, 0.10, 1.75, 0.18)
@@ -3026,6 +3055,44 @@ def build_newsstand(B, mats, col, x=17.2, y=-19.2, yaw=0.0):
              mats["white"], col, yaw=yaw)
 
 
+LAUNDRY_SHIRTS = ("cloth_red", "cloth_blue", "cloth_green", "cloth_yellow",
+                  "cloth_violet", "cloth_white")
+
+
+def add_balcony_laundry(B, bx, by, yaw, width=18.0, depth=14.0):
+    """Panni stesi nei balconi del primo e secondo piano di un palazzo.
+
+    Il vecchio filo era un cilindro unico lungo 6,8 m sull'asse Y globale, a
+    quota 6,21 e 9,06 m (23 cm sotto l'intradosso delle solette dei balconi,
+    che stanno a 6,44 e 9,29 m): i panni pendevano quindi fino a 90 cm sotto i
+    balconi e attraversavano le campate prive di balcone. Ora ogni balcone
+    realmente presente sui livelli 1 e 2 riceve il proprio filo nel riferimento
+    locale, teso fra le due spallette della ringhiera alla quota del corrimano
+    (slab_z + 0,78 m), con tre panni appesi sopra il piano di calpestio.
+    """
+    ground_h, upper_h, win_h = 3.45, 2.85, 1.72
+    face = -depth / 2
+    cols = 5 if width > 17 else 4
+    usable = width - 3.2
+    x_positions = [-usable / 2 + usable * (i + 0.5) / cols for i in range(cols)]
+    wire_y = face - 0.92
+    half_span = 0.99
+    for level in (1, 2):
+        zc = ground_h + 0.26 + level * upper_h + 1.10
+        slab_z = zc - win_h / 2 - 0.26
+        wire_z = slab_z + 0.78
+        for col, lx in enumerate(x_positions):
+            if (col + level) % 2 != 0:
+                continue
+            p0 = lbox_point(bx, by, yaw, lx - half_span, wire_y, wire_z)
+            p1 = lbox_point(bx, by, yaw, lx + half_span, wire_y, wire_z)
+            add_tube(B["metal"], (p0, p1), 0.012, 6)
+            for k, dx in enumerate((-0.56, 0.0, 0.56)):
+                key = LAUNDRY_SHIRTS[(col + level + k) % len(LAUNDRY_SHIRTS)]
+                lbox(B[key], bx, by, yaw, lx + dx, wire_y, wire_z - 0.27,
+                     0.46, 0.03, 0.54)
+
+
 def build_street_life(B, mats, col):
     """Pedoni, ciclisti, animali e micro-dettagli che animano la scena."""
     shirts = ("cloth_red", "cloth_blue", "cloth_green", "cloth_yellow",
@@ -3089,18 +3156,7 @@ def build_street_life(B, mats, col):
             B["bird"].quad(p0, p1, p2, p3)
     # Panni stesi sui balconi di due palazzi: fili e tessuti colorati.
     for bx, by, yaw in ((-46, 0, PI / 2), (46, 0, -PI / 2)):
-        for level in (1, 2):
-            z = 3.45 + 0.26 + level * 2.85 - 0.35
-            face = -7.0
-            p0 = lbox_point(bx, by, yaw, -3.4, face - 0.9, z)
-            p1 = lbox_point(bx, by, yaw, 3.4, face - 0.9, z)
-            B["metal"].cylinder(((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2, z),
-                                0.012, 6.8, 6, axis="Y")
-            for i in range(5):
-                t = -2.8 + i * 1.4
-                key = shirts[(i + level) % 6]
-                lbox(B[key], bx, by, yaw, t, face - 0.92, z - 0.34,
-                     0.62, 0.03, 0.66)
+        add_balcony_laundry(B, bx, by, yaw)
     # Cassonetti carrellati per la raccolta differenziata e nuova edicola
     # vetrata: sostituiscono i sei parallelepipedi senza ruote/aperture.
     for bx, by, bin_yaw, key in ((-20.4, -26.4, 0.0, "canvas_green"),
@@ -3775,8 +3831,11 @@ def make_local_tree_template(mats):
                                    (3.8, 3.0, 4.6, 0.12), (5.3, 2.8, 4.1, 0.10)):
         p0 = (math.cos(angle) * 0.10, math.sin(angle) * 0.10, start)
         p1 = (math.cos(angle) * 1.5, math.sin(angle) * 1.5, end)
-        trunk.cylinder(((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2,
-                        (p0[2] + p1[2]) / 2), rad, math.dist(p0, p1), 10, axis="Z")
+        # Tubo continuo inclinato dal fusto ai lobi laterali della chioma:
+        # `trunk.cylinder(..., axis="Z")` sul punto medio produceva quattro
+        # pali verticali sospesi a 80 cm dal tronco che pendevano sotto le
+        # fronde fino a quota 2,42 m.
+        add_tube(trunk, (p0, p1), rad, 10)
     for idx, (x, y, z, r) in enumerate((
             (0, 0, 5.25, 1.9), (-1.15, -0.2, 4.75, 1.45), (1.10, 0.1, 4.78, 1.45),
             (0.0, 1.05, 4.82, 1.45), (-0.2, -1.0, 4.75, 1.42),
