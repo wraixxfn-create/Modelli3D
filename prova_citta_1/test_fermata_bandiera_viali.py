@@ -28,13 +28,15 @@ FUNCTIONS = {
     "add_front_window", "add_hip_roof", "add_pyramid", "build_street_lamp",
     "add_lamp", "make_bench", "build_bus", "build_bus_shelter", "build_bus_stop",
     "build_town_hall", "build_tricolore", "build_lawn_care", "build_tree_beds",
+    "build_trees_and_park", "spans_outside",
 }
 CONSTANTS = {"AVENUE_TREES", "PARK_TREES", "MOWN_BLOCKS", "BUS_STOP_BOUNDS",
-             "BUS_POSITION"}
+             "BUS_POSITION", "POND_CENTER", "BRIDGE_Y_OFFSET"}
 
 
 def load_geometry():
-    scope = {"math": math, "PI": math.pi, "TAU": math.tau,
+    import random
+    scope = {"math": math, "random": random, "PI": math.pi, "TAU": math.tau,
              "make_cube": Mock(), "bpy": _BpyStub, "collections": collections}
     tree = ast.parse(Path(__file__).with_name("genera_citta.py").read_text())
     tree.body = [n for n in tree.body
@@ -225,6 +227,39 @@ class VialiTests(unittest.TestCase):
                 self.assertGreater(offset - self.CURB_R, self.CAR_EDGE + 0.10)
                 if abs(x) > 10:      # filari accanto alle case: fuori dai lotti
                     self.assertGreaterEqual(self.LOT_EDGE - abs(y), 0.65)
+
+    def test_paletti_luminosi_sui_margini_dei_sentieri_dei_parchi(self):
+        group = batches()
+        with recorder() as (_, calls):
+            city["build_trees_and_park"](group, defaultdict(lambda: None), None, None)
+        posts = [c for c in calls["cylinder"] if c[0] is group["metal"]
+                 and c[2] == .075 and c[3] == .72]
+        diffusers = [c for c in calls["cylinder"] if c[0] is group["lamp"]
+                     and c[2] == .09 and c[3] == .12]
+        self.assertEqual(len(posts), 8)
+        self.assertEqual(len(diffusers), 8)
+        centers = {(round(c[1][0], 2), round(c[1][1], 2), c[1][2]) for c in posts}
+        expected = {(cx + dx, cy + dy, .54)
+                    for cx, cy in ((-52, 52), (52, -52))
+                    for dx in (-1.65, 1.65) for dy in (-4.5, 4.5)}
+        self.assertEqual(centers, expected)
+
+    def test_pensilina_collegata_al_ciglio_con_pavimentazione_tattile(self):
+        group = batches()
+        with recorder(build_bus=Mock(), build_bus_shelter=Mock(),
+                      add_text=Mock(), add_tube=Mock(), make_bench=Mock()) as (_, calls):
+            city["build_bus_stop"](group, defaultdict(lambda: None), None)
+        guide = [c for c in calls["box"] if c[0] is group["tile_b"]
+                 and c[1][0] == 48 and c[1][1] == -75.15]
+        warning = [c for c in calls["box"] if c[0] is group["road_yellow"]
+                   and c[1][1] == -74.35]
+        domes = [c for c in calls["cylinder"] if c[0] is group["road_yellow"]
+                 and c[1][1] == -74.35 and abs(c[2] - .055) < 1e-9]
+        self.assertEqual(len(guide), 1)
+        self.assertEqual(guide[0][2], (.42, 1.35, .035))
+        self.assertEqual(len(warning), 1)
+        self.assertEqual(warning[0][2], (5.8, .42, .025))
+        self.assertEqual(len(domes), 13)
 
     def test_siepi_esterne_al_marciapiede_e_ai_lotti(self):
         group = batches()
