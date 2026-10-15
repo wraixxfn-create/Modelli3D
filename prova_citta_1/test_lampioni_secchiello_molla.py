@@ -26,6 +26,17 @@ def load_geometry():
     tree = ast.parse(Path(__file__).with_name("genera_citta.py").read_text())
     tree.body = [n for n in tree.body
                  if isinstance(n, (ast.FunctionDef, ast.ClassDef)) and n.name in names]
+    try:
+        import bpy
+    except ImportError:
+        pass
+    else:
+        # Le annotazioni di `Batch` citano `bpy.types`: quando bpy e'
+        # disponibile va passato all'exec, non solo mathutils/math.
+        scope["bpy"] = bpy
+    # `Batch.poly` annota `collections.abc.Iterable`, valutato a def-time.
+    import collections.abc
+    scope.setdefault("collections", collections)
     exec(compile(tree, "genera_citta.py", "exec"), scope)
     return scope
 

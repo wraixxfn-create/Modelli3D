@@ -50,6 +50,50 @@ in un unico contesto.
   città — e oltre le colline tre **dorsali lontane in foschia** che chiudono
   l'orizzonte, con **cumuli** nel cielo.
 
+## Miglioramenti della sedicesima versione
+
+**Esattamente tre migliorie nel generatore**, senza cambiare viabilità,
+edifici, posizione degli arredi, camera o illuminazione della scena:
+
+1. **Pensilina della fermata** — era una scatola opaca: una lastra di vetro
+   fumé di 5,3 × 2,75 m chiudeva tutto il fondo, una seconda di 1,2 × 2,75 m
+   occupava la testata e la copertura era un coperchio scuro senza fascia né
+   sottotetto, così da terra l'attesa spariva dietro un volume nero che
+   arrivava a coprire il marciapiede. Ora il telaio è aperto sulla
+   carreggiata, con parete di fondo vetrata ripartita da cinque montanti,
+   ritorni corti alle testate, panca continua, cestino all'ombra e plafoniera
+   sotto la copertura, che riceve sottotetto chiaro e fascia antracite.
+   L'insegna «FERMATA · LINEA 1» passa sul nuovo bordo, con gli arredi
+   arretrati di 10 cm per conservare i 1,775 m di passaggio libero.
+2. **Tricolore del municipio** — il pennone era conficcato nella falda di
+   poppa a 1,2 m dal colmo, con la base 18 cm sopra le tegole: la bandiera
+   pendeva fuori dal tetto verso est, appesa al nulla e larga appena metà di
+   quella della torre. Ora l'asta attraversa la falda dentro una piastra di
+   ancoraggio, sale 3,5 m sopra il colmo e regge il telo in quota, sopra la
+   gronda e al centro della falda, lontano da torre e camini.
+3. **Filari alberati dei viali** — le file a y = ±39,5 stavano 49 cm fuori
+   dal marciapiede e 12 cm fuori dal limite dei lotti: l'anello in granito
+   della piazzola, spesso 1,42 m di raggio, sbordava di 30 cm sul prato e
+   spingeva la ghiaia fino a 2,5 m oltre il cordolo, davanti alle case. Le
+   trasversali portano ora i filari al centro del marciapiede (y = ±37,25) e
+   Viale Roma a x = ±6,35 sulla carreggiata larga 10 m; l'anello scende a
+   1,02 m di raggio, 12 cm dentro il cordolo e 2,3 m fuori dalla corsia di
+   sosta, e le siepi passano a y = ±38,9 senza tagliare la piazzola.
+
+Verifica mirata, eseguibile anche senza Blender:
+
+```bash
+python3 -m unittest discover -s prova_citta_1 -p 'test_fermata_bandiera_viali.py' -v
+```
+
+I dieci test verificano apertura del fronte e vetrata di fondo della pensilina,
+quote di panca, cestino e plafoniera, invarianza dell'ingombro e del passaggio
+libero, ancoraggio e quota del pennone del tricolore, e — per i filari — che
+ogni piazzola stia fra il cordolo e il bordo del marciapiede, fuori dai lotti e
+dalla corsia di sosta. **Gli artefatti `citta.blend` e `anteprima.png`
+comprendono queste tre migliorie**: sono rigenerati con Blender 5.0.1 e
+comprendono anche quelle delle versioni precedenti.
+
 ## Miglioramenti della quindicesima versione
 
 **Esattamente tre migliorie nel generatore**, senza cambiare viabilità,
@@ -79,16 +123,8 @@ del secchiello, collegamenti della molla, impugnature, roto-traslazione e
 validità delle mesh. Senza `mathutils` vengono intercettate le polilinee dei
 tubi; quando è disponibile, i test eseguono anche la tessellazione reale.
 
-**Stato degli artefatti:** queste tre migliorie sono nello script;
-`citta.blend` e `anteprima.png` rimangono alla versione 14. La rigenerazione
-in questo ambiente è bloccata dalle librerie native mancanti di Blender
-(`libXrender.so.1` e altre dipendenze grafiche). In un ambiente con Blender
-5.0+ funzionante, aggiornare entrambi con:
-
-```bash
-cd prova_citta_1
-python3 genera_citta.py --quick
-```
+**Stato degli artefatti:** queste tre migliorie sono nello script e sono ora
+anche in `citta.blend` e `anteprima.png`, rigenerati con Blender 5.0.1.
 
 ## Miglioramenti della quattordicesima versione
 
@@ -165,14 +201,8 @@ I dieci test verificano cosce/stinchi/piedi quotati su panchina, bici e
 sedie, l'invarianza della posa in piedi, le rotazioni, le ruote dello
 scooter nel piano locale con mozzi e manubrio, e sedie/tavoli del caffè;
 intercettano le polilinee dei tubi senza tessellarle. **Gli artefatti
-`citta.blend` e `anteprima.png` restano alla versione precedente**:
-la rigenerazione richiede Blender 5.0+ con le librerie grafiche native
-(non disponibili nell'ambiente di verifica). Per applicare queste tre
-migliorie al modello e all'anteprima, dalla cartella del modello:
-
-```bash
-python3 genera_citta.py --quick --render
-```
+`citta.blend` e `anteprima.png` comprendono queste tre migliorie**: sono
+stati rigenerati con Blender 5.0.1 (versione 16 del generatore).
 
 ## Miglioramenti della dodicesima versione
 
@@ -198,14 +228,9 @@ python3 -m unittest discover -s prova_citta_1 -p 'test_arredi_mobilita.py' -v
 
 I quattro test verificano schienali, vetrature/fanali, rotazioni e struttura
 delle biciclette; intercettano le polilinee dei tubi senza tessellarle.
-**Gli artefatti `citta.blend` e `anteprima.png` restano alla versione precedente**:
-la rigenerazione richiede Blender 5.0+ con le librerie grafiche native
-(non disponibili nell'ambiente di verifica). Per applicare queste tre
-migliorie al modello e all'anteprima, dalla cartella del modello:
-
-```bash
-python3 genera_citta.py --quick --render
-```
+**Gli artefatti `citta.blend` e `anteprima.png` comprendono queste tre
+migliorie**: sono stati rigenerati con Blender 5.0.1 (versione 16 del
+generatore).
 
 ## Miglioramenti dell'undicesima versione
 
@@ -542,6 +567,7 @@ denoising OpenImageDenoise e view transform AgX.
 | `test_arredi_mobilita.py` | Quattro controlli su panchine, automobili e biciclette |
 | `test_persone_scooter_caffe.py` | Dieci controlli su persone sedute, scooter e caffè |
 | `test_furgone_cassonetti_edicola.py` | Nove controlli su furgone, cassonetti ed edicola |
+| `test_fermata_bandiera_viali.py` | Dieci controlli su pensilina, tricolore e filari dei viali |
 
 ## Rigenerazione
 
@@ -558,10 +584,11 @@ python3 genera_citta.py --render         # render Cycles a qualità alta
 Il file `.blend` è salvato con le impostazioni di render finali; `--quick`
 riduce temporaneamente campioni e risoluzione solo per il PNG di controllo.
 
-Per eseguire tutti i **48 test geometrici** (i sei della decima versione, i 19
-di urbanistica, i quattro della dodicesima, i dieci della tredicesima e i nove
-della quattordicesima, inclusi i controlli sugli ingombri dei modelli sorgente
-reali), dalla radice del repository, nello stesso ambiente Python con `bpy`:
+Per eseguire tutti i **67 test geometrici** (i sei della decima versione, i 19
+di urbanistica, i quattro della dodicesima, i dieci della tredicesima, i nove
+della quattordicesima, i nove della quindicesima e i dieci della sedicesima,
+inclusi i controlli sugli ingombri dei modelli sorgente reali), dalla radice del
+repository, nello stesso ambiente Python con `bpy`:
 
 ```bash
 python3 -m unittest discover -s prova_citta_1 -p 'test_*.py' -v

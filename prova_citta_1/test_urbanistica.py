@@ -235,12 +235,19 @@ class FermataTests(unittest.TestCase):
         self.assertTrue(all(c[5] < -1.225 for c in doors))
 
     def test_pensilina_aperta_verso_la_strada(self):
+        # Dalla sedicesima versione la pensilina ha la parete di fondo vetrata
+        # ripartita da cinque montanti e due ritorni corti alle testate: qui
+        # si verifica l'invariante — nessuna lastra verso la carreggiata e
+        # una vetrata di fondo continua su tutta la larghezza.
         b = batches()
         with patch.object(city, "lbox", wraps=city.lbox) as boxes:
             city.build_bus_shelter(b, 0, 0)
         glass = [c.args for c in boxes.call_args_list if c.args[0] is b["glass"]]
-        self.assertEqual(len(glass), 2)
+        self.assertEqual(len(glass), 3)
         self.assertTrue(all(c[5] + c[8] / 2 < .5 for c in glass))
+        back = [c for c in glass if c[5] == -.85]
+        self.assertEqual(len(back), 1)
+        self.assertGreaterEqual(back[0][7], 5.0)   # copre tutta la larghezza
 
     def test_arredi_sulla_piazzola_e_passaggio_laterale_libero(self):
         b = batches()
