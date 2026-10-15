@@ -50,6 +50,67 @@ in un unico contesto.
   città — e oltre le colline tre **dorsali lontane in foschia** che chiudono
   l'orizzonte, con **cumuli** nel cielo.
 
+## Miglioramenti della ventitreesima versione
+
+**Esattamente tre interventi nel generatore**, senza cambiare viabilità,
+posizione degli edifici, arredi, camera o illuminazione della scena:
+
+1. **Camminamenti dei due parchi (`build_trees_and_park`)** — le quattro
+   aiuole di ogni parco erano piantate sui due assi della croce pedonale.
+   Quelle a `dx = ±10 m` correvano per cinque metri dentro la fascia
+   orizzontale (larga `2,40 m`, piano a `0,18 m`) occupandone `1,45 m` e
+   lasciando due passaggi da `47 cm`; quelle a `dy = ±10 m` la
+   attraversavano da parte a parte, perché lunghe `5 m` contro `2,40 m` di
+   luce. Tutte partivano `3,5 cm` dentro il lastricato e arrivavano a
+   `0,395 m`, cioè `21 cm` sopra il piano di cammino. Ora ogni aiuola è
+   girata sul lato lungo e spostata nel quadrante libero — `(±10, ∓2,30)`
+   e `(∓2,30, ±10)` — con il bordo a `0,375 m` dal ciglio, lo sviluppo di
+   `5 × 1,45 m` invariato e la lavanda che segue l'asse lungo di ciascuna.
+   La fontanella del Parco delle Rose stava nel punto esatto
+   dell'incrocio: `2,30 m` di diametro su `2,40 m` di luce, con il
+   basamento `8 cm` dentro il lastricato e `52 cm` di vasca sul piano di
+   cammino, chiudeva tutti e quattro i bracci. È accostata al braccio
+   settentrionale, a `3,20 m` dall'asse: `85 cm` fra il bordo della vasca e
+   il ciglio del vialetto, `40 cm` dai paletti luminosi e `17 m` dal centro
+   del laghetto.
+2. **Platea del chiosco del caffè (`build_town_square`)** — il pavimento
+   del gazebo era una lastra spessa `20 cm` con il fondo a `0,35 m`, cioè
+   quasi quattordici centimetri sopra il lastricato della piazza
+   (`0,2125 m`): con il sole a 19° si leggeva la fessura sotto tutto il
+   perimetro, come uno zoccolo sospeso. Ora lo spessore sale a `40 cm` e la
+   base scende a `0,15 m`, dentro la pavimentazione; il calpestio resta a
+   `0,55 m` (`CAFFE_FLOOR_Z`), così tavolini, sedie da bistro e i due
+   avventori seduti conservano le loro quote e i quattro montanti restano
+   piantati nella platea.
+3. **Pali del pontile sul laghetto (`build_pond`)** — i quattro fusti che
+   reggono le quattro tavole del pontile partivano da `z = -0,25 m` e
+   salivano fino a `0,45 m`, mentre il piano di calpestio sta fra `0,20` e
+   `0,28 m`: ogni palo spuntava così `17 cm` sopra le tavole, come un ceppo
+   in mezzo alla passerella. Ora il fusto si ferma a `0,22 m` — due
+   centimetri dentro lo spessore del tavolato — e scende a `-0,30 m`, sotto
+   il fondo del bacino. Il pontile, il pelo dell'acqua (`0,20 m`) e il
+   cordolo ad anello (`raggio 4,25 m`, cresta `0,25 m`) non cambiano.
+
+Verifica mirata, eseguibile anche senza Blender:
+
+```bash
+python3 -m unittest discover -s prova_citta_1 -p 'test_parchi_caffe_pontile.py' -v
+```
+
+I tredici test controllano che in entrambi i parchi le quattro aiuole
+mantengano l'ingombro di prima ma stiano fuori da tutte e due le fasce dei
+camminamenti, con almeno `35 cm` dal ciglio e il bordo dentro il cordolo di
+perimetro; che non tocchino panchine, paletti luminosi e laghetto e che la
+lavanda resti dentro il proprio bordo; che la fontanella sia fuori dalla
+croce con almeno `60 cm` di margine e conservi le quote di vasca, acqua e
+colonnina; che la platea del chiosco scenda sotto il lastricato senza
+cambiare posizione, ingombro o calpestio, con i piani dei tavolini ancora a
+`1,31 m`; e che i quattro pali del pontile finiscano dentro lo spessore del
+tavolato, infissi oltre `-0,25 m`, con acqua e cordolo invariati. Il file
+`citta.blend` e l'anteprima non sono stati rigenerati in questo ambiente,
+perché Blender 5.0 non è installato; rigenerarli con `python3 genera_citta.py
+--quick` aggiornerebbe entrambi gli artefatti.
+
 ## Miglioramenti della ventiduesima versione
 
 **Esattamente tre interventi nel generatore**, senza cambiare viabilità,
@@ -877,11 +938,14 @@ denoising OpenImageDenoise e view transform AgX.
 | `test_arredi_mobilita.py` | Quattro controlli su panchine, automobili e biciclette |
 | `test_persone_scooter_caffe.py` | Dieci controlli su persone sedute, scooter e caffè |
 | `test_furgone_cassonetti_edicola.py` | Nove controlli su furgone, cassonetti ed edicola |
-| `test_fermata_bandiera_viali.py` | Dieci controlli su pensilina, tricolore e filari dei viali |
+| `test_fermata_bandiera_viali.py` | Dodici controlli su pensilina, tricolore e filari dei viali |
 | `test_vetrine_scale.py` | Sette controlli su corpi scala e vetrine del piano terra |
 | `test_espositori_tappeto_ruote.py` | Sette controlli su espositori dell'edicola, tappeto giochi e ruote del furgone |
 | `test_coperture_alberi_panni.py` | Sette controlli su coperture dei palazzi, rami degli alberi urbani e panni sui balconi |
 | `test_pieve_mercato_semafori.py` | Nove controlli su pieve romanica, bancarelle e carretto del mercato e semafori agli incroci |
+| `test_pieve_palazzi_laghetto.py` | Tredici controlli su lesene della pieve, corpo scala dei palazzi e laghetto |
+| `test_lampioni_secchiello_molla.py` | Nove controlli su lampioni stradali, secchiello della sabbiera e cavallino a molla |
+| `test_parchi_caffe_pontile.py` | Tredici controlli su aiuole e fontanella dei parchi, platea del chiosco e pali del pontile |
 
 ## Rigenerazione
 
@@ -898,7 +962,7 @@ python3 genera_citta.py --render         # render Cycles a qualità alta
 Il file `.blend` è salvato con le impostazioni di render finali; `--quick`
 riduce temporaneamente campioni e risoluzione solo per il PNG di controllo.
 
-Per eseguire tutti i **109 test geometrici** (inclusi i controlli sugli
+Per eseguire tutti i **125 test geometrici** (inclusi i controlli sugli
 ingombri dei modelli sorgente reali), dalla radice del
 repository, nello stesso ambiente Python con `bpy`:
 

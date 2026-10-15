@@ -1964,19 +1964,41 @@ def build_trees_and_park(B, mats, green_col, road_col):
             for dy in (-4.5, 4.5):
                 B["metal"].cylinder((cx + dx, cy + dy, 0.54), 0.075, 0.72, 10)
                 B["lamp"].cylinder((cx + dx, cy + dy, 0.76), 0.09, 0.12, 10)
-        # Aiuole con bordo, lavanda e arbusti.
-        for dx, dy in ((-10, 0), (10, 0), (0, -10), (0, 10)):
-            B["curb"].box((cx + dx, cy + dy, 0.27), (5.0, 1.45, 0.25))
+        # Aiuole con bordo, lavanda e arbusti. Le quattro cadevano sui due
+        # assi dei camminamenti incrociati (fasce larghe 2,40 m, piano a
+        # 0,18 m): quelle a `dx = ±10` correvano per cinque metri lungo la
+        # banda orizzontale occupandone 1,45 dei 2,40 m disponibili, e
+        # quelle a `dy = ±10` la attraversavano da parte a parte, piantate
+        # tre centimetri dentro il lastricato e alte fino a 0,40 m. Ogni
+        # aiuola è ora girata sul lato lungo e spostata nel quadrante
+        # libero, con il bordo a 37 cm dal ciglio del vialetto: il passaggio
+        # resta sgombro per tutta la lunghezza, da un capo all'altro.
+        beds = ((-10.0, -2.30, 5.00, 1.45), (10.0, 2.30, 5.00, 1.45),
+                (-2.30, 10.0, 1.45, 5.00), (2.30, -10.0, 1.45, 5.00))
+        for dx, dy, bw, bd in beds:
+            B["curb"].box((cx + dx, cy + dy, 0.27), (bw, bd, 0.25))
+            along_x = bw > bd
             for j in range(7):
-                px = cx + dx + (j - 3) * 0.55
-                py = cy + dy + random.uniform(-0.32, 0.32)
+                step = (j - 3) * 0.55
+                jitter = random.uniform(-0.32, 0.32)
+                # Le sfere seguono l'asse lungo dell'aiuola e restano dentro
+                # il bordo corto: 1,65 m di sviluppo contro 2,50 m utili.
+                px = cx + dx + (step if along_x else jitter)
+                py = cy + dy + (jitter if along_x else step)
                 B["leaf_light"].sphere((px, py, 0.68), 0.28,
                                        (0.85, 0.85, 1.0), 8, 5)
-        # Fontanella da parco.
+        # Fontanella da parco. Prima stava nel punto esatto in cui i due
+        # camminamenti si incrociano: il basamento (raggio 1,15 m) partiva
+        # otto centimetri dentro il lastricato e occupava 2,30 m dei 2,40 m
+        # di larghezza, chiudendo tutti e quattro i bracci. Ora è accostata
+        # al braccio settentrionale, nel quadrante libero: il bordo della
+        # vasca resta 85 cm fuori dal ciglio e l'acqua è raggiungibile
+        # scostandosi di un passo dal percorso.
         if cx < 0:
-            B["concrete"].cylinder((cx, cy, 0.40), 1.15, 0.60, 24)
-            B["water"].cylinder((cx, cy, 0.72), 0.90, 0.05, 24)
-            B["metal_gold"].cylinder((cx, cy, 1.0), 0.12, 0.65, 12)
+            fx, fy = cx + 3.20, cy + 5.00
+            B["concrete"].cylinder((fx, fy, 0.40), 1.15, 0.60, 24)
+            B["water"].cylinder((fx, fy, 0.72), 0.90, 0.05, 24)
+            B["metal_gold"].cylinder((fx, fy, 1.0), 0.12, 0.65, 12)
     # Aiuole triangolari alla piazza con piante fiorite.
     for cx, cy in ((-12, -10), (12, -10), (-12, 10), (12, 10)):
         B["concrete"].box((cx, cy, 0.36), (3.2, 1.45, 0.42))
@@ -2073,7 +2095,12 @@ def build_town_square(B, mats, furnishing_col):
                       (-12.6, 6.9, PI / 2), (12.6, 6.9, -PI / 2)):
         make_bench(B, x, y, yaw)
     # Chioschetto/caffè scenografico presso il lato sud della piazza.
-    make_cube("Gazebo caffè — pavimento", (0, -11.4, 0.45), (5.2, 3.8, 0.20),
+    # La platea restava sospesa: il fondo stava a 0,35 m, cioè quattordici
+    # centimetri sopra il lastricato (0,21 m), e con il sole basso si leggeva
+    # la fessura sotto l'intero perimetro del chiosco. Ora lo zoccolo scende
+    # a 0,15 m, dentro la pavimentazione, e il calpestio resta a 0,55 m:
+    # la stessa quota su cui poggiano tavoli, sedie e avventori.
+    make_cube("Gazebo caffè — pavimento", (0, -11.4, 0.35), (5.2, 3.8, 0.40),
               mats["wood_light"], furnishing_col, bevel=0.04)
     for x in (-2.2, 2.2):
         for y in (-12.8, -10.0):
@@ -2763,13 +2790,18 @@ def build_pond(B, cx, cy):
         B["beak"].cone((cx + dx + 0.35 * math.cos(yaw),
                         cy + dy + 0.35 * math.sin(yaw), 0.62), 0.045, 0.0,
                        0.13, 6, axis="Y")
-    # Pontile in legno sul bordo.
+    # Pontile in legno sul bordo. I quattro pali partivano da z = -0,25 m e
+    # salivano fino a 0,45 m, mentre il tavolato sta fra 0,20 e 0,28 m: ogni
+    # fusto spuntava quindi diciassette centimetri sopra il calpestio, come
+    # un ceppo piantato in mezzo alla passerella. Ora il palo si ferma a
+    # 0,22 m — due centimetri dentro lo spessore delle tavole — e scende a
+    # -0,30 m, sotto il fondo del bacino.
     for i in range(4):
         B["wood_light"].box((cx + 3.3 + i * 0.40, cy - 1.8, 0.24),
                             (0.36, 1.7, 0.08))
     for px, py in ((cx + 3.2, cy - 2.5), (cx + 4.6, cy - 2.5),
                    (cx + 3.2, cy - 1.1), (cx + 4.6, cy - 1.1)):
-        B["wood"].cylinder((px, py, 0.10), 0.06, 0.7, 8)
+        B["wood"].cylinder((px, py, -0.04), 0.06, 0.52, 8)
     # Bordo sassoso: massi irregolari lungo la sponda per un aspetto naturale.
     for i in range(18):
         a = TAU * i / 18 + random.uniform(-0.12, 0.12)
