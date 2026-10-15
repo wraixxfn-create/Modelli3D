@@ -50,6 +50,39 @@ in un unico contesto.
   città — e oltre le colline tre **dorsali lontane in foschia** che chiudono
   l'orizzonte, con **cumuli** nel cielo.
 
+## Miglioramenti della ventiduesima versione
+
+**Esattamente tre interventi nel generatore**, senza cambiare viabilità,
+posizione degli edifici o camera:
+
+1. **Accessibilità della fermata autobus (`build_bus_stop`)** — un percorso
+   tattile collega l'uscita della pensilina al bordo di salita: guida
+   longitudinale in pavé e fascia gialla a bolli, allineata al ciglio e
+   contenuta nel marciapiede. Il bordo è così riconoscibile senza confondere
+   la segnaletica gialla della corsia bus.
+2. **Illuminazione dei parchi (`build_trees_and_park`)** — otto paletti bassi
+   con diffusore caldo, quattro per parco, illuminano i margini dei sentieri
+   centrali; sono fuori dalla larghezza utile dei percorsi e lontani dalle
+   panchine.
+3. **Canneti del laghetto (`build_pond`)** — i sedici fusti del gruppo
+   nord-occidentale sono ora radicati appena sotto il pelo dell'acqua e
+   distribuiti in una fascia compatta fra bacino e cordolo, senza invadere il
+   pontile; dimensioni e variazione lieve di quota rendono il bordo più
+   naturale.
+
+Verifiche geometriche mirate, eseguibili senza Blender:
+
+```bash
+python3 -m unittest discover -s prova_citta_1 -p 'test_fermata_bandiera_viali.py' -v
+python3 -m unittest discover -s prova_citta_1 -p 'test_pieve_palazzi_laghetto.py' -v
+```
+
+I due moduli eseguono **25 test verdi** sui tre interventi e sui controlli
+preesistenti di fermata, parchi, pieve, palazzi e laghetto. Il file
+`citta.blend` e l'anteprima non sono stati rigenerati in questo ambiente,
+perché Blender 5.0 non è installato; rigenerarli con `python3 genera_citta.py
+--quick` aggiornerebbe entrambi gli artefatti.
+
 ## Miglioramenti della ventunesima versione
 
 **Esattamente tre migliorie nel generatore**, senza cambiare viabilità,

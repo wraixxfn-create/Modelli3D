@@ -1958,6 +1958,12 @@ def build_trees_and_park(B, mats, green_col, road_col):
             B["wood"].box((px, py, 0.56), (2.3, 0.55, 0.12))
             for legx in (-0.8, 0.8):
                 B["metal"].box((px + legx, py, 0.31), (0.10, 0.48, 0.48))
+        # Paletti luminosi bassi ai margini del percorso centrale: illuminano
+        # la croce pedonale senza restringerla né invadere le sedute.
+        for dx in (-1.65, 1.65):
+            for dy in (-4.5, 4.5):
+                B["metal"].cylinder((cx + dx, cy + dy, 0.54), 0.075, 0.72, 10)
+                B["lamp"].cylinder((cx + dx, cy + dy, 0.76), 0.09, 0.12, 10)
         # Aiuole con bordo, lavanda e arbusti.
         for dx, dy in ((-10, 0), (10, 0), (0, -10), (0, 10)):
             B["curb"].box((cx + dx, cy + dy, 0.27), (5.0, 1.45, 0.25))
@@ -2778,14 +2784,19 @@ def build_pond(B, cx, cy):
         if not in_bridge_corridor(sx, sy, cx, cy):
             B["concrete"].sphere((sx, sy, 0.10 + r_rock * 0.5), r_rock, scale, 7, 5)
     build_pond_bridge(B, cx, cy)
-    # Canneti più fitti dietro i massi, sul lato nord-ovest.
+    # Canneti in ciuffi sul margine nord-ovest: i fusti partono appena sotto
+    # il pelo dell'acqua e restano entro la fascia fra il bacino e il cordolo,
+    # invece di galleggiare a quote diverse o invadere il pontile.
     for i in range(8):
-        a = PI * 0.7 + i * 0.12
-        rx, ry = cx + math.cos(a) * 4.3, cy + math.sin(a) * 4.3
+        a = PI * 0.70 + i * 0.12
+        radius = 3.94 + 0.06 * (i % 3)
+        rx, ry = cx + math.cos(a) * radius, cy + math.sin(a) * radius
         for k in range(2):
-            px, py = rx + random.uniform(-0.15, 0.15), ry + random.uniform(-0.15, 0.15)
+            px = rx + random.uniform(-0.04, 0.04)
+            py = ry + random.uniform(-0.04, 0.04)
             if not in_bridge_corridor(px, py, cx, cy):
-                B["leaf_light"].cone((px, py, 0.65 + 0.10 * k), 0.04, 0.01, 0.7, 5)
+                B["leaf_light"].cone((px, py, 0.53 + 0.10 * k),
+                                     0.045, 0.008, 0.80, 6)
 
 
 # ---------------------------------------------------------------------------
@@ -4313,6 +4324,13 @@ def build_bus_stop(B, mats, col):
              .17, mats["white"], col, yaw=PI / 2)
     for i in range(7):
         B["road_yellow"].box((41.5 + i * 2, -73.55, .045), (1.2, .12, .025))
+    # Percorso accessibile fra l'uscita della pensilina e il bordo di salita:
+    # guida tattile longitudinale e fascia a bolli di avvertimento sul ciglio.
+    B["tile_b"].box((48, -75.15, .125), (.42, 1.35, .035))
+    B["road_yellow"].box((48, -74.35, .155), (5.8, .42, .025))
+    for i in range(13):
+        x = 45.25 + i * .458
+        B["road_yellow"].cylinder((x, -74.35, .183), .055, .055, 8)
     # Arredi arretrati: rimane libero il passaggio lungo il bordo stradale.
     for x in (39.5, 40.8, 42.1):
         add_tube(B["metal"], ((x - .32, -77.3, .11), (x - .32, -77.3, .95),
@@ -4586,7 +4604,7 @@ def main():
     green_batches = make_batch_set(mats, green_col,
                                    ("grass", "grass_light", "tile_b", "curb", "leaf",
                                     "leaf_light", "flower", "concrete", "water", "wood",
-                                    "wood_light", "metal", "metal_gold", "sand"))
+                                    "wood_light", "metal", "metal_gold", "lamp", "sand"))
     build_trees_and_park(green_batches, mats, green_col, road_col)
     build_tree_beds(green_batches)
     build_lawn_care(green_batches)
@@ -4646,7 +4664,7 @@ def main():
     traffic_batches = make_batch_set(mats, traffic_col,
         ("metal", "metal_gold", "glass", "white", "red", "blue", "sage", "cream",
          "wood", "wood_light", "road_white", "lamp", "signal_red", "signal_amber",
-         "signal_green", "walk_green", "sidewalk", "road_yellow"))
+         "signal_green", "walk_green", "sidewalk", "tile_b", "road_yellow"))
     build_crosswalk_signals(traffic_batches, mats, sign_col)
     build_transport(traffic_batches, mats, traffic_col)
     # Illuminazione stradale e parcheggi di quartiere accanto ai palazzi.

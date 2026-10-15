@@ -315,6 +315,21 @@ class LaghettoTests(unittest.TestCase):
         self.assertAlmostEqual(radius - tube, 4.10, places=6)   # foro
         self.assertAlmostEqual(center[2] + tube, 0.25, places=6)  # cresta
 
+    def test_reeds_root_at_the_waterline_in_a_compact_shore_band(self):
+        cx, cy = self.cx, self.cy
+        reeds = [call for call in self.B["leaf_light"].calls
+                 if call[0] == "cylinder" and call[2] == .045
+                 and call[3] == .80 and call[5] == .008]
+        self.assertEqual(len(reeds), 16)
+        for _, (x, y, z), _, depth, axis, _ in reeds:
+            self.assertEqual(axis, "Z")
+            self.assertIn(z, (.53, .63))
+            radius = math.hypot(x - cx, y - cy)
+            self.assertGreater(radius, 3.82)
+            self.assertLess(radius, 4.13)
+            self.assertGreaterEqual(z - depth / 2, .13)
+            self.assertLessEqual(z + depth / 2, 1.03)
+
     def test_water_and_bottom_are_unchanged_and_fit_the_hole(self):
         panes = [c for c in self.B["water"].calls if c[0] == "cylinder"]
         self.assertEqual(len(panes), 1)
