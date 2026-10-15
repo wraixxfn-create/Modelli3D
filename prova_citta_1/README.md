@@ -50,6 +50,78 @@ in un unico contesto.
   città — e oltre le colline tre **dorsali lontane in foschia** che chiudono
   l'orizzonte, con **cumuli** nel cielo.
 
+## Miglioramenti della ventesima versione
+
+**Esattamente tre migliorie nel generatore**, senza cambiare viabilità,
+posizione degli edifici, arredi, camera o illuminazione della scena:
+
+1. **Pieve romanica e campanile (`build_church`)** — il rosone della facciata
+   era centrato a quota `z = 4,35 m`, cioè esattamente dentro l'architrave in
+   pietra del portale (`z = 4,10–4,60 m`), ed era generato con
+   `cylinder(..., axis="Y")`, quindi risultava ruotato di 90° di taglio rispetto
+   alla facciata orientata a est (`yaw = π/2`); le cinque monofore dell'abside
+   avevano l'orientamento fisso dei muri della navata e uscivano di taglio fino
+   a 36 cm fuori dal cilindro absidale (`r = 4,40 m`); la guglia del campanile
+   (`cone(..., 4)`) aveva i quattro vertici di base sugli assi a 45° a quota
+   `20,70 m` (13 cm sopra la cornice sommitale a `20,57 m`), lasciando scoperti
+   i quattro spigoli della canna; inoltre le due panche del sagrato stavano in
+   asse davanti alla porta senza gambe e la targa dell'edicola votiva era
+   immersa nel pilastro. Ora il rosone (`r = 1,30 m`) sta nel registro
+   superiore della facciata a `z = 7,80 m` (ben sopra il portale e sotto il
+   cornicione, con cornice lapidea, vetrata, mozzo centrale, otto colonnine
+   radiali e otto borchie perimetrali nel riferimento locale), le cinque
+   monofore con davanzale seguono la tangente locale `yaw + a` dell'abside, il
+   campanile ha guglia piramidale a base quadrata poggiata sulla cornice
+   (`20,55–23,70 m`) e orologio con cornice e doppia lancetta, le panche con
+   gambe in pietra fiancheggiano il portale sul basolato e l'intera pieve è
+   parametrizzata in `(cx, cy, yaw)`.
+2. **Bancarelle e carretto del mercato (`build_market_stall`, `build_market_cart`)**
+   — i quattro montanti delle dieci bancarelle partivano da `z = 0,00 m` (21 cm
+   sotto il lastricato della piazza a `z = 0,21 m`) e salivano tutti a
+   `z = 2,50 m`, bucando di 36 cm la falda anteriore inclinata della tenda
+   (`z = 2,14 m`), mentre gambe del banco e casse a terra affondavano di 20 cm
+   nel basolato; il carretto del mercato aveva entrambe le ruote sullo stesso
+   fianco (`ly = -0,60`) e create con `axis="Y"`, quindi perpendicolari al
+   cassone (`yaw = π/2`), piene, affondate fino a `z = 0,00 m` e compenetrate
+   dalla lavagna dei prezzi, senza cassette di ortaggi sul pianale. Ora i
+   montanti poggiano sul lastricato (`z = 0,21 m`), si arrestano sotto la falda
+   inclinata (`2,12 m` sul fronte e `2,43 m` sul retro) collegati da traverse e
+   puntoni laterali, e `build_market_cart` costruisce un carretto agricolo a
+   due ruote a raggi sui fianchi opposti (`ly = ±0,60`, `z ≥ 0,21 m`) con
+   assale, sponde, piedini anteriori, stanghe posteriori, tre cassette di
+   ortaggi sul pianale e lavagna su cavalletto staccata dalle ruote.
+3. **Semafori e richiami pedonali agli incroci (`build_crosswalk_signal`, `build_crosswalk_signals`)**
+   — i sei pali semaforici agli incroci principali sorgevano a
+   `(x + 4,70, y + 4,70)`, cioè dentro la rampa ribassata per disabili
+   (`1,05 m`) e proprio sopra la piastra tattile gialla (`[x + 4,605, x + 5,065]`),
+   mentre il mini-segnale pedonale (`px + 0,50`) e la scatola del pulsante di
+   chiamata (`px + 0,32`) fluttuavano nel vuoto a 25,5 e 11,5 cm a est del
+   fusto (`r = 0,065 m`). Ora i pali poggiano sulla parte piana del
+   marciapiede a `(x + 5,40, y + 5,40)`, lasciando interamente libere rampe e
+   piastre tattili anche con la basetta in ottone (`r = 0,18 m`), il pulsante
+   di chiamata è fissato direttamente sul fronte del palo e due staffe
+   metalliche orizzontali collegano il segnale pedonale al fusto.
+
+Verifica mirata, con il Python di Blender:
+
+```bash
+python3 -m unittest discover -s prova_citta_1 -p 'test_pieve_mercato_semafori.py' -v
+```
+
+I nove test verificano che sulla pieve il rosone stia nel registro superiore
+della facciata sopra il portale e sotto il cornicione, le cinque monofore siano
+tangenti al cilindro absidale, la guglia piramidale poggi sulla cornice del
+campanile con orologio a doppia lancetta e le panche con gambe lascino libero
+il portale con invarianza rotazionale; che nelle bancarelle i montanti partano
+da `z = 0,21 m` restando sotto la falda inclinata e nel carretto del mercato le
+due ruote a raggi stiano su fianchi opposti con cassette di ortaggi e lavagna
+separata; e che i sei semafori stiano fuori da rampe e piastre tattili, con
+pulsante aderente al palo e doppia staffa per il segnale pedonale. L'intera
+suite della città resta verde: novantasette test con Blender 5.0.1.
+
+**Stato degli artefatti:** `citta.blend` e `anteprima.png` sono rigenerati con
+Blender 5.0.1 e comprendono queste tre migliorie.
+
 ## Miglioramenti della diciannovesima versione
 
 **Esattamente tre migliorie nel generatore**, senza cambiare viabilità,
@@ -716,6 +788,7 @@ denoising OpenImageDenoise e view transform AgX.
 | `test_vetrine_scale.py` | Sette controlli su corpi scala e vetrine del piano terra |
 | `test_espositori_tappeto_ruote.py` | Sette controlli su espositori dell'edicola, tappeto giochi e ruote del furgone |
 | `test_coperture_alberi_panni.py` | Sette controlli su coperture dei palazzi, rami degli alberi urbani e panni sui balconi |
+| `test_pieve_mercato_semafori.py` | Nove controlli su pieve romanica, bancarelle e carretto del mercato e semafori agli incroci |
 
 ## Rigenerazione
 
@@ -732,7 +805,7 @@ python3 genera_citta.py --render         # render Cycles a qualità alta
 Il file `.blend` è salvato con le impostazioni di render finali; `--quick`
 riduce temporaneamente campioni e risoluzione solo per il PNG di controllo.
 
-Per eseguire tutti gli **88 test geometrici** (inclusi i controlli sugli
+Per eseguire tutti i **97 test geometrici** (inclusi i controlli sugli
 ingombri dei modelli sorgente reali), dalla radice del
 repository, nello stesso ambiente Python con `bpy`:
 
