@@ -1414,15 +1414,19 @@ def _apartment_ground_floor(
         if i == bay_count - 1:
             # Ingresso vetrato con montante e pannello della porta.
             glassw = bay_w - 0.45
-            lbox(B["glass"], cx, cy, yaw, x, face_y - 0.07, 1.92,
+            lbox(B["glass_warm"], cx, cy, yaw, x, face_y - 0.07, 1.92,
                  glassw, 0.11, 2.25)
             lbox(B["wood"], cx, cy, yaw, x, face_y - 0.15, 1.55,
                  0.78, 0.14, 1.52)
             lbox(B["metal_gold"], cx, cy, yaw, x + 0.22, face_y - 0.25,
                  1.55, 0.045, 0.05, 0.20)
         else:
-            lbox(B["glass"], cx, cy, yaw, x, face_y - 0.075, 1.95,
+            # Vetrina illuminata con montante centrale: due specchiature
+            # invece di una lastra piatta fumé.
+            lbox(B["glass_warm"], cx, cy, yaw, x, face_y - 0.075, 1.95,
                  bay_w - 0.48, 0.12, 2.30)
+            lbox(B["trim"], cx, cy, yaw, x, face_y - 0.15, 1.95,
+                 0.10, 0.16, 2.30)
         for edge in (-1, 1):
             lx = x + edge * (bay_w - 0.34) / 2
             lbox(B["trim"], cx, cy, yaw, lx, face_y - 0.15, 1.96,
@@ -1516,10 +1520,18 @@ def _apartment_elevator_shaft(
     width: float, depth: float,
     base_z: float, height: float, upper_h: float, floors: int,
 ) -> None:
-    """Corpo scala vetrato sul fianco: rompe le pareti cieche."""
+    """Corpo scala vetrato sul fianco: rompe le pareti cieche.
+
+    Il vetro è illuminato (`glass_warm`) anziché fumé, che in render appariva
+    come un blocco nero, e tre montanti verticali ne dividono la facciata in
+    campate leggibili, collegate ai traversi di piano.
+    """
     for sign in (-1, 1):
-        lbox(B["glass"], cx, cy, yaw, sign * (width / 2 + 0.07), -depth * 0.02,
+        lbox(B["glass_warm"], cx, cy, yaw, sign * (width / 2 + 0.07), -depth * 0.02,
              base_z + height / 2, 0.10, 2.6, height - 0.6)
+        for dy in (-0.65, 0.65):
+            lbox(B["trim"], cx, cy, yaw, sign * (width / 2 + 0.13),
+                 -depth * 0.02 + dy, base_z + height / 2, 0.16, 0.09, height - 0.6)
         for level in range(floors):
             lbox(B["trim"], cx, cy, yaw, sign * (width / 2 + 0.13), -depth * 0.02,
                  0.5 + level * upper_h + 0.2, 0.16, 2.9, 0.16)
