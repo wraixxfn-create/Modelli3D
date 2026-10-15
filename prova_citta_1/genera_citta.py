@@ -1545,16 +1545,29 @@ def _apartment_side_windows(
     cx: float, cy: float, yaw: float,
     width: float, depth: float, floors: int,
 ) -> None:
-    """Finestre sui fianchi visibili: vetro, cornice e davanzale."""
+    """Finestre sui fianchi visibili: vetro, cornice e davanzale.
+
+    Le due colonne centrali cadevano dentro il corpo scala vetrato, che
+    occupa la fascia centrale di ogni fianco (2,60 m di vetro, da -0,02 ×
+    profondità - 1,30 a -0,02 × profondità + 1,30): con le profondità in uso
+    la compenetrazione arrivava a 64 cm e la vetrata del vano copriva la
+    finestra su tutta l'altezza (1,62 m). Ora ogni colonna sta fuori dal vano,
+    a 10 cm dal suo bordo, e le quattro colonne restano quattro.
+    """
     ground_h = 3.45
     upper_h = 2.85
     side_x = width / 2
     upper_floors = floors - 1
+    # Il traverso di piano del vano è largo 2,90 m (semiampiezza 1,45) e la
+    # cornice di ogni finestra sporge di 0,73 m: la colonna interna sta a
+    # 2,30 m dall'asse, con 12 cm fra traverso e cornice e 25 cm fra traverso
+    # e vetrata lunga l'intero fianco. La colonna esterna resta dove era, a
+    # 0,33 × profondità.
+    inner_y = 2.30
     for sign in (-1, 1):
         for level in range(upper_floors):
             zc = ground_h + 0.25 + level * upper_h + 1.1
-            for y in (-depth * 0.33, -depth * 0.11,
-                      depth * 0.11, depth * 0.33):
+            for y in (-depth * 0.33, -inner_y, inner_y, depth * 0.33):
                 lbox(B["glass"], cx, cy, yaw, sign * (side_x + 0.055), y, zc,
                      0.12, 1.20, 1.62)
                 for edge in (-1, 1):
@@ -1577,14 +1590,20 @@ def _apartment_elevator_shaft(
     come un blocco nero, e tre montanti verticali ne dividono la facciata in
     campate leggibili, collegate ai traversi di piano.
     """
+    # Il vano era arretrato di -0,02 × profondità (28 cm sui palazzi da 14 m):
+    # la fascia vetrata non era centrata sul fianco e le due campate laterali
+    # restavano di larghezza diversa, così le finestre andavano a finire sotto
+    # il vetro da un lato. In asse, le due campate sono uguali e le colonne
+    # delle finestre ci stanno con lo stesso margine da entrambi i lati.
+    asse = 0.0
     for sign in (-1, 1):
-        lbox(B["glass_warm"], cx, cy, yaw, sign * (width / 2 + 0.07), -depth * 0.02,
+        lbox(B["glass_warm"], cx, cy, yaw, sign * (width / 2 + 0.07), asse,
              base_z + height / 2, 0.10, 2.6, height - 0.6)
         for dy in (-0.65, 0.65):
             lbox(B["trim"], cx, cy, yaw, sign * (width / 2 + 0.13),
-                 -depth * 0.02 + dy, base_z + height / 2, 0.16, 0.09, height - 0.6)
+                 asse + dy, base_z + height / 2, 0.16, 0.09, height - 0.6)
         for level in range(floors):
-            lbox(B["trim"], cx, cy, yaw, sign * (width / 2 + 0.13), -depth * 0.02,
+            lbox(B["trim"], cx, cy, yaw, sign * (width / 2 + 0.13), asse,
                  0.5 + level * upper_h + 0.2, 0.16, 2.9, 0.16)
 
 
@@ -2246,9 +2265,14 @@ def build_church(B, mats, col, cx=-48.0, cy=-17.5, yaw=PI / 2):
         c = lbox_point(cx, cy, yaw, 0.0, sy * (d / 2 + 0.7), ridge)
         B["cream"].tri(a, b, c)
     lbox(B["terracotta"], cx, cy, yaw, 0, 0, ridge + 0.10, 0.5, d + 1.5, 0.22)
-    # Lesene, cornici e zoccolo sulla navata.
+    # Lesene, cornici e zoccolo sulla navata. Le quattro lesene per lato
+    # cadevano in asse con le finestre laterali: otto compenetrazioni da
+    # 0,30 a 1,00 m lungo l'imbotte, su tutta l'altezza della vetrata
+    # (z 4,30..6,90) e per 12 cm di spessore. Ora stanno nelle campate libere
+    # fra le finestre, a 40 cm dalle mostre esterne e a 90 cm da quelle
+    # interne, con i pilastri angolari a 60 cm dallo spigolo della navata.
     for lx in (-w / 2 - 0.10, w / 2 + 0.10):
-        for ly in (-8.0, -2.6, 2.6, 8.0):
+        for ly in (-8.85, -4.65, 4.65, 8.85):
             lbox(B["trim"], cx, cy, yaw, lx, ly, 0.35 + h / 2, 0.22, 1.1, h)
     lbox(B["concrete"], cx, cy, yaw, 0, 0, 0.42, w + 0.5, d + 0.5, 0.5)
     lbox(B["trim"], cx, cy, yaw, 0, 0, eave - 0.25, w + 0.5, d + 0.5, 0.34)
@@ -2698,7 +2722,14 @@ def build_pond_bridge(B, cx, cy):
 
 
 def build_pond(B, cx, cy):
-    B["curb"].cylinder((cx, cy, 0.10), 4.4, 0.22, 36, radius2=4.1)
+    # Il cordolo era un cilindro troncoconico *pieno* — `Batch.cylinder`
+    # chiude le due basi — con la calotta superiore a 0,21 m, sopra il pelo
+    # dell'acqua (0,20 m) e con raggio 4,10 m maggiore di quello del bacino
+    # (3,85 m): il laghetto si vedeva come un disco di granito e l'acqua,
+    # le ninfee e i riflessi restavano sotto il coperchio. Ora è un anello
+    # a sezione tonda (come la vasca della piazza) con lo stesso ingombro
+    # esterno, foro da 4,10 m e cresta a 0,25 m.
+    B["curb"].ring((cx, cy, 0.10), 4.25, 0.15, 48, 10)
     B["asphalt"].cylinder((cx, cy, 0.05), 4.0, 0.16, 36)
     B["water"].cylinder((cx, cy, 0.17), 3.85, 0.06, 36)
     for i in range(14):
