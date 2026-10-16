@@ -200,6 +200,12 @@ affondavano di 11 cm nei marciapiedi e di 21 cm sul sagrato); la siepe
 meridionale del centro civico è piantata nel terreno, invece di galleggiare
 26 cm sopra il prato davanti al lato sud della piazza.
 
+La trentesima versione orienta i becchi delle anatre lungo il loro yaw con
+coni costruiti tra base e punta; rende visibili e collega al basamento le
+ruote in gomma dei cassonetti, mantenendole a contatto col marciapiede; e
+sposta gli otto lampioni della piazza fuori dalle carreggiate, orientando i
+bracci verso la strada o lo spazio civico.
+
 """
 
 import collections.abc
@@ -1288,7 +1294,9 @@ def build_viale_head(B, sign):
             B["leaf_light"].sphere((fx, ay, 0.24), 0.18, (1.0, 1.0, 0.55), 6, 4)
         make_bench(B, sx * 8.90, y_facade - sign * 2.60,
                    -PI / 2 if sx > 0 else PI / 2)
-        add_lamp(B, sx * 10.10, y_facade - sign * 1.30, height=5.4, ornate=True)
+        # Il braccio guarda verso la carreggiata centrale, non sempre a est.
+        add_lamp(B, sx * 10.10, y_facade - sign * 1.30, height=5.4,
+                 ornate=True, yaw=0.0 if sx < 0 else PI)
 
 
 def build_roads(mats, road_col, plaza_col):
@@ -2065,9 +2073,9 @@ def build_town_hall(B, mats, col):
     B["metal_gold"].sphere((pole_x, pole_y, slope_z + 3.50), 0.085,
                            segments=10, rings=6)
     build_tricolore(B, pole_x + 0.05, pole_y, slope_z + 2.62)
-    # Lampioni simmetrici all'ingresso.
+    # Lampioni simmetrici all'ingresso, con braccio rivolto al sagrato (-Y).
     for x in (-8.2, 8.2):
-        add_lamp(B, x, front - 1.1, height=4.2, ornate=True)
+        add_lamp(B, x, front - 1.1, height=4.2, ornate=True, yaw=-PI / 2)
 
 
 def build_street_lamp(B, x, y, height=5.4, yaw=0.0, ornate=False):
@@ -2095,8 +2103,9 @@ def build_street_lamp(B, x, y, height=5.4, yaw=0.0, ornate=False):
                     0.35, 0.12, 0.16, 12)
 
 
-def add_lamp(B, x, y, height=5.0, ornate=False):
-    build_street_lamp(B, x, y, height, ornate=ornate)
+def add_lamp(B, x, y, height=5.0, ornate=False, yaw=0.0):
+    """Palo ornamentale con braccio orientabile verso la superficie utile."""
+    build_street_lamp(B, x, y, height, yaw=yaw, ornate=ornate)
 
 
 def build_trees_and_park(B, mats, green_col, road_col):
@@ -2228,6 +2237,44 @@ def add_tube(batch, points, radius, segments=8):
     batch.poly(rows[-1])
 
 
+def add_oriented_cone(batch, base, tip, radius, segments=8):
+    """Cono circolare orientato fra due punti, con base chiusa.
+
+    `Batch.cone` è limitato agli assi globali X/Y/Z; questo costruttore usa
+    invece la direzione reale base→punta, così piccoli dettagli come i becchi
+    seguono l'imbardata dell'animale anziché restare allineati a un asse fisso.
+    """
+    if segments < 3:
+        raise ValueError("Un cono richiede almeno tre segmenti")
+    if radius <= 0:
+        raise ValueError("Il raggio del cono deve essere positivo")
+    base = tuple(float(v) for v in base)
+    tip = tuple(float(v) for v in tip)
+    delta = tuple(tip[i] - base[i] for i in range(3))
+    length = math.sqrt(sum(v * v for v in delta))
+    if length <= 1e-12:
+        raise ValueError("La base e la punta del cono non possono coincidere")
+    axis = tuple(v / length for v in delta)
+    reference = (0.0, 0.0, 1.0) if abs(axis[2]) < 0.9 else (1.0, 0.0, 0.0)
+
+    def cross(a, b):
+        return (a[1] * b[2] - a[2] * b[1],
+                a[2] * b[0] - a[0] * b[2],
+                a[0] * b[1] - a[1] * b[0])
+
+    u = cross(axis, reference)
+    u_len = math.sqrt(sum(v * v for v in u))
+    u = tuple(v / u_len for v in u)
+    v = cross(axis, u)
+    ring = [tuple(base[k] + radius * (
+                  math.cos(TAU * j / segments) * u[k] +
+                  math.sin(TAU * j / segments) * v[k])
+                  for k in range(3)) for j in range(segments)]
+    for i in range(segments):
+        batch.poly((ring[i], ring[(i + 1) % segments], tip), smooth=True)
+    batch.poly(ring[::-1])
+
+
 def build_town_square(B, mats, furnishing_col):
     # Fontana centrale a due vasche concentriche.
     fx, fy = 0.0, -0.4
@@ -2261,11 +2308,23 @@ def build_town_square(B, mats, furnishing_col):
         for radius in (0.16, 0.30):
             B["water"].ring((impact[0], impact[1], impact[2]), radius,
                              0.015, 24, 6)
-    # Dodici lampioni su bordo piazza e viali.
-    for x, y in ((-14, -11), (14, -11), (-14, 11), (14, 11),
-                 (-19, -19), (19, -19), (-19, 19), (19, 19),
-                 (-44, -31), (44, -31), (-44, 31), (44, 31)):
-        add_lamp(B, x, y, 5.6, ornate=(abs(x) < 20))
+    # Dodici lampioni, tutti sulla piazza o sui marciapiedi e rivolti verso
+    # lo spazio da illuminare. Le quattro posizioni a x=±19 erano sul bordo
+    # della carreggiata di via ±23; quelle a y=±31 cadevano invece al centro
+    # delle vie ±32. Si spostano rispettivamente al centro dei marciapiedi
+    # (±17,75 e ±37,25 m) e si orientano verso strada o piazza.
+    square_lamps = (
+        (-14.0, -11.0, math.atan2(11.0, 14.0)),
+        (14.0, -11.0, math.atan2(11.0, -14.0)),
+        (-14.0, 11.0, math.atan2(-11.0, 14.0)),
+        (14.0, 11.0, math.atan2(-11.0, -14.0)),
+        (-17.75, -19.0, PI), (17.75, -19.0, 0.0),
+        (-17.75, 19.0, PI), (17.75, 19.0, 0.0),
+        (-44.0, -37.25, PI / 2), (44.0, -37.25, PI / 2),
+        (-44.0, 37.25, -PI / 2), (44.0, 37.25, -PI / 2),
+    )
+    for x, y, yaw in square_lamps:
+        add_lamp(B, x, y, 5.6, ornate=(abs(x) < 20), yaw=yaw)
     # Panchine e tavolini all'aperto. Le due di servizio al mercato sono
     # spostate sui lati: quella in asse finiva dentro una bancarella.
     for x, y, yaw in ((-8, 0, 0), (8, 0, PI), (0, -9, -PI / 2),
@@ -3042,12 +3101,19 @@ def build_pond(B, cx, cy):
         B["duck"].cylinder((cx + dx + 0.20 * math.cos(yaw),
                             cy + dy + 0.20 * math.sin(yaw), 0.48), 0.07,
                            0.32, 8)
-        B["duck"].sphere((cx + dx + 0.24 * math.cos(yaw),
-                          cy + dy + 0.24 * math.sin(yaw), 0.64), 0.09,
-                         segments=10, rings=6)
-        B["beak"].cone((cx + dx + 0.35 * math.cos(yaw),
-                        cy + dy + 0.35 * math.sin(yaw), 0.62), 0.045, 0.0,
-                       0.13, 6, axis="Y")
+        head = (cx + dx + 0.24 * math.cos(yaw),
+                cy + dy + 0.24 * math.sin(yaw), 0.64)
+        B["duck"].sphere(head, 0.09, segments=10, rings=6)
+        # Il becco parte dentro la testa e punta nella stessa direzione del
+        # collo. Il vecchio cono era sempre sull'asse globale Y: due anatre su
+        # tre avevano quindi il becco di traverso o staccato dal muso.
+        forward = (math.cos(yaw), math.sin(yaw))
+        add_oriented_cone(B["beak"],
+                          (head[0] + 0.055 * forward[0],
+                           head[1] + 0.055 * forward[1], 0.62),
+                          (head[0] + 0.20 * forward[0],
+                           head[1] + 0.20 * forward[1], 0.62),
+                          0.045, 6)
     # Pontile in legno sul bordo. I quattro pali partivano da z = -0,25 m e
     # salivano fino a 0,45 m, mentre il tavolato sta fra 0,20 e 0,28 m: ogni
     # fusto spuntava quindi diciassette centimetri sopra il calpestio, come
@@ -3495,12 +3561,18 @@ def add_waste_container(B, x, y, yaw, body_key, ground_z=0.0):
     tube("metal", ((-0.18, -0.35, 1.03), (-0.18, -0.40, 1.08),
                    (0.18, -0.40, 1.08), (0.18, -0.35, 1.03)), 0.022)
     box("metal", 0, -0.38, 0.08, 0.30, 0.16, 0.055)
-    # Quattro ruote piroettanti: piccoli assi lungo X locale, con il
-    # battistrada sul piano di appoggio.
+    # Quattro ruote piroettanti visibili sul fronte e sul retro del bidone.
+    # I centri a y=±0,20 m erano quasi interamente nascosti dentro il corpo
+    # (semiprofondità 0,31 m). Ora i battistrada sporgono 10,5 cm oltre le
+    # fiancate e restano incastrati nel basamento; una staffa metallica unisce
+    # ciascun mozzo alla base senza cambiare la quota di contatto.
     for sx in (-1, 1):
         for sy in (-1, 1):
-            tube("roof_dark", ((sx * 0.38, sy * 0.20, 0.12),
-                               (sx * 0.29, sy * 0.20, 0.12)), 0.075, 10)
+            wheel_x, wheel_y, wheel_z = sx * 0.335, sy * 0.34, 0.12
+            tube("rubber", ((sx * 0.38, wheel_y, wheel_z),
+                            (sx * 0.29, wheel_y, wheel_z)), 0.075, 10)
+            tube("metal", ((wheel_x, wheel_y, wheel_z),
+                           (sx * 0.30, sy * 0.24, 0.20)), 0.022, 8)
 
 
 def build_newsstand(B, mats, col, x=17.2, y=-19.2, yaw=0.0):

@@ -33,7 +33,7 @@ from unittest.mock import Mock
 FACES_PER_BOX = 6
 
 FUNCTIONS = {
-    "Batch", "lbox", "lbox_point", "build_church", "build_pond",
+    "Batch", "lbox", "lbox_point", "add_oriented_cone", "build_church", "build_pond",
     "build_pond_bridge", "bridge_point", "in_bridge_corridor",
     "_apartment_side_windows", "_apartment_elevator_shaft",
 }

@@ -50,6 +50,47 @@ in un unico contesto.
   città — e oltre le colline tre **dorsali lontane in foschia** che chiudono
   l'orizzonte, con **cumuli** nel cielo.
 
+## Miglioramenti della trentesima versione
+
+**Esattamente tre interventi nel generatore**:
+
+1. **Becchi delle anatre orientati e innestati** — `Batch.cone` poteva
+   orientare il becco solo sugli assi globali, mentre le tre anatre hanno yaw
+   diversi: due becchi risultavano di traverso e quello di una papera non
+   arrivava al muso. `add_oriented_cone` costruisce ora il cono tra due punti
+   nel piano della direzione dell'anatra; la base entra nella testa e la punta
+   segue il collo.
+2. **Ruote dei cassonetti visibili e collegate** — gli assi a `y = ±0,20 m`
+   stavano dentro il corpo, largo 0,62 m, e le ruote quasi scomparivano dietro
+   le fiancate. Ora i battistrada sono in gomma a `y = ±0,34 m`, sporgono
+   10,5 cm dal contenitore e quattro staffe metalliche li collegano al
+   basamento. Il punto più basso resta a contatto con `ground_z` del
+   marciapiede.
+3. **Lampioni sui marciapiedi e rivolti correttamente** — otto dei dodici
+   lampioni della piazza erano sul bordo o al centro delle carreggiate: quelli
+   a `x = ±19 m` sfioravano via `x = ±23 m`, gli altri cadevano in via
+   `y = ±32 m` a `y = ±31 m`. Ora sono sui marciapiedi (`x = ±17,75 m` e
+   `y = ±37,25 m`), con il braccio rivolto verso la strada; quelli interni
+   guardano la piazza. `add_lamp` inoltra lo yaw anche ai lampioni del
+   municipio e delle testate di Viale Roma.
+
+Verifica mirata, senza Blender:
+
+```bash
+python3 -m unittest discover -s prova_citta_1 -p 'test_migliorie_v30.py' -v
+```
+
+I **6 test** controllano l'orientamento e l'innesto dei becchi, il contatto,
+la sporgenza e le staffe delle ruote, la quota e la direzione dei dodici
+lampioni, oltre all'orientamento dei lampioni d'ingresso del municipio e delle
+testate. Sono passati anche i test di regressione per laghetto, parchi,
+viabilità, contatto delle ruote e dettagli della piazza.
+
+**Stato degli artefatti:** la revisione aggiorna generatore e test, ma non
+`citta.blend` e `anteprima.png`; Blender non è disponibile in questo ambiente.
+Per rigenerarli, eseguire `python3 genera_citta.py --quick` dalla cartella
+`prova_citta_1` in un ambiente con Blender e i modelli originali installati.
+
 ## Miglioramenti della ventinovesima versione
 
 **Esattamente tre interventi nel generatore**, senza modificare edifici,
@@ -1303,6 +1344,7 @@ denoising OpenImageDenoise e view transform AgX.
 | `test_tavolini_festoni_piccioni.py` | Nove controlli su basi dei tavolini, festoni e piccioni della piazza |
 | `test_sagrato_scooter_siepe.py` | Dieci controlli su sagrato della pieve, scooter e siepe del centro civico |
 | `test_contatto_ruote_cassonetti.py` | Dodici controlli su ruote di auto, autobus e furgone, cassonetti sul marciapiede e auto dei piazzali |
+| `test_migliorie_v30.py` | Sei controlli su becchi delle anatre, ruote visibili dei cassonetti e orientamento dei lampioni |
 
 ## Rigenerazione
 
