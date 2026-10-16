@@ -206,6 +206,18 @@ ruote in gomma dei cassonetti, mantenendole a contatto col marciapiede; e
 sposta gli otto lampioni della piazza fuori dalle carreggiate, orientando i
 bracci verso la strada o lo spazio civico.
 
+La trentunesima versione separa due elementi che occupavano lo stesso posto e
+ne appoggia un terzo: l'edicola del giornalaio si libera dal lampione d'angolo
+di levante, che dopo il trentesimo intervento le era piantato dentro — il palo
+la attraversava dal basamento alla copertura e la lanterna le stava sopra il
+tetto — e risale lungo lo stesso marciapiede verso l'ingresso della piazza; i
+due cartelli direzionali PIAZZA e CENTRO escono dal centro delle carreggiate
+di via ±23, dove i pali salivano dall'asfalto in mezzo al traffico, e tornano
+sui marciapiedi verso la piazza con il piede a filo del pavimento; l'insegna
+del caffè del borgo, testo sospeso nel vuoto fra la platea del chiosco e la
+gronda, poggia infine su un cartello ligneo appeso alla gronda con due
+tiranti metallici.
+
 """
 
 import collections.abc
@@ -2355,6 +2367,16 @@ def build_town_square(B, mats, furnishing_col):
     bx, by, b_yaw = CAFFE_CHAIRS[3]
     add_person(B, bx, by, b_yaw, "cloth_white", "cloth_blue", 1.0,
                seated=True, seat_z=CAFFE_FLOOR_Z + 0.46, foot_z=CAFFE_FLOOR_Z)
+    # L'insegna del caffè era un testo sospeso nel vuoto: le lettere
+    # fluttuavano a 2,42 m fra la platea del chiosco e la gronda, sopra il
+    # fronte aperto, senza un cartello né un sostegno. Ora stanno su un
+    # cartello ligneo appeso alla gronda con due tiranti metallici: il
+    # cartello tocca con la sommità il sottotetto e le lettere restano alla
+    # stessa quota e nella stessa posizione di prima, a 3 cm dal fronte del
+    # legno.
+    B["wood_light"].box((0, -13.30, 2.42), (3.60, 0.08, 0.62))
+    for hx in (-1.50, 1.50):
+        add_tube(B["metal"], ((hx, -13.30, 3.62), (hx, -13.30, 2.71)), 0.028)
     add_text("CAFFÈ DEL BORGO", "Insegna caffè", (0, -13.37, 2.42),
              0.32, mats["cream"], furnishing_col)
     # Paletti e catena bassa a protezione del bordo della piazza.
@@ -2511,13 +2533,19 @@ def build_crosswalk_signals(B, mats, sign_col):
     for x, y in CROSSWALK_JUNCTIONS:
         build_crosswalk_signal(B, x + SIGNAL_CORNER_OFFSET,
                                y + SIGNAL_CORNER_OFFSET, 0.0)
-    # Cartelli direzionali all'ingresso della piazza.
-    for x, yaw in ((-23, 0), (23, PI)):
-        B["metal"].cylinder((x, -19.8, 2.0), 0.065, 3.9, 10)
+    # Cartelli direzionali all'ingresso della piazza. I due pali stavano alla
+    # mezzeria delle carreggiate di via ±23 (`x = ±23`): il fusto saliva
+    # dall'asfalto in mezzo al traffico, con il cartello a 3,75 m. Ora sono
+    # sul marciapiede verso la piazza (`x = ±17,75`), alla stessa quota e con
+    # la stessa faccia di prima, ma fuori da ogni corsia: il piede poggia a
+    # filo del pavimento (0,11 m) e il bordo del cartello resta a 41 cm dal
+    # filo dei pilastrini della carreggiata.
+    for x, yaw in ((-17.75, 0), (17.75, PI)):
+        B["metal"].cylinder((x, -19.8, 2.055), 0.065, 3.89, 10)
         B["blue"].box((x, -19.8, 3.75), (1.55, 0.18, 0.56), yaw)
-    add_text("PIAZZA", "Cartello Piazza", (-23.0, -19.93, 3.76),
+    add_text("PIAZZA", "Cartello Piazza", (-17.75, -19.93, 3.76),
              0.22, mats["white"], sign_col)
-    add_text("CENTRO", "Cartello Centro", (23.0, -19.93, 3.76),
+    add_text("CENTRO", "Cartello Centro", (17.75, -19.93, 3.76),
              0.22, mats["white"], sign_col)
 
 
@@ -3575,8 +3603,18 @@ def add_waste_container(B, x, y, yaw, body_key, ground_z=0.0):
                            (sx * 0.30, sy * 0.24, 0.20)), 0.022, 8)
 
 
-def build_newsstand(B, mats, col, x=17.2, y=-19.2, yaw=0.0):
-    """Edicola aperta: telaio vetrato, banco, tenda e stampa esposta."""
+def build_newsstand(B, mats, col, x=17.2, y=-15.9, yaw=0.0):
+    """Edicola aperta: telaio vetrato, banco, tenda e stampa esposta.
+
+    L'edicola stava a `y = -19,2`, cioè nel punto esatto in cui la
+    trentesima versione ha messo il lampione d'angolo di levante
+    (`17,75; -19`): il palo le saliva in mezzo al vano di vendita e la
+    attraversava da parte a parte, dal basamento in pietra fino alla
+    copertura, con la lanterna appoggiata sopra il tetto. Ora risale di
+    3,3 m lungo lo stesso marciapiede di via 23, verso l'ingresso della
+    piazza: stesso filo (`x = 17,2`), stessa apertura sulla strada, e più
+    di due metri d'aria libera intorno al palo del lampione.
+    """
     def box(key, lx, ly, lz, sx, sy, sz):
         lbox(B[key], x, y, yaw, lx, ly, lz, sx, sy, sz)
 

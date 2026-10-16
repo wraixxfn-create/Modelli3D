@@ -50,6 +50,62 @@ in un unico contesto.
   città — e oltre le colline tre **dorsali lontane in foschia** che chiudono
   l'orizzonte, con **cumuli** nel cielo.
 
+## Miglioramenti della trentunesima versione
+
+**Esattamente tre interventi nel generatore**, senza modificare edifici,
+viabilità, illuminazione o camera della scena:
+
+1. **L'edicola si libera dal lampione d'angolo** — dopo il trentesimo
+   intervento il lampione di levante (`17,75; -19`) era piantato dentro
+   l'edicola del giornalaio (`17,2; -19,2`): il palo le attraversava il vano
+   di vendita dal basamento in pietra fino alla copertura, e la lanterna le
+   restava appoggiata sopra il tetto. L'edicola ora risale di 3,3 m lungo lo
+   stesso marciapiede di via 23 (`17,2; -15,9`), verso l'ingresso della
+   piazza: stesso filo, stessa apertura sulla strada, e più di due metri
+   d'aria libera intorno al palo. Il piano dei lampioni della piazza,
+   documentato e verificato dalla trentesima versione, resta identico.
+
+2. **Cartelli direzionali fuori dalla carreggiata** — i due pali PIAZZA e
+   CENTRO dell'ingresso della piazza stavano alla mezzeria delle carreggiate
+   di via ±23 (`x = ±23`): il fusto saliva dall'asfalto in mezzo al traffico.
+   Ora sono sul marciapiede verso la piazza (`x = ±17,75`), con lo stesso
+   cartello a 3,75 m e la stessa faccia di prima, ma il piede poggia a filo
+   del pavimento (0,11 m) e ogni corsia resta libera.
+
+3. **L'insegna del caffè ha il suo cartello** — la scritta CAFFÈ DEL BORGO
+   era un testo sospeso nel vuoto: le lettere fluttuavano a 2,42 m fra la
+   platea del chiosco e la gronda, sopra il fronte aperto, senza alcun
+   supporto. Ora stanno su un cartello ligneo (3,60 × 0,62 m) appeso alla
+   gronda con due tiranti metallici che raggiungono il sottotetto: il testo
+   resta alla stessa quota e nella stessa posizione di prima, a 3 cm dal
+   fronte del legno.
+
+Verifica mirata, senza Blender:
+
+```bash
+python3 -m unittest discover -s prova_citta_1 -p 'test_migliorie_v31.py' -v
+```
+
+I **9 test** di `test_migliorie_v31.py` estraggono dal generatore, via AST,
+le funzioni davvero modificate e verificano la geometria con `Batch`: l'ingombro
+dell'edicola con posizioni di default è libero da tutti e dodici i lampioni
+della piazza e dalla rampa e dalla zebra del nodo semaforico di (23; −32);
+entrambi i cartelli sono fuori da ogni carreggiata, con il piede a filo del
+marciapiede e i testi in asse ai pali; il testo del caffè poggia su un
+cartello di legno alla stessa quota e il cartello è appeso alla gronda con
+due tiranti. L'intera suite resta verde (9 moduli restano a importazione
+condizionata a `bpy`).
+
+**Stato degli artefatti:** `citta.blend` e `anteprima.png` **non sono stati
+rigenerati** (in questo ambiente non è disponibile Blender): gli artefatti
+commessi nella cartella restano quelli della trentesima versione, con il
+vecchio asset dell'edicola e i cartelli direzionali in carreggiata ancora
+nella scena. Per aggiornarli:
+
+```bash
+blender --background --python prova_citta_1/genera_citta.py
+```
+
 ## Miglioramenti della trentesima versione
 
 **Esattamente tre interventi nel generatore**:
