@@ -50,6 +50,55 @@ in un unico contesto.
   città — e oltre le colline tre **dorsali lontane in foschia** che chiudono
   l'orizzonte, con **cumuli** nel cielo.
 
+## Miglioramenti della ventottesima versione
+
+**Esattamente tre interventi nel generatore**, senza modificare edifici,
+viabilità, posizione degli arredi, camera o illuminazione della scena:
+
+1. **Sagrato della pieve in `surface_z`** — il basolato del sagrato non
+   compariva tra le superfici calpestabili: la griglia di 17,5 × 11,6 m
+   centrata a 14,4 m dalla facciata della navata (0,21 m di quota) mancava
+   dalla classificazione, quindi le due figure in piedi davanti alla facciata
+   affondavano di 27 cm, la bicicletta parcheggiata stava 27 cm sotto il
+   lastricato e i vasi fioriti della fila d'ingresso restavano seminterrati,
+   con 27 cm di coccio sotto il basolato. La regola precede quelle della viabilità perché il basolato
+   copre il marciapiede di via -23 nel tratto in cui i due si sovrappongono;
+   la quota dei vasi è inoltre campionata vaso per vaso e non una volta per
+   fila, così il vaso che sta di là dal ciglio scende con la superficie che
+   ha sotto.
+2. **Scooter quotati sulla superficie** — `add_scooter` riceve ora `ground_z`,
+   come `add_person` e `add_bicycle`: i tre mezzi erano costruiti con il
+   battistrada a quota zero, quindi affondavano di 11 cm nei marciapiedi di
+   Viale Roma e di 21 cm nel basolato del sagrato, mentre sul rilievo della
+   campagna restavano sospesi 6 cm nel vuoto. Posizione, misure e ciclistica
+   restano quelle di prima.
+3. **Siepe meridionale del centro civico** — la siepe di mezzogiorno
+   (`y = -15,6 m`) partiva da 0,20 m e galleggiava 26 cm sopra il prato,
+   davanti al lato sud della piazza: ora è piantata nel terreno come le due
+   laterali, con poco più di un metro fuori terra. Il lato nord resta libero
+   perché il volume del municipio comincia a `y = 14 m`.
+
+Verifica mirata, senza Blender:
+
+```bash
+python3 -m unittest discover -s prova_citta_1 -p 'test_sagrato_scooter_siepe.py' -v
+```
+
+I **10 test** verificano la quota del basolato e il suo ciglio, compresa la
+sovrapposizione con il marciapiede di via -23 e l'invarianza delle altre
+superfici urbane; l'appoggio delle figure in piedi, della bicicletta e dei
+vasi sul sagrato; il battistrada dei sei pneumatici degli scooter, con la
+geometria che resta invariata quando `ground_z` non è indicata; la messa a
+dimora della siepe meridionale e il lato nord lasciato libero per il
+municipio.
+
+**Stato degli artefatti:** questa revisione aggiorna il generatore e i test,
+non `citta.blend` e `anteprima.png`. La rigenerazione richiede un ambiente
+Blender funzionante: in quello di modifica l'importazione di `bpy` è bloccata
+dall'assenza di librerie di sistema, a partire da `libXrender.so.1`.
+Per applicare queste tre migliorie anche agli artefatti, eseguire
+`python3 genera_citta.py --quick` dalla cartella `prova_citta_1` in tale ambiente.
+
 ## Miglioramenti della ventisettesima versione
 
 **Esattamente tre interventi nel generatore**, senza modificare edifici,
@@ -1201,6 +1250,7 @@ denoising OpenImageDenoise e view transform AgX.
 | `test_figure_panchina_arredo.py` | Quindici controlli su appoggio figure e bici, panchina del parco giochi e arredi |
 | `test_cipressi_paletti_tombini.py` | Quindici controlli su quota dei cipressi, paletti e catena della piazza e tombini |
 | `test_tavolini_festoni_piccioni.py` | Nove controlli su basi dei tavolini, festoni e piccioni della piazza |
+| `test_sagrato_scooter_siepe.py` | Dieci controlli su sagrato della pieve, scooter e siepe del centro civico |
 
 ## Rigenerazione
 
@@ -1219,7 +1269,7 @@ riduce temporaneamente campioni e risoluzione solo per il PNG di controllo.
 Gli artefatti del repository (`citta.blend` e `anteprima.png`) sono stati
 rigenerati con **Blender 5.0.0** alla ventiquattresima versione.
 
-Per eseguire tutti i **177 test geometrici** (inclusi i controlli sugli
+Per eseguire tutti i **187 test geometrici** (inclusi i controlli sugli
 ingombri dei modelli sorgente reali), dalla radice del
 repository, nello stesso ambiente Python con `bpy`:
 
