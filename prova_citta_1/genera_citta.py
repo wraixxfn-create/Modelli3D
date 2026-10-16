@@ -186,6 +186,11 @@ Richiede Blender 5.0+ e i modelli originali presenti nelle cartelle sorelle.
     python3 genera_citta.py                 # salva citta.blend
     python3 genera_citta.py --quick          # salva e renderizza anteprima rapida
     python3 genera_citta.py --render         # render finale Cycles
+La ventisettesima versione modifica soltanto le basi dei tavolini del caffè,
+collegandole al fusto con quattro bracci a terra, i festoni della piazza,
+con cavi continui e orli delle bandierine allineati alla fune, e gli otto
+piccioni a terra, con zampe sul lastricato e becchi rivolti come la testa.
+
 """
 
 import collections.abc
@@ -2337,10 +2342,13 @@ def make_cafe_table(B, x, y, floor_z):
     B["metal"].cylinder((x, y, (floor_z + top_z - 0.12) / 2), 0.055,
                         top_z - 0.12 - floor_z, 10)
     B["wood_light"].cylinder((x, y, top_z - 0.06), 0.53, 0.12, 24)
+    # Base a croce: i vecchi quattro piedini verticali erano staccati dal
+    # montante centrale di circa 18 cm, senza traverse a collegarli.
+    # Ogni braccio parte dall'asse del fusto e poggia sul pavimento.
     for a in range(4):
         angle = a * PI / 2 + PI / 4
-        B["metal"].box((x + 0.24 * math.cos(angle), y + 0.24 * math.sin(angle),
-                        floor_z + 0.20), (0.06, 0.06, 0.42))
+        B["metal"].box((x + 0.19 * math.cos(angle), y + 0.19 * math.sin(angle),
+                        floor_z + 0.03), (0.38, 0.065, 0.06), angle)
 
 
 def make_cafe_chair(B, x, y, yaw, floor_z):
@@ -3650,9 +3658,19 @@ def build_street_life(B, mats, col):
     # Piccioni sulla piazza e in volo.
     for x, y in ((-3.0, -4.0), (-2.2, -3.4), (4.6, 2.2), (5.2, 2.8),
                  (-8.0, 8.0), (7.5, -7.5), (-11.0, -9.0), (10.5, 9.5)):
-        B["bird"].sphere((x, y, 0.24), 0.10, (1.4, 0.85, 0.8), 8, 5)
-        B["bird"].sphere((x + 0.12, y, 0.34), 0.055, segments=8, rings=5)
-        B["beak"].cone((x + 0.19, y, 0.33), 0.02, 0.0, 0.06, 6, axis="Y")
+        # Zampe sulla pavimentazione, corpo sollevato e becco verso +X,
+        # come la testa: prima il ventre affondava nelle lastre e il cono
+        # del becco puntava trasversalmente lungo Y.
+        floor_z = surface_z(x, y)
+        for side in (-1, 1):
+            py = y + side * 0.045
+            add_tube(B["beak"], ((x, py, floor_z + 0.01),
+                                   (x, py, floor_z + 0.10)), 0.009, 6)
+            add_tube(B["beak"], ((x - 0.035, py, floor_z + 0.007),
+                                   (x + 0.075, py, floor_z + 0.007)), 0.007, 6)
+        B["bird"].sphere((x, y, floor_z + 0.14), 0.10, (1.4, 0.85, 0.8), 8, 5)
+        B["bird"].sphere((x + 0.12, y, floor_z + 0.24), 0.055, segments=8, rings=5)
+        B["beak"].cone((x + 0.195, y, floor_z + 0.24), 0.02, 0.0, 0.08, 6, axis="X")
     for x, y, z, yaw in ((-30, 10, 26, 0.6), (12, 34, 31, 2.1), (40, -20, 24, 4.0),
                          (-8, -40, 28, 1.2), (60, 40, 34, 3.0)):
         for side in (-1, 1):
@@ -3689,21 +3707,25 @@ def build_street_life(B, mats, col):
     for (x0, y0), (x1, y1) in (((-14, -11), (14, -11)), ((-14, 11), (14, 11)),
                                ((-14, -11), (-14, 11))):
         n = 16
+        points = []
         for i in range(n + 1):
             t = i / n
-            px, py = x0 + (x1 - x0) * t, y0 + (y1 - y0) * t
-            pz = 5.3 - math.sin(t * PI) * 0.85
-            if i < n:
-                t2 = (i + 1) / n
-                qx, qy = x0 + (x1 - x0) * t2, y0 + (y1 - y0) * t2
-                qz = 5.3 - math.sin(t2 * PI) * 0.85
-                B["metal"].box(((px + qx) / 2, (py + qy) / 2, (pz + qz) / 2),
-                               (math.dist((px, py), (qx, qy)) + 0.05, 0.02, 0.02),
-                               math.atan2(qy - py, qx - px))
-            if i % 2 == 1:
-                key = shirts[(i // 2) % 6]
-                B[key].tri((px, py, pz), (px + 0.16, py + 0.16, pz),
-                           (px + 0.08, py + 0.08, pz - 0.42))
+            points.append((x0 + (x1 - x0) * t, y0 + (y1 - y0) * t,
+                           5.3 - math.sin(t * PI) * 0.85))
+        # Un tubo segue anche la pendenza verticale della fune. Le vecchie
+        # scatole orizzontali lasciavano un salto a ogni cambio di quota.
+        add_tube(B["metal"], points, 0.01, 6)
+        for i in range(1, n, 2):
+            p, q = points[i], points[i + 1]
+            mid = tuple((p[j] + q[j]) / 2 for j in range(3))
+            half = 0.18 / math.dist(p[:2], q[:2])
+            top_a = tuple(mid[j] - half * (q[j] - p[j]) for j in range(3))
+            top_b = tuple(mid[j] + half * (q[j] - p[j]) for j in range(3))
+            # Due attacchi distinti sulla fune e punta sotto il baricentro:
+            # prima l'orlo superiore correva sempre a 45° nel piano XY,
+            # staccandosi dalla fune sia sui tratti est-ovest sia a nord-sud.
+            B[shirts[(i // 2) % 6]].tri(
+                top_a, top_b, (mid[0], mid[1], mid[2] - 0.42))
 
 
 # ---------------------------------------------------------------------------

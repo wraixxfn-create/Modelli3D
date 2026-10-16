@@ -50,6 +50,40 @@ in un unico contesto.
   città — e oltre le colline tre **dorsali lontane in foschia** che chiudono
   l'orizzonte, con **cumuli** nel cielo.
 
+## Miglioramenti della ventisettesima versione
+
+**Esattamente tre interventi nel generatore**, senza modificare edifici,
+viabilità, camera o illuminazione:
+
+1. **Tavolini del caffè** — i quattro piedini verticali isolati sono sostituiti
+   da una base a croce appoggiata al pavimento e collegata al fusto centrale.
+   Restano invariati posizione, piano circolare e altezza dei tavolini.
+2. **Festoni della piazza** — un tubo continuo segue la discesa e la risalita
+   della fune, al posto di segmenti orizzontali separati in quota. Le 24
+   bandierine hanno entrambi gli estremi dell'orlo superiore sulla fune,
+   orientati secondo ciascun tratto, anziché sempre a 45° rispetto alla piazza.
+3. **Piccioni sulla piazza** — gli otto piccioni ricevono zampe e piedi alla
+   quota della pavimentazione, con il ventre sollevato dalle lastre; il becco
+   si collega alla testa e punta lungo il suo asse, non trasversalmente.
+   Gli uccelli in volo restano invariati.
+
+Verifica mirata, senza Blender:
+
+```bash
+python3 -m unittest discover -s prova_citta_1 -p 'test_tavolini_festoni_piccioni.py' -v
+```
+
+I **9 test** verificano appoggio e collegamenti della base dei tavolini,
+continuità del tracciato dei festoni, attacco e dimensioni delle bandierine,
+quota dei piccioni, collegamento delle zampe e orientamento dei becchi.
+
+**Stato degli artefatti:** questa revisione aggiorna il generatore e i test,
+non `citta.blend` e `anteprima.png`. La rigenerazione richiede un ambiente
+Blender funzionante: in quello di modifica l'importazione di `bpy` è bloccata
+dall'assenza di librerie di sistema, a partire da `libXrender.so.1`.
+Per applicare queste tre migliorie anche agli artefatti, eseguire
+`python3 genera_citta.py --quick` dalla cartella `prova_citta_1` in tale ambiente.
+
 ## Miglioramenti della ventiseiesima versione
 
 **Esattamente tre interventi nel generatore**, senza cambiare viabilità,
@@ -1166,6 +1200,7 @@ denoising OpenImageDenoise e view transform AgX.
 | `test_fermata_rotatoria_pieve.py` | Tredici controlli su percorso tattile della fermata, isola centrale delle rotatorie ed edicola votiva della pieve |
 | `test_figure_panchina_arredo.py` | Quindici controlli su appoggio figure e bici, panchina del parco giochi e arredi |
 | `test_cipressi_paletti_tombini.py` | Quindici controlli su quota dei cipressi, paletti e catena della piazza e tombini |
+| `test_tavolini_festoni_piccioni.py` | Nove controlli su basi dei tavolini, festoni e piccioni della piazza |
 
 ## Rigenerazione
 
@@ -1184,7 +1219,7 @@ riduce temporaneamente campioni e risoluzione solo per il PNG di controllo.
 Gli artefatti del repository (`citta.blend` e `anteprima.png`) sono stati
 rigenerati con **Blender 5.0.0** alla ventiquattresima versione.
 
-Per eseguire tutti i **168 test geometrici** (inclusi i controlli sugli
+Per eseguire tutti i **177 test geometrici** (inclusi i controlli sugli
 ingombri dei modelli sorgente reali), dalla radice del
 repository, nello stesso ambiente Python con `bpy`:
 
