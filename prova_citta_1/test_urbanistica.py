@@ -255,7 +255,10 @@ class FermataTests(unittest.TestCase):
             city.build_bus_stop(b, defaultdict(lambda: None), None)
         a, c, d, e = city.BUS_STOP_BOUNDS
         for key, batch in b.items():
-            if key in ("road_yellow", "sidewalk"):
+            # La pavimentazione tattile (tile_b) e la segnaletica gialla non
+            # sono arredi: dal passaggio della ventiquattresima versione sono
+            # incassate nel marciapiede e non occupano il passaggio.
+            if key in ("road_yellow", "sidewalk", "tile_b"):
                 continue
             for x, y, _ in batch.verts:
                 self.assertGreaterEqual(x, a)
@@ -264,6 +267,10 @@ class FermataTests(unittest.TestCase):
                 self.assertLessEqual(y, -75.9)  # almeno 1.775 m di passaggio libero
         self.assertEqual(city.bounds_xy(b["sidewalk"].verts), city.BUS_STOP_BOUNDS)
         self.assertLessEqual(max(p[2] for p in b["sidewalk"].verts), .111)
+        # Il percorso tattile resta a filo del marciapiede: due millimetri la
+        # guida e la fascia, sei millimetri i bolli.
+        self.assertLessEqual(max(p[2] for p in b["tile_b"].verts), .112 + 1e-6)
+        self.assertLessEqual(max(p[2] for p in b["road_yellow"].verts), .116 + 1e-6)
         assert_valid_meshes(self, b)
 
 
