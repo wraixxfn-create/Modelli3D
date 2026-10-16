@@ -102,7 +102,7 @@ class FurgoneTests(unittest.TestCase):
                 self.assertAlmostEqual(first, last)
             self.assertAlmostEqual(radius, 0.055)
             self.assertEqual(len({round(p[1], 6) for p in points}), 1)
-            self.assertAlmostEqual(min(p[2] for p in points) - radius, 0.04)
+            self.assertAlmostEqual(min(p[2] for p in points) - radius, 0.0)
         hubs = [args for args in calls if len(args[1]) == 2 and args[2] == 0.115]
         self.assertEqual(len(hubs), 4)
         self.assertTrue(all(a[1][0][0] == a[1][1][0] and
@@ -133,7 +133,8 @@ class CassonettiTests(unittest.TestCase):
             calls = [call.args for call in scope["add_tube"].call_args_list]
         wheels = [args for args in calls if len(args[1]) == 2 and args[2] == 0.075]
         self.assertEqual(len(wheels), 4)
-        self.assertTrue(all(p[2] == 0.12 for args in wheels for p in args[1]))
+        # Asse a 0,12 m meno 0,045 m di scarto: il battistrada tocca quota zero.
+        self.assertTrue(all(abs(p[2] - 0.075) < 1e-9 for args in wheels for p in args[1]))
         self.assertEqual(len([a for a in calls if len(a[1]) == 4]), 1)  # maniglia
         self.assertEqual(len(group["roof_dark"].faces), 6)             # coperchio
         self.assertGreaterEqual(min(v[2] for batch in group.values()

@@ -803,6 +803,7 @@ DIRECTIONS = {"N": PI / 2, "S": -PI / 2, "E": 0.0, "W": PI}
 # devono poggiare su quello che c'è sotto, non sul piano zero del
 # generatore: ogni elemento che galleggia o affonda si legge nel render.
 ROAD_TOP = 0.05         # quota della carreggiata
+PARKING_ASPHALT_Z = 0.055  # asfalto dei piazzali di sosta (lastra da 0,07 m a 0,02 m)
 SIDEWALK_TOP = 0.11     # quota del marciapiede
 LAWN_Z = 0.02           # prato urbano tagliato a strisce
 PARK_LAWN_Z = 0.08      # prato dei due parchi
@@ -3393,7 +3394,7 @@ def add_scooter(B, x, y, yaw, body_key, ground_z=0.0):
         box("metal", 0.39, side * 0.30, 1.42, 0.11, 0.075, 0.06)
 
 
-def add_van(B, x, y, yaw, body_key):
+def add_van(B, x, y, yaw, body_key, ground_z=0.0):
     """Furgone del mercato completo, costruito nel riferimento del veicolo.
 
     Il vecchio mezzo era l'unione di due scatole con vetri inglobati nella
@@ -3442,13 +3443,15 @@ def add_van(B, x, y, yaw, body_key):
         box("roof_dark", 2.415, side * 0.42, 0.55, 0.045, 0.05, 0.24)
 
     # Quattro pneumatici ad anello e quattro mozzi, non dischi globali. Il
-    # punto più basso resta quattro centimetri sopra la carreggiata; gli anelli
-    # però stavano a 0,965 m dal mezzero, cioè 5 cm fuori dalle fiancate (0,91 m
-    # sui volumi principali), e sembravano appoggiati di taglio sul fianco,
-    # mentre il vuoto dentro il pneumatico lasciava il cerchio aperto. Ora il
-    # battistrada è in sagoma, esce solo sotto il bordo basso della carrozzeria,
-    # e canale e mozzo chiudono la ruota.
-    wheel_z, wheel_r = 0.43, 0.335
+    # battistrada ora tocca `ground_z`: prima il punto più basso restava 4,5 cm
+    # sopra la carreggiata e il furgone sembrava sospeso sull'asfalto. Gli anelli
+    # stanno a 0,905 m dal mezzeria (0,91 m le fiancate), il battistrada esce
+    # solo sotto il bordo basso della carrozzeria, e canale e mozzo chiudono la
+    # ruota.
+    # Il canale del pneumatico ha raggio 0,055 m: l'asse della ciambella sta
+    # a quota `ground_z + 0,335 + 0,055`, così il punto più basso è `ground_z`.
+    wheel_r, tread = 0.335, 0.055
+    wheel_z = ground_z + wheel_r + tread
     for wx in (-1.38, 1.38):
         for side in (-1, 1):
             ring = [(wx + wheel_r * math.cos(i * TAU / 24), side * 0.85,
@@ -3461,19 +3464,27 @@ def add_van(B, x, y, yaw, body_key):
                            (wx, side * 0.898, wheel_z)), 0.115, 12)
 
 
-def add_waste_container(B, x, y, yaw, body_key):
-    """Cassonetto carrellato con coperchio, pedaliera e ruote orientate."""
+def add_waste_container(B, x, y, yaw, body_key, ground_z=0.0):
+    """Cassonetto carrellato con coperchio, pedaliera e ruote orientate.
+
+    Il modello era disegnato con le ruote a 4,5 cm da terra (asse a 0,12 m,
+    raggio 0,075 m): il cassonetto galleggiava. `ground_z` è la quota del
+    piano su cui poggiano le ruote (vedi `surface_z`) e l'intero contenitore
+    scende di conseguenza, così il battistrada tocca il marciapiede.
+    """
+    g = ground_z - 0.045
+
     def box(key, lx, ly, lz, sx, sy, sz):
-        lbox(B[key], x, y, yaw, lx, ly, lz, sx, sy, sz)
+        lbox(B[key], x, y, yaw, lx, ly, lz + g, sx, sy, sz)
 
     def tube(key, points, radius, segments=8):
-        add_tube(B[key], [lbox_point(x, y, yaw, *p) for p in points],
-                 radius, segments)
+        add_tube(B[key], [lbox_point(x, y, yaw, px, py, pz + g)
+                          for px, py, pz in points], radius, segments)
 
     # Corpo compatto, basamento e coperchio inclinato verso il fronte (-Y).
     box("metal", 0, 0, 0.22, 0.68, 0.54, 0.12)
     box(body_key, 0, 0, 0.69, 0.72, 0.62, 0.94)
-    lbox_tilt(B["roof_dark"], x, y, yaw, 0, -0.015, 1.20,
+    lbox_tilt(B["roof_dark"], x, y, yaw, 0, -0.015, 1.20 + g,
               0.78, 0.70, 0.10, -math.radians(7))
     tube("metal", ((-0.33, 0.29, 1.22), (0.33, 0.29, 1.22)), 0.028)
     # Etichetta frontale e tre tacche colorate rendono leggibile la raccolta
@@ -3484,11 +3495,12 @@ def add_waste_container(B, x, y, yaw, body_key):
     tube("metal", ((-0.18, -0.35, 1.03), (-0.18, -0.40, 1.08),
                    (0.18, -0.40, 1.08), (0.18, -0.35, 1.03)), 0.022)
     box("metal", 0, -0.38, 0.08, 0.30, 0.16, 0.055)
-    # Quattro ruote piroettanti: piccoli assi lungo X locale, tutti sopra terra.
+    # Quattro ruote piroettanti: piccoli assi lungo X locale, con il
+    # battistrada sul piano di appoggio.
     for sx in (-1, 1):
         for sy in (-1, 1):
             tube("roof_dark", ((sx * 0.38, sy * 0.20, 0.12),
-                                (sx * 0.29, sy * 0.20, 0.12)), 0.075, 10)
+                               (sx * 0.29, sy * 0.20, 0.12)), 0.075, 10)
 
 
 def build_newsstand(B, mats, col, x=17.2, y=-19.2, yaw=0.0):
@@ -3694,7 +3706,7 @@ def build_street_life(B, mats, col):
                            (18.4, 14.6, -PI / 2, "cloth_red"),
                            (-36.0, -24.6, 0.3, "cloth_blue")):
         add_scooter(B, x, y, yaw, key, ground_z=surface_z(x, y))
-    add_van(B, 24.5, -24.0, PI / 2, "white")
+    add_van(B, 24.5, -24.0, PI / 2, "white", ground_z=surface_z(24.5, -24.0))
     # Piccioni sulla piazza e in volo.
     for x, y in ((-3.0, -4.0), (-2.2, -3.4), (4.6, 2.2), (5.2, 2.8),
                  (-8.0, 8.0), (7.5, -7.5), (-11.0, -9.0), (10.5, 9.5)):
@@ -3724,11 +3736,16 @@ def build_street_life(B, mats, col):
         add_balcony_laundry(B, bx, by, yaw)
     # Cassonetti carrellati per la raccolta differenziata e nuova edicola
     # vetrata: sostituiscono i sei parallelepipedi senza ruote/aperture.
-    for bx, by, bin_yaw, key in ((-20.4, -26.4, 0.0, "canvas_green"),
-                                 (-19.6, -26.4, 0.0, "canvas_yellow"),
-                                 (20.4, 26.4, PI, "canvas_green"),
-                                 (21.2, 26.4, PI, "canvas_blue")):
-        add_waste_container(B, bx, by, bin_yaw, key)
+    # I due cassonetti di ponente stavano a x = -20 m, cioè sull'asfalto
+    # dell'incrocio con via -23 (la carreggiata arriva a x = -19 m): ora
+    # sono sul marciapiede di via -32 verso il centro, a est del raccordo;
+    # quelli di levante stanno specularmente sul marciapiede di via 32.
+    for bx, by, bin_yaw, key in ((-13.6, -26.4, 0.0, "canvas_green"),
+                                 (-12.8, -26.4, 0.0, "canvas_yellow"),
+                                 (13.6, 26.4, PI, "canvas_green"),
+                                 (12.8, 26.4, PI, "canvas_blue")):
+        add_waste_container(B, bx, by, bin_yaw, key,
+                            ground_z=surface_z(bx, by))
     build_newsstand(B, mats, col)
     # Tombini in ghisa sulla carreggiata e caditoie di scolo a filo cordolo.
     # Prima un tombino era piantato nel mezzo dello spartitraffico fiorito
@@ -4562,8 +4579,18 @@ def build_tree_beds(B):
 # ---------------------------------------------------------------------------
 # Veicoli, pensiline e segnaletica
 # ---------------------------------------------------------------------------
-def build_car(B, cx, cy, yaw, body_key="blue", name="Auto"):
+def build_car(B, cx, cy, yaw, body_key="blue", name="Auto", ground_z=0.0):
+    """Automobile con il battistrada appoggiato a `ground_z` (vedi `surface_z`).
+
+    Le ruote erano centrate a 0,46 m: il battistrada scendeva a 0,03 m e
+    affondava di 2 cm nella carreggiata e di 2,5 cm nell'asfalto dei piazzali.
+    Ora il centro ruota è a `ground_z + 0,43 m`, cioè il raggio, e il punto più
+    basso dei pneumatici coincide con la superficie; carrozzeria e vetri non
+    cambiano rispetto al piano di appoggio.
+    """
     # Il muso guarda lungo X locale positivo.
+    wheel_z = ground_z + 0.43
+
     def box(key, x, y, z, sx, sy, sz):
         lbox(B[key], cx, cy, yaw, x, y, z, sx, sy, sz)
     box(body_key, 0, 0, 0.78, 4.25, 1.82, 1.05)
@@ -4579,7 +4606,7 @@ def build_car(B, cx, cy, yaw, body_key="blue", name="Auto"):
         for wx in (-1.35, 1.35):
             for radius, depth, wy in ((.43, .20, side * .90),
                                        (.20, .025, side * 1.015)):
-                ends = [lbox_point(cx, cy, yaw, wx, wy + d * depth / 2, .46)
+                ends = [lbox_point(cx, cy, yaw, wx, wy + d * depth / 2, wheel_z)
                         for d in (-1, 1)]
                 add_tube(B["metal"], ends, radius, 16)
     for wx in (-1.325, 1.025):
@@ -4638,8 +4665,16 @@ BUS_POSITION = (48, -71.9)
 BUS_STOP_BOUNDS = (37, 61, -78.5, -74.125)
 
 
-def build_bus(B, cx, cy, yaw=0):
-    """Autobus con vetratura esterna, porte sul lato destro e ruote in asse."""
+def build_bus(B, cx, cy, yaw=0, ground_z=0.0):
+    """Autobus con vetratura esterna, porte sul lato destro e ruote in asse.
+
+    Le ruote hanno raggio 0,50 m e il centro a `ground_z + 0,50 m`: il punto
+    più basso dei pneumatici tocca la superficie, senza sospensioni in aria né
+    affondamenti. Il vecchio asse a 0,53 m lasciava il bus 2 cm sotto la
+    carreggiata.
+    """
+    wheel_z = ground_z + 0.50
+
     def box(key, x, y, z, sx, sy, sz):
         lbox(B[key], cx, cy, yaw, x, y, z, sx, sy, sz)
 
@@ -4655,7 +4690,7 @@ def build_bus(B, cx, cy, yaw=0):
         for wx in (-3.2, 3.2):
             for key, radius, depth, wy in (("metal", .50, .24, side * 1.18),
                                            ("white", .22, .03, side * 1.315)):
-                ends = [lbox_point(cx, cy, yaw, wx, wy + d * depth / 2, 0.53)
+                ends = [lbox_point(cx, cy, yaw, wx, wy + d * depth / 2, wheel_z)
                         for d in (-1, 1)]
                 add_tube(B[key], ends, radius, 20)
     # Muso, coda e parabrezza, non inglobati in un parallelepipedo opaco.
@@ -4677,7 +4712,8 @@ def build_bus(B, cx, cy, yaw=0):
 def build_bus_stop(B, mats, col):
     # L'autobus prima era dentro l'albergo e lontano dalla sua pensilina.
     # Ora corre verso est sulla corsia sud di via -70, accanto all'attesa.
-    build_bus(B, *BUS_POSITION)
+    # La fermata sta sulla corsia sud di via -70, cioè sulla carreggiata.
+    build_bus(B, *BUS_POSITION, ground_z=ROAD_TOP)
     a, b, c, d = BUS_STOP_BOUNDS
     B["sidewalk"].box(((a + b) / 2, (c + d) / 2, -0.025), (b - a, d - c, .27))
     build_bus_shelter(B, 48, -77)
@@ -4756,17 +4792,17 @@ def build_street_lighting(B):
 
 def build_transport(B, mats, traffic_col):
     # Automobili parcheggiate e bus di linea, con dettagli leggibili dall'alto.
-    build_car(B, -45, -30.6, 0, "red", "Auto rossa")
-    build_car(B, -58, -30.6, 0, "white", "Auto avorio")
-    build_car(B, 49, 30.6, PI, "blue", "Auto blu")
-    build_car(B, 59, -68.1, PI, "white", "Auto bianca")
+    build_car(B, -45, -30.6, 0, "red", "Auto rossa", ground_z=ROAD_TOP)
+    build_car(B, -58, -30.6, 0, "white", "Auto avorio", ground_z=ROAD_TOP)
+    build_car(B, 49, 30.6, PI, "blue", "Auto blu", ground_z=ROAD_TOP)
+    build_car(B, 59, -68.1, PI, "white", "Auto bianca", ground_z=ROAD_TOP)
     # Sosta lungo i viali e traffico leggero sul viale centrale.
-    build_car(B, -12, -34.5, 0, "blue", "Auto blu in sosta")
-    build_car(B, -6.5, -34.5, 0, "white", "Auto bianca in sosta")
-    build_car(B, 34, 34.5, PI, "red", "Auto rossa in sosta")
-    build_car(B, 58, 34.5, PI, "white", "Auto avorio in sosta")
-    build_car(B, 2.6, -22, PI / 2, "blue", "Auto sul viale")
-    build_car(B, -2.6, 62, -PI / 2, "red", "Auto sul viale nord")
+    build_car(B, -12, -34.5, 0, "blue", "Auto blu in sosta", ground_z=ROAD_TOP)
+    build_car(B, -6.5, -34.5, 0, "white", "Auto bianca in sosta", ground_z=ROAD_TOP)
+    build_car(B, 34, 34.5, PI, "red", "Auto rossa in sosta", ground_z=ROAD_TOP)
+    build_car(B, 58, 34.5, PI, "white", "Auto avorio in sosta", ground_z=ROAD_TOP)
+    build_car(B, 2.6, -22, PI / 2, "blue", "Auto sul viale", ground_z=ROAD_TOP)
+    build_car(B, -2.6, 62, -PI / 2, "red", "Auto sul viale nord", ground_z=ROAD_TOP)
     build_bus_stop(B, mats, traffic_col)
 
 
@@ -4807,7 +4843,8 @@ def build_parking_lots(mats, col, traffic_batches):
             P["concrete"].box((stall_cx - 1.85, sy, 0.10), (0.28, 1.5, 0.16))
             # Le auto usano il batch traffico, chiuso insieme agli altri.
             build_car(traffic_batches, car_cx, sy, 0.0,
-                      colors[centers.index(sy) % len(colors)], "Auto in sosta")
+                      colors[centers.index(sy) % len(colors)], "Auto in sosta",
+                      ground_z=PARKING_ASPHALT_Z)
         # Isola d'ombra all'angolo: cordolo, prato e un albero da parcheggio.
         ix, iy = island
         P["curb"].box((ix, iy, 0.07), (1.8, 1.8, 0.16))

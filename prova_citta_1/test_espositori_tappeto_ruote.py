@@ -256,7 +256,7 @@ class RuoteFurgoneTests(unittest.TestCase):
             # non più 5 cm fuori, e con il punto più basso 4 cm sopra la strada.
             self.assertAlmostEqual(abs(points[0][1]) + radius, 0.905)
             self.assertLess(abs(points[0][1]) + radius, 0.91)
-            self.assertAlmostEqual(min(p[2] for p in points) - radius, 0.04)
+            self.assertAlmostEqual(min(p[2] for p in points) - radius, 0.0)
 
     def test_canali_e_mozzi_chiudono_il_cerchio(self):
         # Il canale del cerchio riempie il vuoto del pneumatico (0,275 m di
