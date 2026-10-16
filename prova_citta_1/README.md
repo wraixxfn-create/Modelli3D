@@ -50,6 +50,47 @@ in un unico contesto.
   città — e oltre le colline tre **dorsali lontane in foschia** che chiudono
   l'orizzonte, con **cumuli** nel cielo.
 
+## Miglioramenti della trentaduesima versione
+
+**Esattamente tre interventi geometrici** nel generatore:
+
+1. **Lampioni appoggiati al pavimento e coppie complete** — i basamenti
+   ornamentali erano centrati a quota fissa, lasciando vuoti sotto su
+   marciapiedi e sagrato; ora `add_lamp` campiona `surface_z` e la base parte
+   dal piano locale, con palo e lanterna quotati dalla stessa origine. Anche
+   le testate di Viale Roma riacquistano il lampione su entrambi i lati (prima
+   il richiamo fuori dal ciclo ne costruiva uno solo per piazzale). I lampioni
+   stradali hanno il basamento a filo del marciapiede.
+2. **Lampioni del sagrato separati dai cipressi** — i pali erano a soli 60 cm
+   dai fusti, dentro le chiome con raggio 1,15 m. Ora sono nelle campate libere
+   a `x locale = ±4,5 m`, a 2,1 m dai cipressi, simmetrici e appoggiati al
+   basolato a quota 0,21 m.
+3. **Orologio leggibile anche dal retro** — il campanile della pieve aveva
+   un solo quadrante, sul lato est; il lato opposto era cieco. Un secondo
+   quadrante con mozzo e doppia lancetta è ora montato sul lato ovest, alla
+   stessa quota di 14,2 m.
+
+Verifica mirata, senza Blender:
+
+```bash
+python3 -m unittest discover -s prova_citta_1 -p 'test_migliorie_v32.py' -v
+```
+
+I **4 test** estraggono le funzioni reali via AST e verificano il contatto
+esatto dei basamenti con `surface_z`, l'inoltro delle quote, la distanza dei
+lampioni dai cipressi e i due quadranti opposti. Sono verdi anche i test di
+regressione `test_migliorie_v30.py` (6 test) e `test_migliorie_v31.py` (9
+test). I test Blender dell'orologio sono aggiornati al nuovo totale di sei
+componenti dorati (mozzo e due lancette per quadrante).
+
+**Stato degli artefatti:** `citta.blend` e `anteprima.png` non sono stati
+rigenerati, perché Blender non è disponibile in questo ambiente. Per applicare
+le modifiche alla scena:
+
+```bash
+blender --background --python prova_citta_1/genera_citta.py
+```
+
 ## Miglioramenti della trentunesima versione
 
 **Esattamente tre interventi nel generatore**, senza modificare edifici,

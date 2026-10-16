@@ -251,7 +251,7 @@ class StreetLampTests(unittest.TestCase):
         with patch.dict(scope, build_street_lamp=light):
             city.add_lamp(None, 4.0, -2.0, height=5.4, ornate=True, yaw=1.2)
         light.assert_called_once_with(None, 4.0, -2.0, 5.4,
-                                      yaw=1.2, ornate=True)
+                                      yaw=1.2, ornate=True, ground_z=city.surface_z(4.0, -2.0))
 
 
 if __name__ == "__main__":
