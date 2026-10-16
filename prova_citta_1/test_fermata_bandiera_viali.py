@@ -239,7 +239,9 @@ class VialiTests(unittest.TestCase):
         self.assertEqual(len(posts), 8)
         self.assertEqual(len(diffusers), 8)
         centers = {(round(c[1][0], 2), round(c[1][1], 2), c[1][2]) for c in posts}
-        expected = {(cx + dx, cy + dy, .54)
+        # Dalla venticinquesima versione il palo è piantato nel prato del
+        # parco (quota 0,08 m) e non più sospeso dieci centimetri sopra.
+        expected = {(cx + dx, cy + dy, .44)
                     for cx, cy in ((-52, 52), (52, -52))
                     for dx in (-1.65, 1.65) for dy in (-4.5, 4.5)}
         self.assertEqual(centers, expected)

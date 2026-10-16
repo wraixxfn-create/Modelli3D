@@ -50,6 +50,85 @@ in un unico contesto.
   città — e oltre le colline tre **dorsali lontane in foschia** che chiudono
   l'orizzonte, con **cumuli** nel cielo.
 
+## Miglioramenti della venticinquesima versione
+
+**Esattamente tre interventi nel generatore**, senza cambiare viabilità,
+posizione degli edifici, arredi, camera o illuminazione della scena:
+
+1. **Figure e biciclette sull'appoggio giusto (`add_person`, `add_bicycle`,
+   nuova `surface_z`)** — le figure in piedi avevano i piedi sull'origine
+   zero del generatore, non sulla superficie che avevano sotto: le gambe
+   affondavano di `21,25 cm` nel lastricato della piazza (`0,2125 m`), di
+   `19 cm` nel tappeto di gomma del parco giochi (`0,19 m`), di `11 cm` nel
+   marciapiede (`0,11 m`), di `5 cm` nella carreggiata (`0,05 m`) e di `8 cm`
+   nel prato dei parchi (`0,08 m`), mentre sul rilievo della campagna
+   (`-0,06 m`) galleggiavano di `6 cm`. Le biciclette avevano lo stesso
+   difetto: i coprimani appoggiavano a quota zero, quindi le sei in sosta
+   affondavano fino a `11 cm` nel cemento o galleggiavano di `6 cm` sulla
+   campagna. Ora `add_person` e `add_bicycle` ricevono la quota del piano
+   su cui poggiano (`ground_z`) e la nuova funzione `surface_z(x, y)`
+   restituisce quella quota leggendo le stesse misure con cui sono
+   costruite strade, marciapiedi, prati, piazza e tappeto del parco giochi:
+   i ventiquattro pedoni della folla, il bimbo e l'adulto al parco giochi,
+   i tre ciclisti e le sei biciclette in sosta poggiano ognuno sulla
+   superficie che ha sotto, e il ciclista siede sulla sella della propria
+   bicicletta, con i piedi ai pedali.
+2. **Panchina del parco giochi (`build_playground`)** — la panchina era
+   piantata sul bordo ovest della sabbiera: la gamba destra
+   (`x 52,57–52,69 m`) e il montante dello schienale (`x 52,58–52,68 m`)
+   passavano dentro il traverso del telaio di legno (`x 52,59–52,81 m`,
+   `z 0,19–0,37 m`), cioè la panchina era infilata nella sabbiera. Ora sta
+   lungo il bordo ovest del tappeto di gomma, girata verso il gioco: non
+   tocca più la sabbiera né la cavalcavallo e non invade il passaggio
+   dell'altalena.
+3. **Arredo dei parchi e vasi fioriti (`build_trees_and_park`,
+   `build_gardens`)** — l'arredo minore galleggiava sopra il terreno. Le
+   otto aiuole dei due parchi avevano il cordolo (`0,25 m` di spessore)
+   sospeso `6,5 cm` sopra il prato (`0,08 m`) e gli arbusti appoggiati su
+   un bordo che non esisteva; gli otto paletti luminosi partivano da
+   quota `0,18 m` e restavano sospesi `10 cm`; la fontanella del Parco
+   delle Rose galleggiava `2 cm`. I sei gruppi di vasi fioriti avevano il
+   fondo a quota fissa: uno affondava di `2 cm` nel marciapiede, uno
+   galleggiava `15 cm` sul rilievo della campagna e uno era piantato **in
+   mezzo alla carreggiata** di Viale Roma. Ora le aiuole sono piantate nel prato
+   (`0,08–0,33 m`), gli arbusti appoggiano sul cordolo, i paletti sono
+   piantati nel tappeto erboso, la fontanella poggia sul prato e i vasi
+   seguono la superficie che hanno sotto: quello della carreggiata è
+   tornato all'ingresso del giardino privato, sul lato aperto della siepe.
+
+Verifica mirata, eseguibile anche senza Blender:
+
+```bash
+python3 -m unittest discover -s prova_citta_1 -p 'test_figure_panchina_arredo.py' -v
+```
+
+I quindici test controllano che `surface_z` restituisca la quota giusta su
+lastre, cornice della piazza, tappeto del parco giochi, carreggiata,
+marciapiede, prati urbani, prato dei parchi, prato dei giardini privati e
+rilievo della campagna, e che il viale abbia dieci metri di carreggiata con
+i marciapiedi a `7,375 m` dal centro; che i piedi di ogni figura in piedi e
+i coprimani di ogni bicicletta poggino sulla quota passata dal generatore,
+che la folla passi `ground_z` corretto e che i ciclisti siano seduti sulla
+sella; che la panchina del parco giochi non si incroci con la sabbiera né
+con la cavalcavallo e resti sul tappeto; e che aiuole, arbusti, paletti,
+fontanella e vasi poggino sulla superficie che hanno sotto, senza vasi in
+mezzo alla carreggiata. Sono regressioni vere: sul generatore precedente
+**dodici dei quindici test falliscono** (gli altri tre riguardano la
+cavalcavallo, il tappeto di gomma e la permanenza della panchina sul
+tappeto, cose che la venticinquesima versione non tocca).
+
+Sono state aggiornate anche quattro verifiche esistenti, rese obsolete dai
+primi interventi: `test_parchi_caffe_pontile.py` controlla le quote nuove
+del cordolo delle aiuole (`0,205 m` invece di `0,27 m`), degli arbusti
+(`0,61 m` invece di `0,68 m`) e della fontanella (`0,38 m` invece di
+`0,40 m`, con l'acqua a `0,70 m`), e `test_fermata_bandiera_viali.py`
+controlla i paletti luminosi piantati nel prato (`0,44 m` invece di
+`0,54 m`). Con queste correzioni **l'intera suite della città passa**,
+**centocinquantatre test**.
+
+**Stato degli artefatti:** `citta.blend` e `anteprima.png` sono rigenerati
+con Blender 5.0.0 e comprendono queste tre migliorie.
+
 ## Miglioramenti della ventiquattresima versione
 
 **Esattamente tre interventi nel generatore**, senza cambiare viabilità,

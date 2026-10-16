@@ -140,6 +140,25 @@ come un coperchio); nella pieve l'edicola votiva, che affondava dodici
 centimetri nel basamento in pietra ed era piantata sul fianco nord della
 navata, è appoggiata al basolato del sagrato, davanti alla facciata.
 
+La venticinquesima versione porta tre appoggi al posto giusto. Le figure in
+piedi avevano i piedi sull'origine zero del generatore e non sulla
+superficie: nel lastricato della piazza affondavano di 21 cm, sul tappeto di
+gomma del parco giochi di 19 cm e sul rilievo della campagna galleggiavano di
+6 cm; anche le biciclette parcheggiate affondavano di 11 cm nel marciapiede o
+galleggiavano di 6 cm sulla campagna. Ora `add_person` e `add_bicycle`
+ricevono la quota del piano su cui poggiano, e la nuova funzione
+`surface_z` restituisce quella quota leggendo le stesse misure con cui sono
+costruite strade, marciapiedi, prati e piazza. La panchina del parco giochi,
+che era piantata dentro la sabbiera con la gamba destra e lo schienale
+infilati nel traverso ovest del telaio di legno, passa lungo il bordo del
+tappeto girata verso il gioco.
+L'arredo dei due parchi e i vasi fioriti degli ingressi, che galleggiavano
+sopra il terreno, poggiano infine sulla superficie che hanno sotto: le aiuole
+nel prato (prima il cordolo era sospeso 6,5 cm), i paletti luminosi piantati
+nel tappeto erboso (erano sospesi 10 cm), la fontanella del Parco delle Rose
+appoggiata al prato e i vasi fuori dalla carreggiata, dove uno era piantato
+in mezzo alla strada.
+
 Richiede Blender 5.0+ e i modelli originali presenti nelle cartelle sorelle.
 
     python3 genera_citta.py                 # salva citta.blend
@@ -743,6 +762,93 @@ ZEBRA_STEP = 0.78         # passo tra le bande zebrate
 ZEBRA_BAND_MAX = 0.46     # larghezza massima di una banda zebra
 HOUSE_FRONT = {"casale": -PI / 2, "villa": PI / 2, "chalet": -PI / 2}
 DIRECTIONS = {"N": PI / 2, "S": -PI / 2, "E": 0.0, "W": PI}
+
+# Quote delle superfici calpestabili. Figure, biciclette e arredo minore
+# devono poggiare su quello che c'è sotto, non sul piano zero del
+# generatore: ogni elemento che galleggia o affonda si legge nel render.
+ROAD_TOP = 0.05         # quota della carreggiata
+SIDEWALK_TOP = 0.11     # quota del marciapiede
+LAWN_Z = 0.02           # prato urbano tagliato a strisce
+PARK_LAWN_Z = 0.08      # prato dei due parchi
+GARDEN_Z = 0.06         # prato dei giardini privati
+PIAZZA_Z = 0.2125       # lastre del lastricato della piazza
+PIAZZA_RING_Z = 0.16    # cornice di pietra intorno al lastricato
+MAT_Z = 0.19            # tappeto di gomma del parco giochi
+RELIEF_Z = -0.06        # rilievo della campagna dentro il borgo
+PARKS = ((-52.0, 52.0), (52.0, -52.0))
+PLAYGROUND_CENTER = (52.0, -50.0)
+PLAYGROUND_DECK = (12.0, 9.0)
+
+# Prati urbani: tappeto erboso tagliato a strisce, con cordolo di chiusura.
+# Sono gli isolati liberi fra i marciapiedi, gli unici prati cittadini non
+# occupati da edifici, giardini o attrezzature; le quote seguono il
+# reticolo stradale.
+MOWN_BLOCKS = ((-63.6, -29.4, -63.6, -42.6), (-38.0, -29.4, 38.4, 63.6),
+               (29.4, 38.0, -63.6, -38.4), (29.4, 43.0, 38.4, 63.6),
+               (-16.6, -7.4, 50.0, 63.6), (7.4, 16.6, 50.0, 63.6),
+               (-16.6, -7.4, -63.6, -50.0), (7.4, 16.6, -63.6, -50.0),
+               (-16.6, -7.4, -25.6, -13.4), (11.5, 16.6, 14.1, 25.6),
+               # Prato a ponente del municipio: prima il taglio era solo a
+               # levante, e il blocco civico restava asimmetrico.
+               (-16.6, -11.5, 14.1, 25.6))
+
+
+# ---------------------------------------------------------------------------
+# Superfici calpestabili
+# ---------------------------------------------------------------------------
+def surface_z(x: float, y: float) -> float:
+    """Quota della superficie calpestabile nel punto indicato.
+
+    Il tappeto di gomma del parco giochi è a 0,19 m, le lastre della piazza a
+    0,2125 m, i prati urbani a 0,02 m, quelli dei parchi a 0,08 m, la
+    carreggiata a 0,05 m, il marciapiede a 0,11 m e, fuori dalla rete urbana,
+    il rilievo della campagna a -0,06 m. Le regole riprendono le stesse
+    dimensioni usate per costruire strade, marciapiedi e prati, così la quota
+    restituita è sempre quella della superficie realmente disegnata.
+    """
+    # Tappeto di gomma del parco giochi.
+    px, py = PLAYGROUND_CENTER
+    if abs(x - px) <= PLAYGROUND_DECK[0] / 2 and abs(y - py) <= PLAYGROUND_DECK[1] / 2:
+        return MAT_Z
+    # Lastricato della piazza e cornice di pietra intorno.
+    if abs(x) <= 15.4 and abs(y) <= 13.4:
+        if abs(x) <= 14.7 and abs(y) <= 12.9:
+            return PIAZZA_Z
+        return PIAZZA_RING_Z
+    # Prati dei due parchi.
+    for cx, cy in PARKS:
+        if abs(x - cx) <= 14.0 and abs(y - cy) <= 14.0:
+            return PARK_LAWN_Z
+    # Prati urbani tagliati a strisce.
+    for x0, x1, y0, y1 in MOWN_BLOCKS:
+        if x0 <= x <= x1 and y0 <= y <= y1:
+            return LAWN_Z
+    # Prati dei giardini privati.
+    for lx, ly, lw, ld in PRIVATE_GARDENS:
+        if abs(x - lx) <= lw / 2 and abs(y - ly) <= ld / 2:
+            return GARDEN_Z
+    # Vie di quartiere: carreggiata, poi cordolo e marciapiede.
+    for rx in ROAD_X:
+        d = abs(x - rx)
+        if d <= ROAD_WIDTH / 2:
+            return ROAD_TOP
+        if d <= ROAD_WIDTH / 2 + SIDEWALK_REACH:
+            return SIDEWALK_TOP
+    for ry in ROAD_Y:
+        d = abs(y - ry)
+        if d <= ROAD_WIDTH / 2:
+            return ROAD_TOP
+        if d <= ROAD_WIDTH / 2 + SIDEWALK_REACH:
+            return SIDEWALK_TOP
+    # Viale Roma: dieci metri di carreggiata e i marciapiedi ai lati.
+    if any(y0 <= y <= y1 for y0, y1 in VIALE_SPANS):
+        d = abs(x)
+        if d <= VIALE_WIDTH / 2:
+            return ROAD_TOP
+        if d <= VIALE_WIDTH / 2 + SIDEWALK_REACH:
+            return SIDEWALK_TOP
+    # Fuori dalla rete urbana il piano è il rilievo della campagna.
+    return RELIEF_Z
 
 
 def bounds_xy(points: collections.abc.Iterable[tuple[float, float, float]]) -> tuple[float, float, float, float]:
@@ -1971,11 +2077,13 @@ def build_trees_and_park(B, mats, green_col, road_col):
             for legx in (-0.8, 0.8):
                 B["metal"].box((px + legx, py, 0.31), (0.10, 0.48, 0.48))
         # Paletti luminosi bassi ai margini del percorso centrale: illuminano
-        # la croce pedonale senza restringerla né invadere le sedute.
+        # la croce pedonale senza restringerla né invadere le sedute. Il
+        # palo partiva da quota 0,18 m e restava sospeso dieci centimetri
+        # sopra il prato: ora pianta nel tappeto erboso (quota 0,08 m).
         for dx in (-1.65, 1.65):
             for dy in (-4.5, 4.5):
-                B["metal"].cylinder((cx + dx, cy + dy, 0.54), 0.075, 0.72, 10)
-                B["lamp"].cylinder((cx + dx, cy + dy, 0.76), 0.09, 0.12, 10)
+                B["metal"].cylinder((cx + dx, cy + dy, 0.44), 0.075, 0.72, 10)
+                B["lamp"].cylinder((cx + dx, cy + dy, 0.66), 0.09, 0.12, 10)
         # Aiuole con bordo, lavanda e arbusti. Le quattro cadevano sui due
         # assi dei camminamenti incrociati (fasce larghe 2,40 m, piano a
         # 0,18 m): quelle a `dx = ±10` correvano per cinque metri lungo la
@@ -1984,11 +2092,14 @@ def build_trees_and_park(B, mats, green_col, road_col):
         # tre centimetri dentro il lastricato e alte fino a 0,40 m. Ogni
         # aiuola è ora girata sul lato lungo e spostata nel quadrante
         # libero, con il bordo a 37 cm dal ciglio del vialetto: il passaggio
-        # resta sgombro per tutta la lunghezza, da un capo all'altro.
+        # resta sgombro per tutta la lunghezza, da un capo all'altro. Il
+        # cordolo però restava sospeso sei centimetri e mezzo sopra il
+        # prato: ora è piantato nel tappeto erboso (quota 0,08 m) e gli
+        # arbusti appoggiano sul bordo.
         beds = ((-10.0, -2.30, 5.00, 1.45), (10.0, 2.30, 5.00, 1.45),
                 (-2.30, 10.0, 1.45, 5.00), (2.30, -10.0, 1.45, 5.00))
         for dx, dy, bw, bd in beds:
-            B["curb"].box((cx + dx, cy + dy, 0.27), (bw, bd, 0.25))
+            B["curb"].box((cx + dx, cy + dy, 0.205), (bw, bd, 0.25))
             along_x = bw > bd
             for j in range(7):
                 step = (j - 3) * 0.55
@@ -1997,7 +2108,7 @@ def build_trees_and_park(B, mats, green_col, road_col):
                 # il bordo corto: 1,65 m di sviluppo contro 2,50 m utili.
                 px = cx + dx + (step if along_x else jitter)
                 py = cy + dy + (jitter if along_x else step)
-                B["leaf_light"].sphere((px, py, 0.68), 0.28,
+                B["leaf_light"].sphere((px, py, 0.61), 0.28,
                                        (0.85, 0.85, 1.0), 8, 5)
         # Fontanella da parco. Prima stava nel punto esatto in cui i due
         # camminamenti si incrociano: il basamento (raggio 1,15 m) partiva
@@ -2008,9 +2119,12 @@ def build_trees_and_park(B, mats, green_col, road_col):
         # scostandosi di un passo dal percorso.
         if cx < 0:
             fx, fy = cx + 3.20, cy + 5.00
-            B["concrete"].cylinder((fx, fy, 0.40), 1.15, 0.60, 24)
-            B["water"].cylinder((fx, fy, 0.72), 0.90, 0.05, 24)
-            B["metal_gold"].cylinder((fx, fy, 1.0), 0.12, 0.65, 12)
+            # Il basamento della fontanella galleggiava due centimetri sopra
+            # il prato: ora pianta nel tappeto erboso (quota 0,08 m) e l'acqua
+            # e il getto restano alla stessa altezza relativa.
+            B["concrete"].cylinder((fx, fy, 0.38), 1.15, 0.60, 24)
+            B["water"].cylinder((fx, fy, 0.70), 0.90, 0.05, 24)
+            B["metal_gold"].cylinder((fx, fy, 0.98), 0.12, 0.65, 12)
     # Aiuole triangolari alla piazza con piante fiorite.
     for cx, cy in ((-12, -10), (12, -10), (-12, 10), (12, 10)):
         B["concrete"].box((cx, cy, 0.36), (3.2, 1.45, 0.42))
@@ -2987,7 +3101,12 @@ def build_playground(B, cx, cy):
              ground_z + (top_z - ground_z) * t, 0.80, 0.20, 0.055)
     build_sandbox(B, cx + 2.2, cy - 2.6)
     build_spring_ride(B, cx - 2.6, cy - 2.8)
-    make_bench(B, cx - 0.2, cy - 4.0, 0.0)
+    # La panchina era appoggiata sul bordo ovest della sabbiera: la gamba
+    # destra passava dentro il traverso del telaio di legno (x 52,59-52,81)
+    # e lo schienale si infilava nella stessa barra. Ora sta lungo il bordo
+    # ovest del tappeto, girata verso il gioco: libera dalla sabbiera, dalla
+    # cavalcavallo e dall'altalena.
+    make_bench(B, cx - 5.1, cy - 1.5, PI / 2)
 
 
 def build_sandbox(B, x, y, yaw=0.0):
@@ -3058,7 +3177,7 @@ def build_spring_ride(B, x, y, yaw=0.0):
 # Vita di strada: persone, bici, scooter, furgone, piccioni e panni stesi
 # ---------------------------------------------------------------------------
 def add_person(B, x, y, yaw, shirt, pants, scale=1.0, seated=False,
-               seat_z=0.65, foot_z=0.0):
+               seat_z=0.65, foot_z=0.0, ground_z=0.0):
     """Figura compatta, in piedi oppure seduta con le gambe piegate.
 
     La vecchia posa seduta sollevava di 42 cm la figura intera: le gambe
@@ -3068,6 +3187,12 @@ def add_person(B, x, y, yaw, shirt, pants, scale=1.0, seated=False,
     orizzontali, stinchi verticali fino a terra o ai pedali e busto sopra
     l'anca, così panchine, biciclette e sedie del caffè condividono la
     stessa costruzione.
+
+    In piedi la figura aveva i piedi sull'origine zero del generatore e
+    non sulla superficie: nel lastricato della piazza affondava di 21 cm,
+    sul tappeto del parco giochi di 19 cm, mentre sul rilievo della
+    campagna galleggiava di 6 cm. `ground_z` è la quota del piano su cui
+    la figura poggia (vedi `surface_z`).
     """
     s = scale
     if seated:
@@ -3087,13 +3212,14 @@ def add_person(B, x, y, yaw, shirt, pants, scale=1.0, seated=False,
         head_z = seat_z + 0.88 * s
     else:
         for side in (-1, 1):
-            lbox(B[pants], x, y, yaw, side * 0.09, 0, 0.40 * s,
+            lbox(B[pants], x, y, yaw, side * 0.09, 0, ground_z + 0.40 * s,
                  0.15 * s, 0.17 * s, 0.80 * s)
-        lbox(B[shirt], x, y, yaw, 0, 0, 1.06 * s, 0.40 * s, 0.24 * s, 0.60 * s)
+        lbox(B[shirt], x, y, yaw, 0, 0, ground_z + 1.06 * s,
+             0.40 * s, 0.24 * s, 0.60 * s)
         for side in (-1, 1):
-            lbox(B[shirt], x, y, yaw, side * 0.25 * s, 0.02, 1.04 * s,
-                 0.10 * s, 0.12 * s, 0.56 * s)
-        head_z = 1.52 * s
+            lbox(B[shirt], x, y, yaw, side * 0.25 * s, 0.02,
+                 ground_z + 1.04 * s, 0.10 * s, 0.12 * s, 0.56 * s)
+        head_z = ground_z + 1.52 * s
     B["skin"].sphere(lbox_point(x, y, yaw, 0, 0, head_z), 0.115 * s,
                      (0.92, 1.0, 1.12), 10, 7)
     hair = "hair_dark" if (int(x * 7 + y * 3) % 2) else "hair_light"
@@ -3101,12 +3227,18 @@ def add_person(B, x, y, yaw, shirt, pants, scale=1.0, seated=False,
                    0.115 * s, (0.95, 1.0, 0.72), 10, 6)
 
 
-def add_bicycle(B, x, y, yaw, frame_key):
-    """Ruote a raggi e telaio a diamante, tutti nello stesso riferimento locale."""
+def add_bicycle(B, x, y, yaw, frame_key, ground_z=0.0):
+    """Ruote a raggi e telaio a diamante, tutti nello stesso riferimento locale.
+
+    Anche la bicicletta poggiava sull'origine zero: parcheggiata sul
+    marciapiede affondava di 11 cm nel cemento, sulla campagna galleggiava
+    di 6 cm. `ground_z` è la quota della superficie sotto le ruote.
+    """
     def tube(key, points, radius):
         add_tube(B[key], [lbox_point(x, y, yaw, *p) for p in points], radius, 8)
 
-    rear, front = (-0.55, 0, 0.36), (0.55, 0, 0.36)
+    g = ground_z
+    rear, front = (-0.55, 0, 0.36 + g), (0.55, 0, 0.36 + g)
     for hub in (rear, front):
         points = [(hub[0] + .33 * math.cos(i * TAU / 24), 0,
                    hub[2] + .33 * math.sin(i * TAU / 24)) for i in range(25)]
@@ -3114,18 +3246,18 @@ def add_bicycle(B, x, y, yaw, frame_key):
         for i in range(8):
             tube("metal", [hub, points[i * 3]], .008)
         tube("metal", [(hub[0], -.06, hub[2]), (hub[0], .06, hub[2])], .035)
-    crank, saddle, head = (-.12, 0, .36), (-.28, 0, .80), (.36, 0, .80)
+    crank, saddle, head = (-.12, 0, .36 + g), (-.28, 0, .80 + g), (.36, 0, .80 + g)
     for start, end in ((rear, crank), (rear, saddle), (crank, saddle),
                        (saddle, head), (crank, head), (head, front)):
         tube(frame_key, [start, end], .025)
-    tube("metal", [saddle, (-.28, 0, .94)], .022)
-    lbox(B["metal"], x, y, yaw, -.30, 0, .96, .25, .16, .06)
-    tube("metal", [head, (.39, 0, 1.02), (.39, -.23, 1.02)], .022)
-    tube("metal", [(.39, 0, 1.02), (.39, .23, 1.02)], .022)
+    tube("metal", [saddle, (-.28, 0, .94 + g)], .022)
+    lbox(B["metal"], x, y, yaw, -.30, 0, .96 + g, .25, .16, .06)
+    tube("metal", [head, (.39, 0, 1.02 + g), (.39, -.23, 1.02 + g)], .022)
+    tube("metal", [(.39, 0, 1.02 + g), (.39, .23, 1.02 + g)], .022)
     for side in (-1, 1):
-        tube("metal", [crank, (-.12, side * .14, .36),
-                       (-.12 + side * .13, side * .14, .36)], .018)
-        lbox(B["metal"], x, y, yaw, -.12 + side * .13, side * .18, .36,
+        tube("metal", [crank, (-.12, side * .14, .36 + g),
+                       (-.12 + side * .13, side * .14, .36 + g)], .018)
+        lbox(B["metal"], x, y, yaw, -.12 + side * .13, side * .18, .36 + g,
              .12, .12, .04)
 
 
@@ -3419,15 +3551,19 @@ def build_street_life(B, mats, col):
     pants = ("cloth_blue", "hair_dark", "cloth_green", "cloth_red")
     crowd = [(-6, -6, 0.7), (3.5, -8, 2.2), (9, 4, 4.0), (-9, 6, 1.2),
              (0, 6.5, 3.4), (-4.5, 10.5, 5.2), (6.5, -3.5, 0.4), (12, -8, 2.8),
-             (-12, -4, 1.9), (2.0, -12.5, 0.2), (-2.5, -13.0, 3.0),
+             (-12, -4, 1.9), (2.0, -12.5, 0.2), (-2.5, -12.3, 3.0),
              (28.5, 14.0, 1.6), (32.2, 18.2, 4.4), (36.5, 13.5, 0.9),
              (40.4, 18.6, 2.6), (44.0, 14.2, 5.0), (33.0, 22.5, 3.6),
              (-31.5, -14.0, 1.4), (-33.0, -18.5, 4.2), (-19.5, -20.5, 0.8),
              (19.0, 20.0, 2.0), (-60, -30.6, 1.1), (52, 30.6, 3.9),
              (48.5, -50.0, 2.3)]
     for i, (x, y, yaw) in enumerate(crowd):
+        # Ogni figura poggia sulla superficie che ha sotto: nel lastricato
+        # della piazza le gambe affondavano di 21 cm, sul rilievo della
+        # campagna galleggiavano di 6 cm.
         add_person(B, x, y, yaw, shirts[i % 6], pants[i % 4],
-                   scale=random.uniform(0.94, 1.04))
+                   scale=random.uniform(0.94, 1.04),
+                   ground_z=surface_z(x, y))
     # Coppia seduta su una panchina della piazza e bimbo al parco giochi.
     # Prima erano figure in piedi alzate di 42 cm, con le gambe dentro la
     # panca: ora le cosce poggiano sulle assi (quota 0,65) e i piedi sulle
@@ -3436,24 +3572,32 @@ def build_street_life(B, mats, col):
                seated=True, seat_z=0.65, foot_z=0.21)
     add_person(B, -7.4, 0.2, PI, "cloth_green", "hair_dark", 0.96,
                seated=True, seat_z=0.65, foot_z=0.21)
-    add_person(B, 50.6, -53.4, 2.4, "cloth_yellow", "cloth_blue", 0.62)
-    add_person(B, -54.5, 50.0, 1.2, "cloth_white", "cloth_green", 0.95)
+    # Il bimbo e l'adulto al parco giochi avevano le gambe conficcate nel
+    # tappeto di gomma: ora poggiano su di esso (quota 0,19 m).
+    add_person(B, 50.6, -53.4, 2.4, "cloth_yellow", "cloth_blue", 0.62,
+               ground_z=surface_z(50.6, -53.4))
+    add_person(B, -54.5, 50.0, 1.2, "cloth_white", "cloth_green", 0.95,
+               ground_z=surface_z(-54.5, 50.0))
     # Ciclisti in movimento e bici parcheggiate.
     for x, y, yaw in ((-14.0, -24.0, 0.4), (12.5, 26.0, 3.5), (24.5, -12.0, 1.7)):
-        add_bicycle(B, x, y, yaw, "cloth_red" if yaw < 2 else "cloth_blue")
+        g = surface_z(x, y)
+        add_bicycle(B, x, y, yaw, "cloth_red" if yaw < 2 else "cloth_blue",
+                    ground_z=g)
         # Il ciclista era una figura dritta centrata sul telaio, con le
         # spalle perpendicolari alla direzione di marcia. Ora è in sella:
         # anca sulla sella (quota 0,98), cosce in avanti e piedi alla
         # quota dei pedali, orientato come la bicicletta.
         add_person(B, x - 0.28 * math.cos(yaw), y - 0.28 * math.sin(yaw),
                    yaw - PI / 2, "cloth_blue" if yaw < 2 else "cloth_yellow",
-                   "hair_dark", 0.98, seated=True, seat_z=0.98, foot_z=0.38)
+                   "hair_dark", 0.98, seated=True, seat_z=0.98 + g,
+                   foot_z=0.38 + g)
     for x, y, yaw in ((-16.6, -14.6, PI / 2), (-16.6, -13.4, PI / 2),
                       (16.8, 12.6, -PI / 2), (26.2, 9.4, 0.0),
                       (-38.6, -20.0, PI / 2), (44.2, 22.6, PI)):
         add_bicycle(B, x, y, yaw, ("cloth_green", "cloth_red", "cloth_blue",
                                    "cloth_yellow", "cloth_violet",
-                                   "cloth_white")[int(abs(x)) % 6])
+                                   "cloth_white")[int(abs(x)) % 6],
+                    ground_z=surface_z(x, y))
     # Scooter e furgone del mercato.
     add_scooter(B, -18.4, -16.6, PI / 2, "cloth_green")
     add_scooter(B, 18.4, 14.6, -PI / 2, "cloth_red")
@@ -3541,12 +3685,18 @@ def build_gardens(B):
         for i in range(3):
             py = ly + ld * (0.05 + i * 0.13)
             B["grass"].box((lx, py, 0.13), (lw * 0.7, 0.34, 0.10))
-    # Vasi fioriti agli ingressi e pergolati nei cortili maggiori.
-    for px, py in ((-40.5, -16), (-28.5, -22), (26.5, 9.5), (45.5, 22.5),
+    # Vasi fioriti agli ingressi e pergolati nei cortili maggiori. I vasi
+    # avevano il fondo a quota fissa: uno affondava nel marciapiede, uno
+    # galleggiava di quindici centimetri sul rilievo della campagna e uno
+    # era piantato in mezzo alla carreggiata. Ora poggiano sulla superficie
+    # che hanno sotto e quello in mezzo alla strada è tornato all'ingresso
+    # del giardino, sul lato aperto della siepe.
+    for px, py in ((-40.5, -16), (-28.5, -22), (40.0, 9.2), (45.5, 22.5),
                    (-64, 40), (64, -40)):
+        g = surface_z(px, py)
         for k in range(3):
-            B["terracotta"].cylinder((px + k * 0.7, py, 0.30), 0.22, 0.42, 10)
-            B["flower"].sphere((px + k * 0.7, py, 0.62), 0.24,
+            B["terracotta"].cylinder((px + k * 0.7, py, g + 0.21), 0.22, 0.42, 10)
+            B["flower"].sphere((px + k * 0.7, py, g + 0.53), 0.24,
                                (1.0, 0.9, 0.8), 8, 5)
     for px, py, yaw in ((-52, 26, 0.0), (52, -26, PI / 2)):
         for i in range(4):
@@ -4182,16 +4332,8 @@ AVENUE_TREES = ([(x, -37.25) for x in (-58, -47, -36, 36, 47, 58)] +
 PARK_TREES = ((-64, 63), (-41, 61), (-41, 43),
               (41, -63), (64, -63), (64, -41))
 
-# Isolati liberi fra i marciapiedi: gli unici prati cittadini non occupati da
-# edifici, giardini o attrezzature. Le quote seguono il reticolo stradale.
-MOWN_BLOCKS = ((-63.6, -29.4, -63.6, -42.6), (-38.0, -29.4, 38.4, 63.6),
-               (29.4, 38.0, -63.6, -38.4), (29.4, 43.0, 38.4, 63.6),
-               (-16.6, -7.4, 50.0, 63.6), (7.4, 16.6, 50.0, 63.6),
-               (-16.6, -7.4, -63.6, -50.0), (7.4, 16.6, -63.6, -50.0),
-               (-16.6, -7.4, -25.6, -13.4), (11.5, 16.6, 14.1, 25.6),
-               # Prato a ponente del municipio: prima il taglio era solo a
-               # levante, e il blocco civico restava asimmetrico.
-               (-16.6, -11.5, 14.1, 25.6))
+# L'elenco dei prati urbani (MOWN_BLOCKS) sta con le quote delle superfici,
+# in testa al file.
 
 
 def build_lawn_care(B):

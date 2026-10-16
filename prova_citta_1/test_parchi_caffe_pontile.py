@@ -232,7 +232,7 @@ class ParchiTests(unittest.TestCase):
                  call["size"][0], call["size"][1])
                 for call in self.park_calls("curb", "box", cx, cy)
                 if abs(call["size"][2] - 0.25) < 1e-9
-                and abs(call["center"][2] - 0.27) < 1e-9]
+                and abs(call["center"][2] - 0.205) < 1e-9]
 
     def benches(self, cx, cy):
         return [spans(call["center"], (2.30, 0.55, 0.12))
@@ -251,7 +251,8 @@ class ParchiTests(unittest.TestCase):
                 sizes = sorted((round(bw, 2), round(bd, 2)) for _dx, _dy, bw, bd in beds)
                 self.assertEqual(sizes, [(1.45, 5.0), (1.45, 5.0),
                                          (5.0, 1.45), (5.0, 1.45)])
-                # Quote invariate: il bordo resta fra 0,145 e 0,395 m.
+                # Dalla venticinquesima versione il cordolo è piantato nel
+                # prato: il bordo resta fra 0,080 e 0,330 m.
                 self.assertTrue(all(abs(bd - 5.0) < 1e-9 or abs(bw - 5.0) < 1e-9
                                     for _dx, _dy, bw, bd in beds))
 
@@ -288,7 +289,7 @@ class ParchiTests(unittest.TestCase):
                 self.assertEqual(len(bollards), 4)
                 for dx, dy, bw, bd in self.beds(cx, cy):
                     with self.subTest(aiuola=(dx, dy)):
-                        bed = spans((cx + dx, cy + dy, 0.27), (bw, bd, 0.25))
+                        bed = spans((cx + dx, cy + dy, 0.205), (bw, bd, 0.25))
                         for bench in benches:
                             self.assertFalse(overlaps_xy(bed, bench),
                                              "aiuola dentro una panca")
@@ -315,7 +316,9 @@ class ParchiTests(unittest.TestCase):
                         for center in near:
                             self.assertLessEqual(abs(center[0] - (cx + dx)), bw / 2 - 0.20)
                             self.assertLessEqual(abs(center[1] - (cy + dy)), bd / 2 - 0.20)
-                            self.assertAlmostEqual(center[2], 0.68)
+                            # Gli arbusti appoggiano sul cordolo dell'aiuola,
+                            # piantata nel prato: centro a quota 0,61 m.
+                            self.assertAlmostEqual(center[2], 0.61)
 
     def test_la_fontanella_lascia_libero_l_incrocio(self):
         fountains = [call["center"] for call in
@@ -336,18 +339,18 @@ class ParchiTests(unittest.TestCase):
         self.assertLess(abs(fy - cy) + self.FOUNTAIN_RADIUS, self.CURB_INNER)
         self.assertGreater(math.hypot(fx - self.POND[0], fy - self.POND[1]),
                            self.FOUNTAIN_RADIUS + self.POND_RADIUS)
-        fountain = spans((fx, fy, 0.40), (2 * self.FOUNTAIN_RADIUS,
+        fountain = spans((fx, fy, 0.38), (2 * self.FOUNTAIN_RADIUS,
                                           2 * self.FOUNTAIN_RADIUS, 0.60))
         for dx, dy, bw, bd in self.beds(cx, cy):
-            bed = spans((cx + dx, cy + dy, 0.27), (bw, bd, 0.25))
+            bed = spans((cx + dx, cy + dy, 0.205), (bw, bd, 0.25))
             self.assertFalse(overlaps_xy(bed, fountain))
         for center in self.bollards(cx, cy):
             self.assertGreater(clearance_xy(fountain, center), 0.20)
         # Vasca, acqua e colonnina conservano le quote di prima.
-        self.assertAlmostEqual(fountains[0][2], 0.40)
+        self.assertAlmostEqual(fountains[0][2], 0.38)
         water = pick(self.B["water"].calls, "cylinder", radius=0.90)
         self.assertEqual(len(water), 1)
-        self.assertAlmostEqual(water[0]["center"][2], 0.72)
+        self.assertAlmostEqual(water[0]["center"][2], 0.70)
         self.assertAlmostEqual(water[0]["center"][0], fx)
         self.assertAlmostEqual(water[0]["center"][1], fy)
 
