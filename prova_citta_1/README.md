@@ -50,6 +50,57 @@ in un unico contesto.
   città — e oltre le colline tre **dorsali lontane in foschia** che chiudono
   l'orizzonte, con **cumuli** nel cielo.
 
+## Miglioramenti della ventinovesima versione
+
+**Esattamente tre interventi nel generatore**, senza modificare edifici,
+viabilità, posizione dei palazzi, camera o illuminazione della scena:
+
+1. **Auto e autobus appoggiati alla superficie** — le ruote di `build_car` e
+   `build_bus` erano centrate a quota fissa (0,46 m e 0,53 m): il battistrada
+   scendeva a 3 cm sopra lo zero, quindi affondava di 2 cm nella carreggiata e
+   di 2,5 cm nell'asfalto dei due piazzali di sosta. Ora i mezzi ricevono
+   `ground_z`: il punto più basso dei pneumatici coincide con la quota della
+   carreggiata (0,05 m) o con quella dell'asfalto dei piazzali (0,055 m), e il
+   bus alla fermata di via -70 usa la stessa quota della strada sotto di lui.
+   Posizione, carrozzeria e vetri restano invariati.
+2. **Furgone del mercato a contatto con la carreggiata** — il furgone aveva
+   il battistrada a 4,5 cm dall'asfalto e sembrava sospeso sulla strada. Ora
+   `add_van` riceve `ground_z` e il suo asse è calcolato a partire dal
+   raggio del pneumatico e dal canale di 5,5 cm, così il punto più basso
+   della ruota tocca la carreggiata. Gli anelli restano a 0,905 m dal
+   mezzeria, dentro le fiancate.
+3. **Cassonetti sul marciapiede** — i due cassonetti di ponente stavano a
+   x = -20 m, cioè sull'asfalto dell'incrocio con via -23, che arriva fino a
+   x = -19 m; quelli di levante erano speculari. Ora sono a x = ±12,8 e
+   ±13,6 m, sul marciapiede di via -32 e di via 32 verso il centro, fuori
+   dalla carreggiata delle vie di quartiere. Le ruote, prima a 4,5 cm da
+   terra, poggiano su `ground_z`, cioè sulla quota del marciapiede (0,11 m),
+   e l'intero contenitore scende di conseguenza.
+
+Verifica mirata, senza Blender:
+
+```bash
+python3 -m unittest discover -s prova_citta_1 -p 'test_contatto_ruote_cassonetti.py' -v
+```
+
+I **12 test** verificano che il battistrada di auto, autobus e furgone tocchi
+la superficie indicata, che le auto dei piazzali poggino sulla lastra
+d'asfalto e che la quota non dipenda dall'orientamento del mezzo. Per i
+cassonetti controllano il contatto delle ruote con il marciapiede, il
+basamento che non affonda e il fatto che le quattro collocazioni siano fuori
+da ogni carreggiata. Sono stati aggiornati di conseguenza i controlli di
+`test_furgone_cassonetti_edicola`, `test_espositori_tappeto_ruote` e
+`test_urbanistica`, che fissavano le vecchie quote; `test_fermata_bandiera_viali`
+e `test_fermata_rotatoria_pieve` ricevono la costante `ROAD_TOP` nel loro
+caricamento parziale.
+
+**Stato degli artefatti:** questa revisione aggiorna il generatore e i test,
+non `citta.blend` e `anteprima.png`. La rigenerazione richiede un ambiente
+Blender funzionante: in quello di modifica l'importazione di `bpy` è bloccata
+dall'assenza di librerie di sistema, a partire da `libXrender.so.1`.
+Per applicare queste tre migliorie anche agli artefatti, eseguire
+`python3 genera_citta.py --quick` dalla cartella `prova_citta_1` in tale ambiente.
+
 ## Miglioramenti della ventottesima versione
 
 **Esattamente tre interventi nel generatore**, senza modificare edifici,
@@ -1251,6 +1302,7 @@ denoising OpenImageDenoise e view transform AgX.
 | `test_cipressi_paletti_tombini.py` | Quindici controlli su quota dei cipressi, paletti e catena della piazza e tombini |
 | `test_tavolini_festoni_piccioni.py` | Nove controlli su basi dei tavolini, festoni e piccioni della piazza |
 | `test_sagrato_scooter_siepe.py` | Dieci controlli su sagrato della pieve, scooter e siepe del centro civico |
+| `test_contatto_ruote_cassonetti.py` | Dodici controlli su ruote di auto, autobus e furgone, cassonetti sul marciapiede e auto dei piazzali |
 
 ## Rigenerazione
 
@@ -1269,7 +1321,7 @@ riduce temporaneamente campioni e risoluzione solo per il PNG di controllo.
 Gli artefatti del repository (`citta.blend` e `anteprima.png`) sono stati
 rigenerati con **Blender 5.0.0** alla ventiquattresima versione.
 
-Per eseguire tutti i **187 test geometrici** (inclusi i controlli sugli
+Per eseguire tutti i **199 test geometrici** (inclusi i controlli sugli
 ingombri dei modelli sorgente reali), dalla radice del
 repository, nello stesso ambiente Python con `bpy`:
 

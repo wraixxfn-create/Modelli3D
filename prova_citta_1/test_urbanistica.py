@@ -199,13 +199,15 @@ class PonticelloTests(unittest.TestCase):
 class FermataTests(unittest.TestCase):
     def test_bus_interamente_nella_corsia_sud(self):
         b = batches()
-        city.build_bus(b, *city.BUS_POSITION)
+        city.build_bus(b, *city.BUS_POSITION, ground_z=city.ROAD_TOP)
         a, c, d, e = city.bounds_xy(p for batch in b.values() for p in batch.verts)
         self.assertGreater(a, 29.9)  # dopo attraversamento e rotatoria x = 23
         self.assertLess(c, 63.1)     # prima dell'attraversamento x = 70
         self.assertGreater(d, -74)
         self.assertLess(e, -70)
-        self.assertAlmostEqual(min(p[2] for batch in b.values() for p in batch.verts), .03)
+        # Il battistrada tocca la carreggiata (ventinovesima versione).
+        self.assertAlmostEqual(min(p[2] for batch in b.values() for p in batch.verts),
+                               city.ROAD_TOP)
         assert_valid_meshes(self, b)
 
     def test_ruote_ruotano_con_il_bus(self):

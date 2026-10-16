@@ -51,7 +51,7 @@ FUNCTIONS = {
     "build_bus", "build_bus_shelter", "make_bench", "build_church",
     "build_street_lamp",
 }
-CONSTANTS = {"BUS_STOP_BOUNDS", "BUS_POSITION"}
+CONSTANTS = {"BUS_STOP_BOUNDS", "BUS_POSITION", "ROAD_TOP"}
 
 
 def load_geometry():

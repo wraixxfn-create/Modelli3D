@@ -31,7 +31,7 @@ FUNCTIONS = {
     "build_trees_and_park", "spans_outside",
 }
 CONSTANTS = {"AVENUE_TREES", "PARK_TREES", "MOWN_BLOCKS", "BUS_STOP_BOUNDS",
-             "BUS_POSITION", "POND_CENTER", "BRIDGE_Y_OFFSET"}
+             "BUS_POSITION", "POND_CENTER", "BRIDGE_Y_OFFSET", "ROAD_TOP"}
 
 
 def load_geometry():
