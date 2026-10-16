@@ -50,6 +50,64 @@ in un unico contesto.
   città — e oltre le colline tre **dorsali lontane in foschia** che chiudono
   l'orizzonte, con **cumuli** nel cielo.
 
+## Miglioramenti della ventiseiesima versione
+
+**Esattamente tre interventi nel generatore**, senza cambiare viabilità,
+posizione degli edifici, arredi, camera o illuminazione della scena:
+
+1. **Cipressi della campagna quotati sul rilievo (`build_countryside`)** — gli
+   otto cipressi isolati sulla piana e sui primi pendii avevano la quota
+   fissata a una costante (`z = 3,0·s`) che ignorava il profilo del terreno:
+   sul pendio collinare a nord-ovest (`x -95, y 118 m`, quota suolo `+1,26 m`)
+   il fusto affondava per oltre un metro (`1,08 m`) nella terra; al margine
+   della piana (`x 118, y 20 m`, `x -20, y 116 m`, quota suolo `-0,06 m`)
+   galleggiava invece da `24` a `27 cm` nel vuoto. Ora la quota del fusto e
+   del cono di chioma è campionata punto per punto su `relief_height(x, y)`:
+   la base di ogni fusto appoggia esattamente sulla quota del terreno, sia
+   sui dossi sia nella piana.
+2. **Paletti perimetrali e catena di Piazza delle Querce (`build_town_square`)** —
+   i paletti a protezione del perimetro della piazza avevano il cilindro
+   metallico centrato a `z = 0,50 m` con altezza `0,68 m`, quindi con la base
+   a `0,16 m`: il basamento in pietra della piazza si trova a quota `0,06 m`,
+   lasciando ogni paletto sospeso per dieci centimetri nel vuoto. Inoltre, a
+   nord (`y = 13,7 m`), un paletto a `x = 0` era piantato dentro il gradino
+   superiore della scalinata monumentale del municipio (`z = 0,73 m`),
+   ostruendo l'accesso al portale centrale, mentre i paletti sui lati est e
+   ovest erano sprovvisti della sfera dorata di coronamento e mancava la catena
+   descritta nel progetto. Ora tutti i paletti poggiano sul basamento in pietra
+   (`0,06 m`), il varco centrale verso la scalinata del municipio è libero
+   (`abs(x) < 4,0 m`), tutti i lati hanno il coronamento dorato e una catena
+   bassa a festone raccorda i paletti contigui.
+3. **Tombini e caditoie stradali sulla carreggiata (`build_street_life`)** —
+   i chiusini e le griglie di scolo occupavano posizioni scorrette: un tombino
+   era collocato a `x = 0, y = -40 m`, cioè esattamente nel mezzo dello
+   spartitraffico fiorito di Viale Roma, sepolto nella siepe continua; un
+   secondo stava in mezzo al prato sfalciato di un isolato urbano
+   (`surface_z = 0,02 m`) e gli altri tre galleggiavano di `10,5 cm` nel
+   rilievo della campagna (`surface_z = -0,06 m`); le quattro caditoie
+   metalliche erano posizionate sul marciapiede (`x = ±27,4 m`, quota marciapiede
+   `0,11 m`) e a quota `0,06 m`, risultando affondate di `2,5 cm` sotto il
+   calpestio. Ora tutti e cinque i tombini alloggiano nelle corsie carrabili
+   delle strade (`z = 0,05 m`), all'esterno dello spartitraffico centrale, e
+   le quattro caditoie sono allineate nella canaletta di scolo a bordo
+   carreggiata (`x = ±26,75 m`), a filo asfalto contro il cordolo del
+   marciapiede.
+
+Verifica mirata, eseguibile anche senza Blender:
+
+```bash
+python3 -m unittest discover -s prova_citta_1 -p 'test_cipressi_paletti_tombini.py' -v
+```
+
+I quindici test controllano che tutti gli otto cipressi abbiano la base del fusto
+coincidente con la quota del terreno calcolata da `relief_height`, controllando
+in particolare la correzione sul dosso collinare e sulla piana; che tutti i
+paletti della piazza poggino a quota `0,06 m` sul basamento in pietra, che il
+varco centrale verso il municipio sia sgombro, che tutti i paletti abbiano la
+sfera dorata e che la catena perimetrale abbia l'andamento a festone; che tutti
+i cinque tombini e le quattro caditoie risiedano sulla carreggiata a quota
+`0,05 m`, senza intrusioni nello spartitraffico, nei prati o nei marciapiedi.
+
 ## Miglioramenti della venticinquesima versione
 
 **Esattamente tre interventi nel generatore**, senza cambiare viabilità,
@@ -1106,6 +1164,8 @@ denoising OpenImageDenoise e view transform AgX.
 | `test_lampioni_secchiello_molla.py` | Nove controlli su lampioni stradali, secchiello della sabbiera e cavallino a molla |
 | `test_parchi_caffe_pontile.py` | Tredici controlli su aiuole e fontanella dei parchi, platea del chiosco e pali del pontile |
 | `test_fermata_rotatoria_pieve.py` | Tredici controlli su percorso tattile della fermata, isola centrale delle rotatorie ed edicola votiva della pieve |
+| `test_figure_panchina_arredo.py` | Quindici controlli su appoggio figure e bici, panchina del parco giochi e arredi |
+| `test_cipressi_paletti_tombini.py` | Quindici controlli su quota dei cipressi, paletti e catena della piazza e tombini |
 
 ## Rigenerazione
 
@@ -1124,7 +1184,7 @@ riduce temporaneamente campioni e risoluzione solo per il PNG di controllo.
 Gli artefatti del repository (`citta.blend` e `anteprima.png`) sono stati
 rigenerati con **Blender 5.0.0** alla ventiquattresima versione.
 
-Per eseguire tutti i **138 test geometrici** (inclusi i controlli sugli
+Per eseguire tutti i **168 test geometrici** (inclusi i controlli sugli
 ingombri dei modelli sorgente reali), dalla radice del
 repository, nello stesso ambiente Python con `bpy`:
 
