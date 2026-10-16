@@ -82,7 +82,7 @@ class _BpyStub:
 FUNCTIONS = {
     "Batch", "lbox", "lbox_tilt", "lbox_point", "add_tube", "make_bench",
     "build_street_lamp", "add_lamp", "build_trees_and_park", "spans_outside",
-    "build_pond", "build_pond_bridge", "bridge_point", "in_bridge_corridor",
+    "add_oriented_cone", "build_pond", "build_pond_bridge", "bridge_point", "in_bridge_corridor",
     "build_town_square", "make_cafe_table", "make_cafe_chair", "add_person",
 }
 CONSTANTS = {"POND_CENTER", "BRIDGE_HALF_SPAN", "BRIDGE_Y_OFFSET",
