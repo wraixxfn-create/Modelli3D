@@ -191,6 +191,15 @@ collegandole al fusto con quattro bracci a terra, i festoni della piazza,
 con cavi continui e orli delle bandierine allineati alla fune, e gli otto
 piccioni a terra, con zampe sul lastricato e becchi rivolti come la testa.
 
+La ventottesima versione esegue tre interventi di appoggio: il sagrato in
+basolato della pieve entra in `surface_z` — le figure in piedi, la bicicletta
+parcheggiata e i vasi della fila d'ingresso affondavano di 27 cm nel
+lastricato, e la quota dei vasi è ora campionata vaso per vaso; gli scooter
+ricevono la quota del piano che hanno sotto, come figure e biciclette (prima
+affondavano di 11 cm nei marciapiedi e di 21 cm sul sagrato); la siepe
+meridionale del centro civico è piantata nel terreno, invece di galleggiare
+26 cm sopra il prato davanti al lato sud della piazza.
+
 """
 
 import collections.abc
@@ -827,16 +836,27 @@ def surface_z(x: float, y: float) -> float:
     """Quota della superficie calpestabile nel punto indicato.
 
     Il tappeto di gomma del parco giochi è a 0,19 m, le lastre della piazza a
-    0,2125 m, i prati urbani a 0,02 m, quelli dei parchi a 0,08 m, la
-    carreggiata a 0,05 m, il marciapiede a 0,11 m e, fuori dalla rete urbana,
-    il rilievo della campagna a -0,06 m. Le regole riprendono le stesse
-    dimensioni usate per costruire strade, marciapiedi e prati, così la quota
-    restituita è sempre quella della superficie realmente disegnata.
+    0,2125 m, il basolato del sagrato della pieve a 0,21 m, i prati urbani a
+    0,02 m, quelli dei parchi a 0,08 m, la carreggiata a 0,05 m, il
+    marciapiede a 0,11 m e, fuori dalla rete urbana, il rilievo della campagna
+    a -0,06 m. Le regole riprendono le stesse dimensioni usate per costruire
+    strade, marciapiedi, sagrato e prati, così la quota restituita è sempre
+    quella della superficie realmente disegnata.
     """
     # Tappeto di gomma del parco giochi.
     px, py = PLAYGROUND_CENTER
     if abs(x - px) <= PLAYGROUND_DECK[0] / 2 and abs(y - py) <= PLAYGROUND_DECK[1] / 2:
         return MAT_Z
+    # Sagrato in basolato della pieve (0,21 m). La pieve sta a (-48, -17,5)
+    # con yaw = 90°, quindi la griglia di 17,5 × 11,6 m del sagrato, centrata
+    # a 14,4 m dalla facciata, occupa nel mondo x = -39,4…-27,8 e
+    # y = -26,25…-8,75 (assi locali scambiati dalla rotazione). La regola
+    # precede quelle della viabilità perché il basolato copre il marciapiede
+    # di via -23 nel tratto in cui i due si sovrappongono: senza di essa
+    # figure, biciclette, scooter e vasi appoggiati sul sagrato affondavano
+    # di 27 cm nel lastricato.
+    if -39.4 <= x <= -27.8 and -26.25 <= y <= -8.75:
+        return 0.21
     # Lastricato della piazza e cornice di pietra intorno.
     if abs(x) <= 15.4 and abs(y) <= 13.4:
         if abs(x) <= 14.7 and abs(y) <= 12.9:
@@ -2172,11 +2192,14 @@ def build_trees_and_park(B, mats, green_col, road_col):
         B["grass"].cylinder((x, y, 0.24), 0.90, 0.10, 20)
     # Siepi basse e bordi verdi del centro civico. La quota le tiene con il
     # piede dentro il terreno: prima partivano da 0,17 e si vedeva il vuoto.
+    # Anche la siepe di mezzogiorno (y = -15,6) è ora piantata come le due
+    # laterali: partiva da 0,20 m e restava sospesa 26 cm sopra il prato,
+    # davanti al lato sud della piazza. Il lato nord resta invece libero
+    # perché il volume del municipio comincia a y = 14 m: una siepe in asse
+    # gli entrerebbe dentro per tutta la sua lunghezza.
     for x in (-17.2, 17.2):
         B["leaf"].box((x, 0, 0.44), (0.48, 21, 1.1))
-    for y in (-15.6, 15.6):
-        if y != 15.6:
-            B["leaf"].box((0, y, 0.70), (25, 0.5, 1.0))
+    B["leaf"].box((0, -15.6, 0.44), (25, 0.5, 1.1))
 
 
 def add_tube(batch, points, radius, segments=8):
@@ -2573,6 +2596,8 @@ def build_church(B, mats, col, cx=-48.0, cy=-17.5, yaw=PI / 2):
     lbox(B["metal_gold"], cx, cy, yaw, tx, ty, 24.1, 0.09, 0.09, 1.0)
     lbox(B["metal_gold"], cx, cy, yaw, tx, ty, 24.3, 0.56, 0.09, 0.09)
     # Sagrato in basolato con cipressi, lampioni, panche con sostegni ed edicola.
+    # Lo spessore è quello della lastra: il ciglio superiore cade a 0,21 m,
+    # la quota che `surface_z` restituisce sul sagrato.
     sagrato_c = lbox_point(cx, cy, yaw, 0.0, -14.4, 0.06)
     make_cube("Sagrato della pieve", sagrato_c, (17.5, 11.6, 0.30),
               mats["basolato"], col, yaw=yaw, bevel=0.05)
@@ -3313,7 +3338,7 @@ def add_bicycle(B, x, y, yaw, frame_key, ground_z=0.0):
              .12, .12, .04)
 
 
-def add_scooter(B, x, y, yaw, body_key):
+def add_scooter(B, x, y, yaw, body_key, ground_z=0.0):
     """Scooter con ruote e ciclistica complete nel riferimento locale.
 
     Le ruote erano dischi piatti sull'asse Y globale: nelle soste ruotate
@@ -3321,9 +3346,21 @@ def add_scooter(B, x, y, yaw, body_key):
     anello, mozzi, forcella e manubrio seguono lo yaw del mezzo, con
     parafango, piano d'appoggio, codone con sella, scudo con faro, fanale
     posteriore e specchietti.
+
+    `ground_z` è la quota del piano su cui poggiano i pneumatici (vedi
+    `surface_z`): il battistrada tocca la superficie senza affondarvi. Il
+    mezzo era costruito con le ruote a quota zero, quindi affondava di 11 cm
+    nei marciapiedi e di 21 cm nel basolato del sagrato, mentre sul rilievo
+    della campagna restava sospeso 6 cm nel vuoto.
     """
+    g = ground_z
+
+    def box(key, lx, ly, lz, sx, sy, sz):
+        lbox(B[key], x, y, yaw, lx, ly, lz + g, sx, sy, sz)
+
     def tube(key, points, radius):
-        add_tube(B[key], [lbox_point(x, y, yaw, *p) for p in points], radius, 8)
+        add_tube(B[key], [lbox_point(x, y, yaw, px, py, pz + g)
+                          for px, py, pz in points], radius, 8)
 
     for hub_x, hub_z, radius in ((-0.66, 0.29, 0.24), (0.66, 0.26, 0.21)):
         # Pneumatico ad anello nel piano locale XZ: ruota con lo scooter.
@@ -3340,21 +3377,20 @@ def add_scooter(B, x, y, yaw, body_key):
     for side in (-1, 1):
         tube("metal", [(0.66, side * .05, 0.26), (0.58, side * .05, 0.86)], .035)
     # Piano d'appoggio, codone con sella, scudo verticale, faro e fanale.
-    lbox(B[body_key], x, y, yaw, -0.08, 0, 0.36, 0.92, 0.32, 0.09)
-    lbox(B[body_key], x, y, yaw, -0.58, 0, 0.56, 0.62, 0.38, 0.42)
-    lbox(B["roof_dark"], x, y, yaw, -0.40, 0, 0.82, 0.54, 0.34, 0.09)
-    lbox(B[body_key], x, y, yaw, 0.50, 0, 0.80, 0.16, 0.46, 0.76)
-    lbox(B["lamp"], x, y, yaw, 0.56, 0, 1.10, 0.09, 0.17, 0.17)
-    lbox(B["red"], x, y, yaw, -0.90, 0, 0.66, 0.06, 0.15, 0.10)
+    box(body_key, -0.08, 0, 0.36, 0.92, 0.32, 0.09)
+    box(body_key, -0.58, 0, 0.56, 0.62, 0.38, 0.42)
+    box("roof_dark", -0.40, 0, 0.82, 0.54, 0.34, 0.09)
+    box(body_key, 0.50, 0, 0.80, 0.16, 0.46, 0.76)
+    box("lamp", 0.56, 0, 1.10, 0.09, 0.17, 0.17)
+    box("red", -0.90, 0, 0.66, 0.06, 0.15, 0.10)
     # Cannotto, manubrio trasversale, manopole e specchietti.
     tube("metal", [(0.52, 0, 1.02), (0.46, 0, 1.18)], .04)
     tube("metal", [(0.46, -0.28, 1.18), (0.46, 0.28, 1.18)], .028)
     for side in (-1, 1):
-        lbox(B["roof_dark"], x, y, yaw, 0.46, side * 0.22, 1.18,
-             0.07, 0.15, 0.07)
+        box("roof_dark", 0.46, side * 0.22, 1.18, 0.07, 0.15, 0.07)
         tube("metal", [(0.46, side * 0.20, 1.20),
                        (0.40, side * 0.29, 1.40)], .012)
-        lbox(B["metal"], x, y, yaw, 0.39, side * 0.30, 1.42, 0.11, 0.075, 0.06)
+        box("metal", 0.39, side * 0.30, 1.42, 0.11, 0.075, 0.06)
 
 
 def add_van(B, x, y, yaw, body_key):
@@ -3650,10 +3686,14 @@ def build_street_life(B, mats, col):
                                    "cloth_yellow", "cloth_violet",
                                    "cloth_white")[int(abs(x)) % 6],
                     ground_z=surface_z(x, y))
-    # Scooter e furgone del mercato.
-    add_scooter(B, -18.4, -16.6, PI / 2, "cloth_green")
-    add_scooter(B, 18.4, 14.6, -PI / 2, "cloth_red")
-    add_scooter(B, -36.0, -24.6, 0.3, "cloth_blue")
+    # Scooter e furgone del mercato. I tre scooter erano costruiti con il
+    # battistrada a quota zero e non ricevevano la quota del piano: sui due
+    # marciapiedi affondavano di 11 cm e sul basolato del sagrato di 21 cm.
+    # Ora, come figure e biciclette, poggiano sulla superficie che hanno sotto.
+    for x, y, yaw, key in ((-18.4, -16.6, PI / 2, "cloth_green"),
+                           (18.4, 14.6, -PI / 2, "cloth_red"),
+                           (-36.0, -24.6, 0.3, "cloth_blue")):
+        add_scooter(B, x, y, yaw, key, ground_z=surface_z(x, y))
     add_van(B, 24.5, -24.0, PI / 2, "white")
     # Piccioni sulla piazza e in volo.
     for x, y in ((-3.0, -4.0), (-2.2, -3.4), (4.6, 2.2), (5.2, 2.8),
@@ -3765,13 +3805,18 @@ def build_gardens(B):
     # galleggiava di quindici centimetri sul rilievo della campagna e uno
     # era piantato in mezzo alla carreggiata. Ora poggiano sulla superficie
     # che hanno sotto e quello in mezzo alla strada è tornato all'ingresso
-    # del giardino, sul lato aperto della siepe.
+    # del giardino, sul lato aperto della siepe. La quota è campionata vaso
+    # per vaso, non una volta per fila: dove la fila attraversa il ciglio del
+    # sagrato della pieve (x = -39,4…-27,8) o il bordo di un marciapiede, il
+    # vaso che sta di là dal ciglio scende o sale con la superficie che ha
+    # sotto invece di restare appeso al capofila.
     for px, py in ((-40.5, -16), (-28.5, -22), (40.0, 9.2), (45.5, 22.5),
                    (-64, 40), (64, -40)):
-        g = surface_z(px, py)
         for k in range(3):
-            B["terracotta"].cylinder((px + k * 0.7, py, g + 0.21), 0.22, 0.42, 10)
-            B["flower"].sphere((px + k * 0.7, py, g + 0.53), 0.24,
+            vx = px + k * 0.7
+            g = surface_z(vx, py)
+            B["terracotta"].cylinder((vx, py, g + 0.21), 0.22, 0.42, 10)
+            B["flower"].sphere((vx, py, g + 0.53), 0.24,
                                (1.0, 0.9, 0.8), 8, 5)
     for px, py, yaw in ((-52, 26, 0.0), (52, -26, PI / 2)):
         for i in range(4):
