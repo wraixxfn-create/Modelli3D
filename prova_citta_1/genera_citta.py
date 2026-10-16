@@ -159,6 +159,28 @@ nel tappeto erboso (erano sospesi 10 cm), la fontanella del Parco delle Rose
 appoggiata al prato e i vasi fuori dalla carreggiata, dove uno era piantato
 in mezzo alla strada.
 
+La ventiseiesima versione esegue esattamente tre migliorie geometriche:
+1. I cipressi isolati e di versante della campagna (`build_countryside`)
+   ricevono la quota campionata punto per punto su `relief_height(x, y)`:
+   prima avevano quota fissa e restavano sepolti fino a 1,08 m nei dossi
+   collinari (come a quota +1,26 m) o galleggiavano di 27 cm nel vuoto
+   sopra la piana circostante.
+2. I paletti perimetrali di Piazza delle Querce (`build_town_square`), che
+   galleggiavano dieci centimetri sopra il basamento in pietra (`z = 0,06 m`),
+   poggiano ora a filo del basamento con sfera dorata di coronamento su tutti
+   e quattro i lati; il varco centrale a nord (`y = 13,7 m`, `abs(x) < 4,0 m`)
+   lascia libera la scalinata e il portale monumentale del municipio
+   (prima un paletto era piantato nel gradino superiore) e una catena bassa a
+   festone collega i paletti contigui lungo il perimetro protetto.
+3. I tombini e le caditoie stradali (`build_street_life`) abbandonano le
+   posizioni anomale: un tombino era piantato nel mezzo dello spartitraffico
+   fiorito di Viale Roma (`x = 0, y = -40 m`) sepolto nella siepe, uno stava in
+   mezzo a un prato sfalciato e tre galleggiavano di 10 cm sulla campagna,
+   mentre le caditoie erano affondate di 2,5 cm sotto il marciapiede. Ora tutti
+   i tombini alloggiano nelle corsie carrabili delle strade (`z = 0,05 m`),
+   fuori dallo spartitraffico centrale, e le caditoie sono allineate nella
+   canaletta di scolo a bordo carreggiata, a filo asfalto contro il cordolo.
+
 Richiede Blender 5.0+ e i modelli originali presenti nelle cartelle sorelle.
 
     python3 genera_citta.py                 # salva citta.blend
@@ -2248,13 +2270,35 @@ def build_town_square(B, mats, furnishing_col):
     add_text("CAFFÈ DEL BORGO", "Insegna caffè", (0, -13.37, 2.42),
              0.32, mats["cream"], furnishing_col)
     # Paletti e catena bassa a protezione del bordo della piazza.
-    for x in range(-15, 16, 3):
-        for y in (-13.7, 13.7):
-            B["metal"].cylinder((x, y, 0.50), 0.045, 0.68, 10)
-            B["metal_gold"].sphere((x, y, 0.86), 0.09, segments=10, rings=6)
-    for y in range(-10, 11, 5):
-        for x in (-15.8, 15.8):
-            B["metal"].cylinder((x, y, 0.50), 0.045, 0.68, 10)
+    # Il basamento della piazza sta a quota 0,06 m: prima i cilindri
+    # partivano da z = 0,16 m fluttuando dieci centimetri nel vuoto.
+    # A nord (y = 13,7) il varco centrale (abs(x) < 4,0 m) resta aperto
+    # per la scalinata e il portale del municipio, evitando che un paletto
+    # si conficchi dentro il gradino superiore. I paletti sui lati est e
+    # ovest ricevono la stessa sfera dorata di coronamento e una catena
+    # ribassata raccorda i paletti contigui.
+    bollards_s = [(float(x), -13.7) for x in range(-15, 16, 3)]
+    bollards_n = [(float(x), 13.7) for x in range(-15, 16, 3) if abs(x) >= 4.0]
+    bollards_w = [(-15.8, float(y)) for y in range(-10, 11, 5)]
+    bollards_e = [(15.8, float(y)) for y in range(-10, 11, 5)]
+
+    for bx, by in bollards_s + bollards_n + bollards_w + bollards_e:
+        B["metal"].cylinder((bx, by, 0.40), 0.045, 0.68, 10)
+        B["metal_gold"].sphere((bx, by, 0.79), 0.09, segments=10, rings=6)
+
+    def add_chain(points_list):
+        for i in range(len(points_list) - 1):
+            p0 = points_list[i]
+            p1 = points_list[i + 1]
+            mid = ((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2, 0.48)
+            add_tube(B["metal"], ((p0[0], p0[1], 0.65), mid, (p1[0], p1[1], 0.65)),
+                     0.012, 6)
+
+    add_chain(bollards_s)
+    add_chain([p for p in bollards_n if p[0] < 0])
+    add_chain([p for p in bollards_n if p[0] > 0])
+    add_chain(bollards_w)
+    add_chain(bollards_e)
 
 
 def make_bench(B, x, y, yaw=0.0):
@@ -3628,10 +3672,19 @@ def build_street_life(B, mats, col):
                                  (21.2, 26.4, PI, "canvas_blue")):
         add_waste_container(B, bx, by, bin_yaw, key)
     build_newsstand(B, mats, col)
-    for x, y in ((-11, -24), (8, 24), (30, -12), (-30, 12), (0, -40)):
-        B["metal"].cylinder((x, y, 0.045), 0.42, 0.03, 16)
-    for x, y in ((-27.4, -10), (-27.4, 10), (27.4, -10), (27.4, 10)):
-        B["metal"].box((x, y, 0.06), (0.35, 0.9, 0.05))
+    # Tombini in ghisa sulla carreggiata e caditoie di scolo a filo cordolo.
+    # Prima un tombino era piantato nel mezzo dello spartitraffico fiorito
+    # di Viale Roma (x = 0, y = -40 m) sepolto nella siepe, uno stava in
+    # mezzo a un prato sfalciato e tre galleggiavano di 10 cm nel vuoto
+    # sulla campagna; le caditoie stavano sul marciapiede, affondate di 2,5 cm
+    # sotto il lastricato. Ora tutti i tombini sono nelle corsie carrabili
+    # delle strade (quota 0,05 m) e le quattro caditoie alloggiano nella
+    # canaletta a bordo marciapiede.
+    for x, y in ((2.5, -40.0), (-2.5, 36.0), (-23.0, -12.0), (23.0, 12.0),
+                 (-2.5, -60.0)):
+        B["metal"].cylinder((x, y, 0.051), 0.42, 0.022, 16)
+    for x, y in ((-26.75, -10.0), (-26.75, 10.0), (26.75, -10.0), (26.75, 10.0)):
+        B["metal"].box((x, y, 0.052), (0.35, 0.90, 0.030))
     # Festoni colorati tesi sopra la piazza, tra i lampioni.
     for (x0, y0), (x1, y1) in (((-14, -11), (14, -11)), ((-14, 11), (14, 11)),
                                ((-14, -11), (-14, 11))):
@@ -4025,12 +4078,15 @@ def build_countryside(B, mats, col):
               (-152, -6, 26, 28, "olive"), (-12, 152, 30, 22, "vine")]
     for fx, fy, fw, fd, key in fields:
         kinds[key](fx, fy, fw, fd)
-    # Cipressi isolati sulla piana e filari sui primi pendii.
+    # Cipressi isolati sulla piana e filari sui primi pendii, quotati sul
+    # rilievo del terreno punto per punto: prima avevano quota fissa e
+    # restavano sepolti fino a 1,08 m nei pendii o sospesi 27 cm nel vuoto.
     for x, y, s in ((-112, 92, 1.0), (-95, 118, 0.9), (112, 100, 1.1),
                     (100, -112, 1.0), (-115, -100, 0.95), (118, 20, 1.05),
                     (-20, 116, 1.0), (24, -116, 0.9)):
-        B["cypress"].cylinder((x, y, 3.0 * s), 0.22 * s, 5.6 * s, 8)
-        B["cypress"].cone((x, y, 4.6 * s), 1.05 * s, 0.0, 6.6 * s, 10)
+        z = relief_height(x, y)
+        B["cypress"].cylinder((x, y, z + 2.8 * s), 0.22 * s, 5.6 * s, 8)
+        B["cypress"].cone((x, y, z + 4.6 * s), 1.05 * s, 0.0, 6.6 * s, 10)
     for x, y in ((-160, 150), (-140, 168), (150, -160), (168, 140), (-170, -140)):
         z = hill_height(x, y)
         B["cypress"].cylinder((x, y, z + 3.2), 0.24, 6.0, 8)
