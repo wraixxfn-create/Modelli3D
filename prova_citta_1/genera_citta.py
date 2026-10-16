@@ -218,6 +218,14 @@ del caffè del borgo, testo sospeso nel vuoto fra la platea del chiosco e la
 gronda, poggia infine su un cartello ligneo appeso alla gronda con due
 tiranti metallici.
 
+La trentaduesima versione rifinisce tre aspetti di pieve e illuminazione:
+le basi dei lampioni poggiano sulla pavimentazione reale (piazza, marciapiede
+o sagrato) e le coppie delle testate di Viale Roma sono entrambe presenti;
+i lampioni del sagrato si allontanano dai cipressi, che prima si
+sovrapponevano ai pali e alle lanterne; e il campanile della pieve riceve un
+secondo quadrante sul lato opposto, così l'orologio è leggibile anche dal
+retro.
+
 """
 
 import collections.abc
@@ -2090,34 +2098,37 @@ def build_town_hall(B, mats, col):
         add_lamp(B, x, front - 1.1, height=4.2, ornate=True, yaw=-PI / 2)
 
 
-def build_street_lamp(B, x, y, height=5.4, yaw=0.0, ornate=False):
-    """Palo, braccio e lanterna condividono il riferimento locale ruotato."""
-    B["metal"].cylinder((x, y, height / 2), 0.11, height, 12)
-    B["metal_gold"].cylinder((x, y, 0.32), 0.22, 0.18, 12)
+def build_street_lamp(B, x, y, height=5.4, yaw=0.0, ornate=False,
+                      ground_z=0.0):
+    """Palo, braccio e lanterna quotati dal piano e ruotati in un riferimento."""
+    top_z = ground_z + height
+    B["metal"].cylinder((x, y, ground_z + height / 2), 0.11, height, 12)
+    B["metal_gold"].cylinder((x, y, ground_z + 0.09), 0.22, 0.18, 12)
     arm_len = 0.72 if ornate else 0.50
-    lbox(B["metal"], x, y, yaw, arm_len * 0.30, 0, height - 0.28,
+    lbox(B["metal"], x, y, yaw, arm_len * 0.30, 0, top_z - 0.28,
          arm_len, 0.075, 0.09)
-    lbox(B["metal"], x, y, yaw, arm_len * 0.65, 0, height - 0.02,
+    lbox(B["metal"], x, y, yaw, arm_len * 0.65, 0, top_z - 0.02,
          0.10, 0.10, 0.35)
-    lbox(B["lamp"], x, y, yaw, arm_len * 0.65, 0, height - 0.25,
+    lbox(B["lamp"], x, y, yaw, arm_len * 0.65, 0, top_z - 0.25,
          0.48 if ornate else 0.35, 0.42 if ornate else 0.34, 0.36)
     # Lanterna intelaiata: basetta e quattro montanti attorno al diffusore.
     lamp_w, lamp_d = (0.48, 0.42) if ornate else (0.35, 0.34)
-    lbox(B["metal"], x, y, yaw, arm_len * 0.65, 0, height - 0.44,
+    lbox(B["metal"], x, y, yaw, arm_len * 0.65, 0, top_z - 0.44,
          lamp_w + .04, lamp_d + .04, .04)
     for sx in (-1, 1):
         for sy in (-1, 1):
             lbox(B["metal"], x, y, yaw, arm_len * 0.65 + sx * lamp_w / 2,
-                 sy * lamp_d / 2, height - .25, .025, .025, .36)
+                 sy * lamp_d / 2, top_z - .25, .025, .025, .36)
     # Anche il cappello circolare deve ruotare il proprio centro: solo lo
     # yaw del box lasciava prima la lanterna sempre a est del palo.
-    B["metal"].cone(lbox_point(x, y, yaw, arm_len * 0.65, 0, height - 0.01),
+    B["metal"].cone(lbox_point(x, y, yaw, arm_len * 0.65, 0, top_z - 0.01),
                     0.35, 0.12, 0.16, 12)
 
 
 def add_lamp(B, x, y, height=5.0, ornate=False, yaw=0.0):
-    """Palo ornamentale con braccio orientabile verso la superficie utile."""
-    build_street_lamp(B, x, y, height, yaw=yaw, ornate=ornate)
+    """Palo ornamentale appoggiato e orientato verso la superficie utile."""
+    build_street_lamp(B, x, y, height, yaw=yaw, ornate=ornate,
+                      ground_z=surface_z(x, y))
 
 
 def build_trees_and_park(B, mats, green_col, road_col):
@@ -2669,6 +2680,16 @@ def build_church(B, mats, col, cx=-48.0, cy=-17.5, yaw=PI / 2):
               lbox_point(cx, cy, yaw, tx, ty - 1.88, 14.2)), 0.07, 12)
     lbox(B["metal_gold"], cx, cy, yaw, tx, ty - 1.85, 14.42, 0.05, 0.04, 0.48)
     lbox(B["metal_gold"], cx, cy, yaw, tx + 0.16, ty - 1.85, 14.20, 0.36, 0.04, 0.05)
+    # Secondo quadrante sul lato opposto del campanile: prima il quadrante
+    # guardava solo a est e il retro restava una parete cieca. Il piano del
+    # quadrante e le lancette sono rivolti verso +Y locale.
+    lbox(B["trim"], cx, cy, yaw, tx, ty + 1.74, 14.2, 1.38, 0.08, 1.38)
+    lbox(B["white"], cx, cy, yaw, tx, ty + 1.78, 14.2, 1.2, 0.10, 1.2)
+    add_tube(B["metal_gold"],
+             (lbox_point(cx, cy, yaw, tx, ty + 1.78, 14.2),
+              lbox_point(cx, cy, yaw, tx, ty + 1.88, 14.2)), 0.07, 12)
+    lbox(B["metal_gold"], cx, cy, yaw, tx, ty + 1.85, 14.42, 0.05, 0.04, 0.48)
+    lbox(B["metal_gold"], cx, cy, yaw, tx + 0.16, ty + 1.85, 14.20, 0.36, 0.04, 0.05)
     # Guglia piramidale a base quadrata allineata alla canna del campanile e
     # appoggiata sulla cornice sommitale (20,57 m): il vecchio `cone(..., 4)`
     # era ruotato di 45° a rombo e partiva da quota 20,70 m, lasciando scoperti
@@ -2693,9 +2714,13 @@ def build_church(B, mats, col, cx=-48.0, cy=-17.5, yaw=PI / 2):
         px, py, _ = lbox_point(cx, cy, yaw, lx, -19.0, 0.0)
         B["cypress"].cylinder((px, py, 3.4), 0.24, 6.4, 10)
         B["cypress"].cone((px, py, 5.6), 1.15, 0.0, 7.4, 12)
-    for lx in (-3.5, 3.5):
+    # I due lampioni erano a soli 60 cm dai cipressi (chioma r = 1,15 m),
+    # con tronchi e lanterne compenetrati. Li si porta nelle campate libere,
+    # a 2,1 m dai fusti, mantenendo la simmetria ai lati del sagrato.
+    for lx in (-4.5, 4.5):
         px, py, _ = lbox_point(cx, cy, yaw, lx, -18.4, 0.0)
-        build_street_lamp(B, px, py, height=4.4, yaw=yaw - PI / 2, ornate=True)
+        build_street_lamp(B, px, py, height=4.4, yaw=yaw - PI / 2,
+                          ornate=True, ground_z=surface_z(px, py))
     # Panche del sagrato ai lati del portale (`lx = ±3,0`, `ly = -13,5`) con
     # gambe in pietra sul basolato: prima lo scambio degli assi locali le
     # metteva entrambe in asse davanti alla porta (`y = -17,5`) e senza gambe.
@@ -4870,7 +4895,7 @@ def build_street_lighting(B):
     Finora l'illuminazione pubblica esisteva solo dentro la piazza — dodici
     lampioni ornamentali — mentre viali e strade di quartiere, con il sole a
     19° e le ombre già lunghe, restavano senza un solo punto luce. Ora
-    ventotto lampioni stradali con braccio rivolto alla carreggiata e testa
+    venti lampioni stradali con braccio rivolto alla carreggiata e testa
     luminosa calda scandiscono i marciapiedi del viale e delle trasversali
     y = ±32. Le posizioni cadono sui marciapiedi esistenti, a distanza dagli
     incroci e dagli alberi da viale già piantati, così pali e chiome non si
@@ -4880,7 +4905,9 @@ def build_street_lighting(B):
         # Palo con collarino dorato, braccio verso la carreggiata (ax, ay è
         # la direzione unitaria dal marciapiede alla strada) e testa calda.
         B["metal"].cylinder((x, y, 2.45), 0.075, 4.9, 10)
-        B["metal_gold"].cylinder((x, y, 0.30), 0.17, 0.32, 10)
+        # Il piede arriva al marciapiede (z = 0,11 m), senza lasciare
+        # i tre centimetri d'aria del precedente basamento centrato a 0,30.
+        B["metal_gold"].cylinder((x, y, 0.27), 0.17, 0.32, 10)
         yaw = math.atan2(ay, ax)
         B["metal"].box((x + ax * 0.38, y + ay * 0.38, 4.82),
                        (0.95, 0.075, 0.075), yaw)

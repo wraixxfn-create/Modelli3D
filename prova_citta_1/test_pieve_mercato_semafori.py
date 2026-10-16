@@ -185,7 +185,7 @@ class TestPieveRomanica(unittest.TestCase):
             z_mean = sum(v[2] for v in lcomp) / len(lcomp)
             if 13.5 < z_mean < 15.0:
                 clock_gold.append(lcomp)
-        self.assertEqual(len(clock_gold), 3)
+        self.assertEqual(len(clock_gold), 6)  # due quadranti, ciascuno con mozzo e lancette
 
     def test_sagrato_benches_and_church_rotation_invariance(self):
         """Le panche del sagrato fiancheggiano il portale con gambe e la pieve ruota senza distorsioni."""
